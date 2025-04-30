@@ -1,0 +1,52 @@
+/* Custom space-themed cursor styles */
+
+.cursor-spaceship {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><polygon fill='%2300FFFF' points='12,2 18,20 12,17 6,20'/><polygon fill='%23FF00FF' points='12,7 15,18 12,16 9,18'/></svg>")
+    12 12, auto;
+}
+
+.cursor-planet {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'><circle cx='12' cy='12' r='8' fill='%2300FFFF' opacity='0.7'/><circle cx='12' cy='12' r='10' stroke='%23FF00FF' stroke-width='1' fill='none'/></svg>")
+    16 16, auto;
+}
+
+.cursor-crosshair {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'><circle cx='12' cy='12' r='8' stroke='%2300FFFF' stroke-width='1' fill='none'/><line x1='12' y1='4' x2='12' y2='20' stroke='%2300FFFF' stroke-width='1'/><line x1='4' y1='12' x2='20' y2='12' stroke='%2300FFFF' stroke-width='1'/></svg>")
+    16 16, auto;
+}
+
+.cursor-target {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><circle fill='none' stroke='%2300FFFF' stroke-width='2' cx='12' cy='12' r='8'/><circle fill='%2300FFFF' cx='12' cy='12' r='2'/><line stroke='%2300FFFF' stroke-width='2' x1='12' y1='1' x2='12' y2='4'/><line stroke='%2300FFFF' stroke-width='2' x1='12' y1='20' x2='12' y2='23'/><line stroke='%2300FFFF' stroke-width='2' x1='1' y1='12' x2='4' y2='12'/><line stroke='%2300FFFF' stroke-width='2' x1='20' y1='12' x2='23' y2='12'/></svg>")
+    12 12, auto;
+}
+
+.cursor-beam {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='%23FF00FF' d='M12,2 L14,10 L22,12 L14,14 L12,22 L10,14 L2,12 L10,10 Z'/></svg>")
+    12 12, auto;
+}
+
+/* Add cursor trail effect */
+.cursor-trail {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: rgba(0, 255, 255, 0.7);
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.8);
+  transition: opacity 0.2s ease;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+}

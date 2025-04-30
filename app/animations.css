@@ -1,0 +1,397 @@
+/* Holographic animations */
+@keyframes scanline {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+@keyframes holoPulse {
+  0% {
+    opacity: 0.7;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
+  }
+  100% {
+    opacity: 0.7;
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+  }
+}
+
+@keyframes floatAnimation {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* Shooting star animation */
+@keyframes shootingStar {
+  0% {
+    transform: translateX(0) translateY(0);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(var(--star-distance)) translateY(var(--star-distance));
+    opacity: 0;
+  }
+}
+
+/* Glitch effect */
+@keyframes glitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+/* Digital noise animation */
+@keyframes digitalNoise {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  10% {
+    background-position: -5% -10%;
+  }
+  30% {
+    background-position: 3% 15%;
+  }
+  50% {
+    background-position: 12% -7%;
+  }
+  70% {
+    background-position: -9% 4%;
+  }
+  90% {
+    background-position: 5% -5%;
+  }
+}
+
+/* Radar sweep animation */
+@keyframes radarSweep {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0.7;
+  }
+}
+
+/* Table status animations */
+@keyframes pulseRed {
+  0% {
+    background: linear-gradient(135deg, rgba(100, 0, 0, 0.95), rgba(60, 0, 0, 0.98));
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(140, 0, 0, 0.95), rgba(100, 0, 0, 0.98));
+  }
+  100% {
+    background: linear-gradient(135deg, rgba(100, 0, 0, 0.95), rgba(60, 0, 0, 0.98));
+  }
+}
+
+/* New animation for orange warning */
+@keyframes pulseOrange {
+  0% {
+    background: linear-gradient(135deg, rgba(80, 40, 0, 0.95), rgba(60, 30, 0, 0.98));
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(120, 60, 0, 0.95), rgba(90, 45, 0, 0.98));
+  }
+  100% {
+    background: linear-gradient(135deg, rgba(80, 40, 0, 0.95), rgba(60, 30, 0, 0.98));
+  }
+}
+
+@keyframes pulseYellow {
+  0% {
+    background: linear-gradient(135deg, rgba(80, 80, 0, 0.95), rgba(50, 50, 0, 0.98));
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(120, 120, 0, 0.95), rgba(80, 80, 0, 0.98));
+  }
+  100% {
+    background: linear-gradient(135deg, rgba(80, 80, 0, 0.95), rgba(50, 50, 0, 0.98));
+  }
+}
+
+@keyframes pulseGreen {
+  0% {
+    background: linear-gradient(135deg, rgba(0, 60, 30, 0.95), rgba(0, 40, 20, 0.98));
+  }
+  50% {
+    background: linear-gradient(135deg, rgba(0, 90, 45, 0.95), rgba(0, 60, 30, 0.98));
+  }
+  100% {
+    background: linear-gradient(135deg, rgba(0, 60, 30, 0.95), rgba(0, 40, 20, 0.98));
+  }
+}
+
+/* Enhanced border pulse animations */
+@keyframes borderPulse {
+  0% {
+    box-shadow: 0 0 10px var(--border-color), inset 0 0 5px var(--border-color);
+    border-color: var(--border-color);
+  }
+  50% {
+    box-shadow: 0 0 30px var(--border-color), inset 0 0 20px var(--border-color);
+    border-color: color-mix(in srgb, var(--border-color), white 20%);
+  }
+  100% {
+    box-shadow: 0 0 10px var(--border-color), inset 0 0 5px var(--border-color);
+    border-color: var(--border-color);
+  }
+}
+
+/* Group indicator animation */
+@keyframes groupIndicatorPulse {
+  0% {
+    opacity: 0.6;
+    box-shadow: 0 0 15px currentColor, inset 0 0 8px currentColor;
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 35px currentColor, inset 0 0 25px currentColor;
+  }
+  100% {
+    opacity: 0.6;
+    box-shadow: 0 0 15px currentColor, inset 0 0 8px currentColor;
+  }
+}
+
+/* Warning and overtime animations */
+@keyframes warningPulse {
+  0% {
+    text-shadow: 0 0 8px #ffff00, 0 0 15px #ffff00;
+    color: #ffff00;
+  }
+  50% {
+    text-shadow: 0 0 20px #ffff00, 0 0 35px #ffff00;
+    color: #ffffff;
+  }
+  100% {
+    text-shadow: 0 0 8px #ffff00, 0 0 15px #ffff00;
+    color: #ffff00;
+  }
+}
+
+@keyframes overtimePulse {
+  0% {
+    text-shadow: 0 0 8px #ff0000, 0 0 15px #ff0000;
+    color: #ff0000;
+  }
+  50% {
+    text-shadow: 0 0 20px #ff0000, 0 0 35px #ff0000;
+    color: #ffffff;
+  }
+  100% {
+    text-shadow: 0 0 8px #ff0000, 0 0 15px #ff0000;
+    color: #ff0000;
+  }
+}
+
+/* Utility classes */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-text-shimmer {
+  background-size: 200% auto;
+  animation: text-shimmer 3s linear infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-holo-pulse {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+.animate-glitch {
+  animation: glitch 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+}
+
+.animate-radar-sweep {
+  animation: radarSweep 4s linear infinite;
+}
+
+/* Hover effects */
+.hover-glow:hover {
+  filter: brightness(1.3);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.9);
+}
+
+.hover-float:hover {
+  transform: translateY(-5px);
+  transition: transform 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* Galaga-inspired elements */
+.galaga-enemy {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  background-color: #ff00ff;
+}
+
+.galaga-enemy::before,
+.galaga-enemy::after {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #00ffff;
+}
+
+.galaga-enemy::before {
+  top: 5px;
+  left: -10px;
+}
+
+.galaga-enemy::after {
+  top: 5px;
+  right: -10px;
+}
+
+/* Enhanced warning and overtime effects */
+.warning-glow {
+  animation: warningPulse 1.5s infinite alternate;
+}
+
+.overtime-glow {
+  animation: overtimePulse 0.8s infinite alternate;
+}
+
+.group-indicator {
+  animation: groupIndicatorPulse 2s infinite alternate;
+}
+
+/* Add a fade-in animation for the insight details */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+/* Neon text effect */
+.neon-text {
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7), 0 0 10px rgba(0, 255, 255, 0.5), 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+.neon-text-magenta {
+  text-shadow: 0 0 5px rgba(255, 0, 255, 0.7), 0 0 10px rgba(255, 0, 255, 0.5), 0 0 15px rgba(255, 0, 255, 0.3);
+}
+
+/* Add these colors to our palette */
+.text-magenta-400 {
+  color: #f0abfc;
+}
+
+.text-magenta-500 {
+  color: #e879f9;
+}
+
+.from-magenta-500 {
+  --tw-gradient-from: #e879f9;
+}
+
+.to-cyan-400 {
+  --tw-gradient-to: #22d3ee;
+}
