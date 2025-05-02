@@ -1,55 +1,112 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 interface TableTimerProps {
   isActive: boolean
   startTime: number | null
-  pausedElapsed: number
+  initialTime: number
+  remainingTime: number
+  tableId: number
 }
 
-export function TableTimer({ isActive, startTime, pausedElapsed }: TableTimerProps) {
-  const [elapsed, setElapsed] = useState(pausedElapsed)
+export function TableTimer({ isActive, startTime, initialTime, remainingTime, tableId }: TableTimerProps) {
+  const [displayTime, setDisplayTime] = useState(isActive ? remainingTime : initialTime)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastUpdateRef = useRef<number>(Date.now())
 
+  // Clean up interval on unmount
   useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null
-
-    if (isActive && startTime) {
-      // Initialize with current elapsed time
-      setElapsed(Date.now() - startTime + pausedElapsed)
-
-      // Update elapsed time every second
-      intervalId = setInterval(() => {
-        setElapsed(Date.now() - startTime + pausedElapsed)
-      }, 1000)
-    } else {
-      // Ensure we display the correct paused elapsed time
-      setElapsed(pausedElapsed)
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
+  }, [])
+
+  // Update timer based on active state and startTime
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+
+    // For inactive tables, just show the initial time
+    if (!isActive) {
+      setDisplayTime(initialTime)
+      return
+    }
+
+    // For active tables without a start time, show the remaining time
+    if (!startTime) {
+      setDisplayTime(remainingTime)
+      return
+    }
+
+    // Calculate current time based on startTime and initialTime
+    const calculateTime = () => {
+      const now = Date.now()
+      const elapsed = now - startTime
+      // Allow negative values for overtime (don't use Math.max here)
+      const current = initialTime - elapsed
+
+      // Only update if time has changed by at least 1 second to reduce rerenders
+      if (Math.abs(current - displayTime) >= 1000) {
+        setDisplayTime(current)
+      }
+
+      // Dispatch event for table updates every 10 seconds to reduce traffic
+      if (now - lastUpdateRef.current >= 10000) {
+        window.dispatchEvent(
+          new CustomEvent("timer-update", {
+            detail: { tableId, remainingTime: current },
+          }),
+        )
+        lastUpdateRef.current = now
+      }
+    }
+
+    // Initial calculation
+    calculateTime()
+
+    // Set up interval for active tables
+    intervalRef.current = setInterval(calculateTime, 1000)
 
     return () => {
-      if (intervalId) clearInterval(intervalId)
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
     }
-  }, [isActive, startTime, pausedElapsed])
+  }, [isActive, startTime, initialTime, remainingTime, tableId, displayTime])
 
-  // Format time as HH:MM:SS
+  // Format time as HH:MM:SS with support for negative values
   const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000)
+    // Handle negative time for overtime
+    const isNegative = ms < 0
+    const absoluteMs = Math.abs(ms)
+
+    const totalSeconds = Math.floor(absoluteMs / 1000)
     const hours = Math.floor(totalSeconds / 3600)
     const minutes = Math.floor((totalSeconds % 3600) / 60)
     const seconds = totalSeconds % 60
 
-    return [
+    const formattedTime = [
       hours.toString().padStart(2, "0"),
       minutes.toString().padStart(2, "0"),
       seconds.toString().padStart(2, "0"),
     ].join(":")
+
+    // Add negative sign for overtime
+    return isNegative ? `-${formattedTime}` : formattedTime
   }
 
   return (
     <div className="flex flex-col items-center">
-      <div className="text-3xl font-mono font-bold">{formatTime(elapsed)}</div>
-      <p className="text-xs text-muted-foreground">{isActive ? "Time Elapsed" : "Timer Paused"}</p>
+      <div className="text-3xl font-mono font-bold">{formatTime(displayTime)}</div>
+      <p className="text-xs text-muted-foreground">{isActive ? "Time Remaining" : "Timer Paused"}</p>
     </div>
   )
 }

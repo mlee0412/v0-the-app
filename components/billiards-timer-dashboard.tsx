@@ -21,6 +21,7 @@ import { BigBangAnimation } from "@/components/animations/big-bang-animation"
 import { ExplosionAnimation } from "@/components/animations/explosion-animation"
 import { TouchLogin } from "@/components/auth/touch-login"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { useTableStore } from "@/utils/table-state-manager"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -187,6 +188,15 @@ export function BilliardsTimerDashboard() {
       setTables(supabaseTables)
     }
   }, [supabaseTables])
+
+  // When tables are loaded from Supabase, update the store
+  useEffect(() => {
+    if (tables) {
+      tables.forEach((table) => {
+        useTableStore.getState().refreshTable(table.id, table)
+      })
+    }
+  }, [tables])
 
   // Sync logs from Supabase
   useEffect(() => {
@@ -448,24 +458,45 @@ export function BilliardsTimerDashboard() {
       return
     }
 
+    const startTime = Date.now()
+
     // If table is in a group, start all tables in the group
     if (table.groupId) {
       const groupTables = tables.filter((t) => t.groupId === table.groupId)
-      const startTime = Date.now()
 
       const updatedTables = tables.map((t) => {
         if (t.groupId === table.groupId) {
-          return {
+          const updatedTable = {
             ...t,
             isActive: true,
             startTime: startTime,
+            remainingTime: t.initialTime, // Reset remaining time to initial time
             updatedAt: new Date().toISOString(),
           }
+
+          // Dispatch event for real-time updates
+          window.dispatchEvent(
+            new CustomEvent("table-updated", {
+              detail: {
+                tableId: t.id,
+                table: updatedTable,
+              },
+            }),
+          )
+
+          return updatedTable
         }
         return t
       })
 
-      await updateTables(updatedTables)
+      // Update local state immediately
+      setTables(updatedTables)
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTables(updatedTables)
+      }, 100)
+
       await addLogEntry(
         tableId,
         "Group Session Started",
@@ -477,11 +508,29 @@ export function BilliardsTimerDashboard() {
       const updatedTable = {
         ...table,
         isActive: true,
-        startTime: Date.now(),
+        startTime: startTime,
+        remainingTime: table.initialTime, // Reset remaining time to initial time
         updatedAt: new Date().toISOString(),
       }
 
-      await updateTable(updatedTable)
+      // Update local state immediately
+      setTables(tables.map((t) => (t.id === tableId ? updatedTable : t)))
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("table-updated", {
+          detail: {
+            tableId: tableId,
+            table: updatedTable,
+          },
+        }),
+      )
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTable(updatedTable)
+      }, 100)
+
       await addLogEntry(tableId, "Session Started", `Initial time: ${formatMinutes(table.initialTime / 60000)} minutes`)
       showNotification(`Started session for ${table.name}`, "success")
     }
@@ -524,6 +573,8 @@ export function BilliardsTimerDashboard() {
     const table = tables.find((t) => t.id === tableId)
     if (!table) return
 
+    const DEFAULT_TIME = 60 * 60 * 1000 // 60 minutes in milliseconds
+
     // If table is in a group, end all tables in the group
     if (table.groupId) {
       const groupTables = tables.filter((t) => t.groupId === table.groupId)
@@ -538,7 +589,7 @@ export function BilliardsTimerDashboard() {
       // First update the state to end the session but DO NOT preserve notes
       const updatedTables = tables.map((t) => {
         if (t.groupId === groupId) {
-          return {
+          const updatedTable = {
             ...t,
             isActive: false,
             startTime: null,
@@ -553,11 +604,30 @@ export function BilliardsTimerDashboard() {
             noteText: "",
             updatedAt: new Date().toISOString(),
           }
+
+          // Dispatch event for real-time updates
+          window.dispatchEvent(
+            new CustomEvent("table-updated", {
+              detail: {
+                tableId: t.id,
+                table: updatedTable,
+              },
+            }),
+          )
+
+          return updatedTable
         }
         return t
       })
 
-      await updateTables(updatedTables)
+      // Update local state immediately
+      setTables(updatedTables)
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTables(updatedTables)
+      }, 100)
+
       showNotification(`Ended group session for ${groupId}`, "info")
     } else {
       // End individual table
@@ -583,7 +653,24 @@ export function BilliardsTimerDashboard() {
         updatedAt: new Date().toISOString(),
       }
 
-      await updateTable(updatedTable)
+      // Update local state immediately
+      setTables(tables.map((t) => (t.id === tableId ? updatedTable : t)))
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("table-updated", {
+          detail: {
+            tableId: tableId,
+            table: updatedTable,
+          },
+        }),
+      )
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTable(updatedTable)
+      }, 100)
+
       showNotification(`Ended session for ${table.name}`, "info")
     }
 
@@ -669,21 +756,77 @@ export function BilliardsTimerDashboard() {
       const updatedTables = tables.map((t) => {
         if (t.groupId === table.groupId) {
           const newInitialTime = t.initialTime + additionalTime
+          const newRemainingTime =
+            t.isActive && t.startTime ? Math.max(0, newInitialTime - (Date.now() - t.startTime)) : newInitialTime
+
+          // Dispatch event for real-time updates
+          window.dispatchEvent(
+            new CustomEvent("table-updated", {
+              detail: {
+                tableId: t.id,
+                table: {
+                  ...t,
+                  initialTime: newInitialTime,
+                  remainingTime: newRemainingTime,
+                },
+              },
+            }),
+          )
+
           return {
             ...t,
             initialTime: newInitialTime,
-            remainingTime: t.isActive ? t.remainingTime + additionalTime : newInitialTime,
+            remainingTime: newRemainingTime,
             updatedAt: new Date().toISOString(),
           }
         }
         return t
       })
 
-      await updateTables(updatedTables)
+      // Update local state immediately
+      setTables(updatedTables)
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTables(updatedTables)
+      }, 100)
+
       showNotification(`Added ${minutes} minutes to ${table.groupId}`, "success")
     } else {
       // Add time to individual table
-      await handleAddTime(tableId, minutes)
+      const newInitialTime = table.initialTime + additionalTime
+      const newRemainingTime =
+        table.isActive && table.startTime
+          ? Math.max(0, newInitialTime - (Date.now() - table.startTime))
+          : newInitialTime
+
+      // Update local state immediately
+      const updatedTable = {
+        ...table,
+        initialTime: newInitialTime,
+        remainingTime: newRemainingTime,
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Update tables state
+      setTables(tables.map((t) => (t.id === tableId ? updatedTable : t)))
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("table-updated", {
+          detail: {
+            tableId: tableId,
+            table: updatedTable,
+          },
+        }),
+      )
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTable(updatedTable)
+      }, 100)
+
+      await addLogEntry(tableId, "Time Added", `${minutes} minutes added`)
       showNotification(`Added ${minutes} minutes to ${table.name}`, "success")
     }
   }
@@ -707,11 +850,26 @@ export function BilliardsTimerDashboard() {
 
       const updatedTables = tables.map((t) => {
         if (t.groupId === table.groupId) {
-          const newInitialTime = t.initialTime - subtractedTime
-          const newRemainingTime = t.isActive ? t.remainingTime - subtractedTime : newInitialTime
+          const newInitialTime = Math.max(0, t.initialTime - subtractedTime)
+          const newRemainingTime =
+            t.isActive && t.startTime ? Math.max(0, newInitialTime - (Date.now() - t.startTime)) : newInitialTime
+
+          // Dispatch event for real-time updates
+          window.dispatchEvent(
+            new CustomEvent("table-updated", {
+              detail: {
+                tableId: t.id,
+                table: {
+                  ...t,
+                  initialTime: newInitialTime,
+                  remainingTime: newRemainingTime,
+                },
+              },
+            }),
+          )
 
           return {
-            ...t, // Use t instead of table to avoid overwriting the wrong table
+            ...t,
             initialTime: newInitialTime,
             remainingTime: newRemainingTime,
             updatedAt: new Date().toISOString(),
@@ -720,118 +878,187 @@ export function BilliardsTimerDashboard() {
         return t
       })
 
-      await updateTables(updatedTables)
+      // Update local state immediately
+      setTables(updatedTables)
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTables(updatedTables)
+      }, 100)
+
       showNotification(`Subtracted ${minutes} minutes from ${table.groupId}`, "info")
     } else {
       // Subtract time from individual table
-      await handleSubtractTime(tableId, minutes)
+      const newInitialTime = Math.max(0, table.initialTime - subtractedTime)
+      const newRemainingTime =
+        table.isActive && table.startTime
+          ? Math.max(0, newInitialTime - (Date.now() - table.startTime))
+          : newInitialTime
+
+      // Update local state immediately
+      const updatedTable = {
+        ...table,
+        initialTime: newInitialTime,
+        remainingTime: newRemainingTime,
+        updatedAt: new Date().toISOString(),
+      }
+
+      // Update tables state
+      setTables(tables.map((t) => (t.id === tableId ? updatedTable : t)))
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("table-updated", {
+          detail: {
+            tableId: tableId,
+            table: updatedTable,
+          },
+        }),
+      )
+
+      // Update Supabase with a slight delay to avoid race conditions
+      setTimeout(() => {
+        updateTable(updatedTable)
+      }, 100)
+
+      await addLogEntry(tableId, "Time Subtracted", `${minutes} minutes subtracted`)
       showNotification(`Subtracted ${minutes} minutes from ${table.name}`, "info")
     }
   }
 
-  // Update guest count
-  const updateGuestCount = async (tableId: number, count: number) => {
-    // Special case for resetting to 0 - bypass all checks
-    if (count === 0) {
-      console.log(`Resetting guest count to 0 for table ${tableId}`)
+  // Update guest count with throttling
+  const updateGuestCount = useCallback(
+    async (tableId: number, count: number) => {
+      // Special case for resetting to 0 - bypass all checks
+      if (count === 0) {
+        console.log(`Resetting guest count to 0 for table ${tableId}`)
+
+        const table = tables.find((t) => t.id === tableId)
+        if (!table) return
+
+        const updatedTable = {
+          ...table,
+          guestCount: 0,
+          updatedAt: new Date().toISOString(),
+        }
+
+        // Update local state immediately
+        setTables((prevTables) => prevTables.map((t) => (t.id === tableId ? updatedTable : t)))
+
+        // Debounce the Supabase update
+        setTimeout(() => {
+          updateTable(updatedTable)
+        }, 300)
+        return
+      }
+
+      // Normal case - apply all checks
+      if (!isAuthenticated || !hasPermission("canUpdateGuests")) {
+        showNotification("Please log in using the Admin button", "error")
+        setLoginAttemptFailed(true)
+        return
+      }
+
+      // Check if day has been started
+      if (!dayStarted) {
+        showNotification("Please start the day before updating guest count", "error")
+        return
+      }
 
       const table = tables.find((t) => t.id === tableId)
       if (!table) return
 
+      const newCount = Math.max(0, Math.min(16, count)) // Limit between 0 and 16
+
+      // Only log if this is an actual change, not a reset
+      if (newCount !== table.guestCount && newCount > 0) {
+        await addLogEntry(tableId, "Players Updated", `Changed from ${table.guestCount} to ${newCount}`)
+      }
+
       const updatedTable = {
         ...table,
-        guestCount: 0,
+        guestCount: newCount,
         updatedAt: new Date().toISOString(),
       }
 
-      await updateTable(updatedTable)
-      return
-    }
+      // Update local state immediately
+      setTables((prevTables) => prevTables.map((t) => (t.id === tableId ? updatedTable : t)))
 
-    // Normal case - apply all checks
-    if (!isAuthenticated || !hasPermission("canUpdateGuests")) {
-      showNotification("Please log in using the Admin button", "error")
-      setLoginAttemptFailed(true)
-      return
-    }
+      // Debounce the Supabase update
+      setTimeout(() => {
+        updateTable(updatedTable)
+      }, 300)
+    },
+    [tables, isAuthenticated, hasPermission, dayStarted, updateTable, setLoginAttemptFailed],
+  )
 
-    // Check if day has been started
-    if (!dayStarted) {
-      showNotification("Please start the day before updating guest count", "error")
-      return
-    }
+  // Assign server to table with throttling
+  const assignServer = useCallback(
+    async (tableId: number, serverId: string | null) => {
+      if (!isAuthenticated) {
+        showNotification("Please log in using the Admin button", "error")
+        setLoginAttemptFailed(true)
+        return
+      }
 
-    const table = tables.find((t) => t.id === tableId)
-    if (!table) return
+      // If not admin and trying to assign to someone else, prevent it
+      if (!isAdmin && !hasPermission("canAssignServer") && serverId !== currentUser?.id) {
+        showNotification("You can only assign tables to yourself", "error")
+        return
+      }
 
-    const newCount = Math.max(0, Math.min(16, count)) // Limit between 0 and 16
+      // Ensure serverId is null if it's an empty string
+      if (serverId === "") {
+        serverId = null
+      }
 
-    // Only log if this is an actual change, not a reset
-    if (newCount !== table.guestCount && newCount > 0) {
-      await addLogEntry(tableId, "Players Updated", `Changed from ${table.guestCount} to ${newCount}`)
-    }
+      // Find the table to update
+      const tableToUpdate = tables.find((t) => t.id === tableId)
+      if (!tableToUpdate) {
+        console.error(`Table with ID ${tableId} not found in tables array:`, tables)
+        showNotification(`Error: Table ${tableId} not found`, "error")
+        return
+      }
 
-    const updatedTable = {
-      ...table,
-      guestCount: newCount,
-      updatedAt: new Date().toISOString(),
-    }
+      // Create a new table object with the updated server
+      const updatedTable = {
+        ...tableToUpdate,
+        server: serverId,
+        updatedAt: new Date().toISOString(),
+      }
 
-    await updateTable(updatedTable)
-  }
+      // Update local state immediately to prevent stale data
+      setTables((prevTables) => prevTables.map((t) => (t.id === tableId ? updatedTable : t)))
 
-  // Assign server to table
-  const assignServer = async (tableId: number, serverId: string | null) => {
-    if (!isAuthenticated) {
-      showNotification("Please log in using the Admin button", "error")
-      setLoginAttemptFailed(true)
-      return
-    }
+      // Debounce the Supabase update
+      setTimeout(() => {
+        updateTable(updatedTable)
+      }, 300)
 
-    // If not admin and trying to assign to someone else, prevent it
-    if (!isAdmin && !hasPermission("canAssignServer") && serverId !== currentUser?.id) {
-      showNotification("You can only assign tables to yourself", "error")
-      return
-    }
+      // Log the change
+      const serverName = serverId ? serverUsers.find((s) => s.id === serverId)?.name || "Unknown" : "Unassigned"
+      await addLogEntry(tableId, "Server Assigned", `Server: ${serverName}`)
 
-    // Ensure serverId is null if it's an empty string
-    if (serverId === "") {
-      serverId = null
-    }
+      // Show notification
+      showNotification(`Assigned ${serverName} to table ${tableId}`, "success")
 
-    // Find the table to update
-    const tableToUpdate = tables.find((t) => t.id === tableId)
-    if (!tableToUpdate) {
-      console.error(`Table with ID ${tableId} not found in tables array:`, tables)
-      showNotification(`Error: Table ${tableId} not found`, "error")
-      return
-    }
-
-    // Create a new table object with the updated server
-    const updatedTable = {
-      ...tableToUpdate,
-      server: serverId,
-      updatedAt: new Date().toISOString(),
-    }
-
-    // Update the table
-    await updateTable(updatedTable)
-
-    // Update local state immediately to prevent stale data
-    setTables((prevTables) => prevTables.map((t) => (t.id === tableId ? updatedTable : t)))
-
-    // Log the change
-    const serverName = serverId ? serverUsers.find((s) => s.id === serverId)?.name || "Unknown" : "Unassigned"
-    await addLogEntry(tableId, "Server Assigned", `Server: ${serverName}`)
-
-    // Show notification
-    showNotification(`Assigned ${serverName} to table ${tableId}`, "success")
-
-    // If we have a selected table, update it directly to ensure UI consistency
-    if (selectedTable && selectedTable.id === tableId) {
-      setSelectedTable(updatedTable)
-    }
-  }
+      // If we have a selected table, update it directly to ensure UI consistency
+      if (selectedTable && selectedTable.id === tableId) {
+        setSelectedTable(updatedTable)
+      }
+    },
+    [
+      tables,
+      isAuthenticated,
+      isAdmin,
+      hasPermission,
+      currentUser,
+      updateTable,
+      serverUsers,
+      selectedTable,
+      setLoginAttemptFailed,
+    ],
+  )
 
   // Group tables
   const groupTables = async (tableIds: number[]) => {

@@ -59,12 +59,16 @@
     "vaul": "^0.9.6",
     "zod": "latest",
     "@theatre/core": "latest",
+    "immer": "latest",
+    "use-sync-external-store": "latest",
     "@theatre/studio": "latest",
     "three": "latest",
     "@supabase/supabase-js": "latest",
     "uuid": "latest",
     "ai": "latest",
-    "@ai-sdk/xai": "latest"
+    "@ai-sdk/xai": "latest",
+    "zustand": "latest",
+    "lodash": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

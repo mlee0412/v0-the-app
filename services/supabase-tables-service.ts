@@ -154,12 +154,33 @@ class SupabaseTablesService {
   }
 
   // Update a single table
-  async updateTable(table: Table): Promise<void> {
+  async updateTable(table: Table, updateType = "all"): Promise<void> {
     try {
       const supabase = getSupabaseClient()
-      const { error } = await supabase.from(this.tableName).upsert(convertTableToDB(table), { onConflict: "id" })
 
-      if (error) throw error
+      // Convert to DB format
+      const dbTable = convertTableToDB(table)
+
+      // For timer-only updates, we can use a more efficient update
+      if (updateType === "timer-only") {
+        const { error } = await supabase
+          .from(this.tableName)
+          .update({
+            remaining_time: dbTable.remaining_time,
+            initial_time: dbTable.initial_time,
+            is_active: dbTable.is_active,
+            start_time: dbTable.start_time,
+            updated_at: dbTable.updated_at,
+          })
+          .eq("id", table.id)
+
+        if (error) throw error
+      } else {
+        // Full update
+        const { error } = await supabase.from(this.tableName).upsert(dbTable, { onConflict: "id" })
+
+        if (error) throw error
+      }
 
       // Dispatch event for real-time updates
       window.dispatchEvent(
@@ -171,6 +192,94 @@ class SupabaseTablesService {
       console.error("Error updating table:", error)
       throw error
     }
+  }
+
+  // Update only the timer-related fields of a table - optimized for frequent updates
+  async updateTableTimerOnly(
+    tableId: number,
+    remainingTime: number,
+    initialTime: number,
+    isActive: boolean,
+    startTime: number | null,
+  ): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Direct update of only timer fields for efficiency
+      const { error } = await supabase
+        .from(this.tableName)
+        .update({
+          remaining_time: remainingTime,
+          initial_time: initialTime,
+          is_active: isActive,
+          start_time: startTime,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", tableId)
+
+      if (error) throw error
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("supabase-timer-update", {
+          detail: {
+            tableId: tableId,
+            remainingTime: remainingTime,
+            initialTime: initialTime,
+            isActive: isActive,
+            startTime: startTime,
+          },
+        }),
+      )
+    } catch (error) {
+      console.error("Error updating table timer:", error)
+    }
+  }
+
+  // Update only the timer-related fields of a table - optimized for frequent updates
+  async updateTableTimer(tableId: number, remainingTime: number, initialTime: number): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Direct update without fetching first for better performance
+      const { error } = await supabase
+        .from(this.tableName)
+        .update({
+          remaining_time: remainingTime,
+          initial_time: initialTime,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", tableId)
+
+      if (error) throw error
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("supabase-timer-update", {
+          detail: {
+            tableId: tableId,
+            remainingTime: remainingTime,
+            initialTime: initialTime,
+          },
+        }),
+      )
+    } catch (error) {
+      console.error("Error updating table timer:", error)
+    }
+  }
+
+  // Process a local update without sending to Supabase
+  processLocalUpdate(tableId: number, field: string, value: any): void {
+    // Dispatch event for local components to update
+    window.dispatchEvent(
+      new CustomEvent("local-table-update", {
+        detail: {
+          tableId,
+          field,
+          value,
+        },
+      }),
+    )
   }
 
   // Update multiple tables
@@ -190,6 +299,66 @@ class SupabaseTablesService {
     } catch (error) {
       console.error("Error updating tables:", error)
       throw error
+    }
+  }
+
+  // Batch update multiple table timers
+  async batchUpdateTimers(updates: { tableId: number; remainingTime: number; initialTime: number }[]): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Process updates in batches of 10 to avoid overwhelming the database
+      const batchSize = 10
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, i + batchSize)
+
+        // Create upsert data
+        const upsertData = await Promise.all(
+          batch.map(async ({ tableId, remainingTime, initialTime }) => {
+            // Get current table data
+            const { data, error } = await supabase.from(this.tableName).select("*").eq("id", tableId).single()
+
+            if (error || !data) {
+              console.error(`Error fetching table ${tableId} for timer update:`, error)
+              return null
+            }
+
+            // Only update timer fields, preserve other data
+            return {
+              ...data,
+              remaining_time: remainingTime,
+              initial_time: initialTime,
+              updated_at: new Date().toISOString(),
+            }
+          }),
+        )
+
+        // Filter out any null values from failed fetches
+        const validUpsertData = upsertData.filter((data) => data !== null)
+
+        if (validUpsertData.length > 0) {
+          const { error } = await supabase.from(this.tableName).upsert(validUpsertData, { onConflict: "id" })
+
+          if (error) {
+            console.error("Error batch updating timers:", error)
+          }
+        }
+
+        // Dispatch events for each update
+        batch.forEach(({ tableId, remainingTime, initialTime }) => {
+          window.dispatchEvent(
+            new CustomEvent("supabase-timer-update", {
+              detail: {
+                tableId,
+                remainingTime,
+                initialTime,
+              },
+            }),
+          )
+        })
+      }
+    } catch (error) {
+      console.error("Error batch updating timers:", error)
     }
   }
 
@@ -243,6 +412,36 @@ class SupabaseTablesService {
     } catch (error) {
       console.error("Error updating system settings:", error)
       throw error
+    }
+  }
+
+  // Subscribe to timer updates
+  subscribeToTimerUpdates(callback: (tableId: number, remainingTime: number, initialTime: number) => void): () => void {
+    try {
+      // Listen for custom timer update events
+      const handleTimerUpdate = (event: CustomEvent) => {
+        if (event.detail && event.detail.tableId && event.detail.remainingTime !== undefined) {
+          callback(
+            event.detail.tableId,
+            event.detail.remainingTime,
+            event.detail.initialTime || event.detail.remainingTime,
+          )
+        }
+      }
+
+      window.addEventListener("supabase-timer-update", handleTimerUpdate as EventListener)
+      window.addEventListener("timer-update", handleTimerUpdate as EventListener)
+
+      const unsubscribe = () => {
+        window.removeEventListener("supabase-timer-update", handleTimerUpdate as EventListener)
+        window.removeEventListener("timer-update", handleTimerUpdate as EventListener)
+      }
+
+      this.subscriptions.push(unsubscribe)
+      return unsubscribe
+    } catch (error) {
+      console.error("Error subscribing to timer updates:", error)
+      return () => {}
     }
   }
 
@@ -302,4 +501,5 @@ class SupabaseTablesService {
 }
 
 const supabaseTablesService = new SupabaseTablesService()
+export { supabaseTablesService }
 export default supabaseTablesService

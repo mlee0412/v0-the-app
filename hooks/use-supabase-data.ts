@@ -561,39 +561,44 @@ export function useSupabaseData() {
   const updateTable = useCallback(
     async (table: Table) => {
       try {
-        // Always update localStorage
+        // Update in memory first for immediate UI
         const updatedTables = tables.map((t) => (t.id === table.id ? table : t))
-        localStorage.setItem("tables", JSON.stringify(updatedTables))
+
+        // Use optimistic updates for better responsiveness
         setTables(updatedTables)
 
-        // Dispatch an event to notify all components of the table update
+        // Dispatch event for real-time updates across components
         window.dispatchEvent(
           new CustomEvent("table-updated", {
             detail: { tableId: table.id, table: table },
           }),
         )
 
+        // Update localStorage in the background
+        setTimeout(() => {
+          localStorage.setItem("tables", JSON.stringify(updatedTables))
+        }, 0)
+
         // If using localStorage only, we're done
         if (useLocalStorage || offlineMode) {
           return { success: true }
         }
 
-        // Try to update in Supabase
+        // Try to update in Supabase asynchronously
         try {
           const supabase = getSupabaseClient()
-          const { error } = await supabase.from(TABLE_NAMES.TABLES).upsert(convertTableToSupabase(table))
-
-          if (error) {
-            console.error("Error updating table in Supabase:", error)
-            setOfflineMode(true)
-            // We already updated localStorage, so just return success
-            return { success: true }
-          }
+          supabase
+            .from(TABLE_NAMES.TABLES)
+            .upsert(convertTableToSupabase(table))
+            .then(({ error }) => {
+              if (error) {
+                console.error("Error updating table in Supabase:", error)
+                setOfflineMode(true)
+              }
+            })
         } catch (err) {
           console.error("Error updating table in Supabase:", err)
           setOfflineMode(true)
-          // We already updated localStorage, so just return success
-          return { success: true }
         }
 
         return { success: true }

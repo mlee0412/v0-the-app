@@ -2,12 +2,14 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react"
 import { UserIcon, MessageSquareIcon, ClockIcon, ServerIcon, TimerIcon } from "lucide-react"
 import { NeonGlow } from "@/components/neon-glow"
 import { PopupSessionLog } from "@/components/popup-session-log"
 import type { Table } from "@/components/billiards-timer-dashboard"
 import type { LogEntry } from "@/components/billiards-timer-dashboard"
+import { throttle } from "@/utils/timer-sync-utils"
+import { useTableStore, addTableUpdateListener } from "@/utils/table-state-manager"
 
 // Define the Server type
 interface Server {
@@ -20,9 +22,11 @@ interface TableCardProps {
   servers: Server[]
   logs: LogEntry[]
   onClick: () => void
+  onUpdateTable?: (tableId: number, updates: Partial<Table>) => void
 }
 
-export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
+// Create a memoized component for better performance
+export const TableCard = memo(function TableCard({ table, servers, logs, onClick, onUpdateTable }: TableCardProps) {
   // State for popup session log
   const [showSessionLog, setShowSessionLog] = useState(false)
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 })
@@ -41,72 +45,284 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
   // New state for warning animation toggle
   const [warningAnimationEnabled, setWarningAnimationEnabled] = useState(true)
 
-  // Format start time
-  const formatStartTime = (timestamp: number | null) => {
-    if (!timestamp) return "Not started"
+  // Local table state to avoid re-renders from parent
+  const [localTable, setLocalTable] = useState<Table>(table)
 
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
+  // Throttled update function to reduce Supabase calls
+  // Timer updates are real-time, other updates are periodic (1 min)
+  const throttledUpdateTable = useRef(
+    throttle(
+      (tableId: number, updates: Partial<Table>, isTimerUpdate = false) => {
+        if (onUpdateTable) {
+          onUpdateTable(tableId, updates)
+        }
+      },
+      false ? 100 : 60000,
+    ), // Real-time for timer, 1 min for other updates
+  ).current
+
+  // Update local table when props change
+  useEffect(() => {
+    setLocalTable(table)
+  }, [table])
+
+  // Listen for updates from the dialog
+  useEffect(() => {
+    // Subscribe to table updates
+    const unsubscribe = addTableUpdateListener((updatedTableId, updates) => {
+      if (updatedTableId === table.id) {
+        // Update local state
+        setLocalTable((prev) => ({ ...prev, ...updates }))
+      }
     })
-  }
 
-  // Calculate elapsed time
-  const calculateElapsedTime = () => {
-    if (!table.isActive || !table.startTime) return 0
-    return Date.now() - table.startTime
-  }
+    // Initialize the store with this table's data
+    useTableStore.getState().refreshTable(table.id, table)
 
-  // Format elapsed time as HH:MM:SS
-  const formatElapsedTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-    } else {
-      return `${minutes}:${seconds.toString().padStart(2, "0")}`
+    return () => {
+      unsubscribe()
+      // Commit any pending changes when unmounting
+      useTableStore.getState().commitUpdatesToSupabase(table.id)
     }
-  }
+  }, [table])
 
-  // Calculate remaining time
-  const calculateRemainingTime = () => {
-    if (!table.isActive) return table.initialTime
-    if (!table.startTime) return table.remainingTime
+  // Periodically commit changes to Supabase
+  useEffect(() => {
+    // Timer updates are real-time, other updates are periodic
+    const timerInterval = setInterval(() => {
+      // Only commit timer-related changes
+      const pendingUpdates = useTableStore.getState().pendingUpdates[table.id] || {}
+      if (pendingUpdates.remainingTime !== undefined || pendingUpdates.initialTime !== undefined) {
+        useTableStore.getState().commitUpdatesToSupabase(table.id)
+      }
+    }, 1000) // Every second for timer updates
 
-    const elapsed = Date.now() - table.startTime
-    return table.initialTime - elapsed
-  }
+    // Less frequent updates for non-timer data
+    const dataInterval = setInterval(() => {
+      useTableStore.getState().commitUpdatesToSupabase(table.id)
+    }, 60000) // Every minute for other updates
 
-  // Format remaining time as MM:SS
-  const formatRemainingTime = (ms: number) => {
-    const totalSeconds = Math.floor(Math.abs(ms) / 1000)
-    const minutes = Math.floor(totalSeconds / 60)
-    const seconds = totalSeconds % 60
-    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-  }
+    return () => {
+      clearInterval(timerInterval)
+      clearInterval(dataInterval)
+    }
+  }, [table.id])
 
-  // Determine if table is in overtime
-  const isOvertime = table.isActive && calculateRemainingTime() < 0
+  // Listen for local table updates from dialog
+  useEffect(() => {
+    const handleLocalTableUpdate = (event: CustomEvent) => {
+      const { tableId, field, value } = event.detail
 
-  // Determine if table is in warning state with new thresholds
-  const isWarningYellow =
-    table.isActive && calculateRemainingTime() <= 15 * 60 * 1000 && calculateRemainingTime() > 10 * 60 * 1000
-  const isWarningOrange = table.isActive && calculateRemainingTime() <= 10 * 60 * 1000 && calculateRemainingTime() >= 0
+      if (tableId === table.id) {
+        // Use requestAnimationFrame to ensure updates happen outside render cycle
+        requestAnimationFrame(() => {
+          // Update local state immediately for responsive UI
+          setLocalTable((prevTable) => {
+            const newTable = { ...prevTable }
 
-  // Calculate intensity for orange warning (0-1 scale, 1 being most intense)
-  const orangeIntensity = isWarningOrange ? 1 - calculateRemainingTime() / (10 * 60 * 1000) : 0
+            if (field === "time") {
+              newTable.remainingTime = value.remainingTime
+              newTable.initialTime = value.initialTime
 
-  // Get group color for indicators - using predefined colors for distinct groups
-  const getGroupColor = () => {
-    if (!table.groupId) return ""
+              // Schedule the event dispatch outside of this state update
+              setTimeout(() => {
+                window.dispatchEvent(
+                  new CustomEvent("table-time-update", {
+                    detail: {
+                      tableId: tableId,
+                      remainingTime: value.remainingTime,
+                      initialTime: value.initialTime,
+                      source: "card",
+                    },
+                  }),
+                )
+              }, 0)
+            } else if (field === "guestCount") {
+              newTable.guestCount = value
+            } else if (field === "server") {
+              newTable.server = value
+            } else if (field === "notes") {
+              newTable.noteId = value.noteId
+              newTable.noteText = value.noteText
+              newTable.hasNotes = value.hasNotes
+            }
+
+            return newTable
+          })
+
+          // Throttle the actual database update
+          if (field === "time") {
+            throttledUpdateTable(
+              tableId,
+              {
+                remainingTime: value.remainingTime,
+                initialTime: value.initialTime,
+              },
+              true,
+            )
+          } else if (field === "guestCount") {
+            throttledUpdateTable(tableId, { guestCount: value })
+          } else if (field === "server") {
+            throttledUpdateTable(tableId, { server: value })
+          } else if (field === "notes") {
+            throttledUpdateTable(tableId, {
+              noteId: value.noteId,
+              noteText: value.noteText,
+              hasNotes: value.hasNotes,
+            })
+          }
+        })
+      }
+    }
+
+    window.addEventListener("local-table-update", handleLocalTableUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("local-table-update", handleLocalTableUpdate as EventListener)
+    }
+  }, [table.id, throttledUpdateTable])
+
+  // Listen for table-time-update events (new unified event)
+  useEffect(() => {
+    const handleTableTimeUpdate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tableId === localTable.id) {
+        // Use requestAnimationFrame to ensure updates happen outside render cycle
+        requestAnimationFrame(() => {
+          // Update local state
+          setRemainingTime(event.detail.remainingTime)
+
+          // Update local table state
+          setLocalTable((prev) => ({
+            ...prev,
+            remainingTime: event.detail.remainingTime,
+            initialTime: event.detail.initialTime,
+          }))
+
+          // Dispatch event for real-time updates if this event didn't come from this component
+          if (event.detail.source !== "card") {
+            // Throttle the actual database update
+            throttledUpdateTable(
+              localTable.id,
+              {
+                remainingTime: event.detail.remainingTime,
+                initialTime: event.detail.initialTime,
+              },
+              true,
+            )
+          }
+        })
+      }
+    }
+
+    window.addEventListener("table-time-update", handleTableTimeUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("table-time-update", handleTableTimeUpdate as EventListener)
+    }
+  }, [localTable.id, throttledUpdateTable])
+
+  // Listen for table-updated events
+  useEffect(() => {
+    const handleTableUpdate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tableId === localTable.id && event.detail.table) {
+        // Use requestAnimationFrame to ensure updates happen outside render cycle
+        requestAnimationFrame(() => {
+          const updatedTable = event.detail.table
+
+          // Update remaining time if it's changed
+          if (updatedTable.remainingTime !== localTable.remainingTime) {
+            setRemainingTime(updatedTable.remainingTime)
+          }
+
+          // Update elapsed time if start time changed
+          if (updatedTable.startTime !== localTable.startTime) {
+            setElapsedTime(updatedTable.startTime ? Date.now() - updatedTable.startTime : 0)
+          }
+        })
+      }
+    }
+
+    window.addEventListener("table-updated", handleTableUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("table-updated", handleTableUpdate as EventListener)
+    }
+  }, [localTable.id, localTable.remainingTime, localTable.startTime])
+
+  // Format start time - memoized to prevent recalculation
+  const formatStartTime = useMemo(() => {
+    return (timestamp: number | null) => {
+      if (!timestamp) return "Not started"
+
+      const date = new Date(timestamp)
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+    }
+  }, [])
+
+  // Calculate elapsed time - memoized
+  const calculateElapsedTime = useCallback(() => {
+    if (!localTable.isActive || !localTable.startTime) return 0
+    return Date.now() - localTable.startTime
+  }, [localTable.isActive, localTable.startTime])
+
+  // Format elapsed time as HH:MM:SS - memoized
+  const formatElapsedTime = useMemo(() => {
+    return (ms: number) => {
+      const totalSeconds = Math.floor(ms / 1000)
+      const hours = Math.floor(totalSeconds / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
+
+      if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+      } else {
+        return `${minutes}:${seconds.toString().padStart(2, "0")}`
+      }
+    }
+  }, [])
+
+  // Calculate remaining time - memoized
+  const calculateRemainingTime = useCallback(() => {
+    if (!localTable.isActive) return localTable.initialTime
+    if (!localTable.startTime) return localTable.remainingTime
+
+    const elapsed = Date.now() - localTable.startTime
+    // Remove Math.max to allow negative values for overtime
+    return localTable.initialTime - elapsed
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.remainingTime])
+
+  // Format remaining time as MM:SS - memoized
+  const formatRemainingTime = useMemo(() => {
+    return (ms: number) => {
+      const totalSeconds = Math.floor(Math.abs(ms) / 1000)
+      const minutes = Math.floor(totalSeconds / 60)
+      const seconds = totalSeconds % 60
+      return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+    }
+  }, [])
+
+  // Table status calculations - memoized
+  const tableStatus = useMemo(() => {
+    const isOvertime = localTable.isActive && calculateRemainingTime() < 0
+    const isWarningYellow =
+      localTable.isActive && calculateRemainingTime() <= 15 * 60 * 1000 && calculateRemainingTime() > 10 * 60 * 1000
+    const isWarningOrange =
+      localTable.isActive && calculateRemainingTime() <= 10 * 60 * 1000 && calculateRemainingTime() >= 0
+    const orangeIntensity = isWarningOrange ? 1 - calculateRemainingTime() / (10 * 60 * 1000) : 0
+
+    return { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity }
+  }, [localTable.isActive, calculateRemainingTime])
+
+  // Get group color for indicators - memoized
+  const getGroupColor = useCallback(() => {
+    if (!localTable.groupId) return ""
 
     // Extract group number if it follows the pattern "Group X"
-    const groupMatch = table.groupId.match(/Group (\d+)/)
+    const groupMatch = localTable.groupId.match(/Group (\d+)/)
     if (groupMatch) {
       const groupNumber = Number.parseInt(groupMatch[1], 10)
 
@@ -129,164 +345,179 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     }
 
     // Fallback to hash-based color if group name doesn't match pattern
-    const groupHash = table.groupId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const groupHash = localTable.groupId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
     const hue = groupHash % 360
     return `hsl(${hue}, 100%, 50%)`
-  }
+  }, [localTable.groupId])
 
-  // Get border color and animation based on group status
-  const getBorderStyles = () => {
-    if (table.groupId) {
-      const color = getGroupColor()
-      return {
-        borderColor: color,
-        boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
-        animation: "borderPulse 2s infinite alternate",
-        borderWidth: "4px",
-        borderStyle: "double", // Double border for grouped tables
+  // Get border color and animation based on group status - memoized
+  const getBorderStyles = useMemo(() => {
+    return () => {
+      const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
+
+      if (localTable.groupId) {
+        const color = getGroupColor()
+        return {
+          borderColor: color,
+          boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
+          animation: "borderPulse 2s infinite alternate",
+          borderWidth: "4px",
+          borderStyle: "double", // Double border for grouped tables
+        }
       }
-    }
 
-    if (isOvertime) {
-      return {
-        borderColor: "#FF0000",
-        boxShadow: "0 0 30px #FF0000, inset 0 0 20px rgba(255, 0, 0, 0.8)",
-        animation: "borderPulse 0.8s infinite alternate",
-        borderWidth: "4px",
-        borderStyle: "solid",
+      if (isOvertime) {
+        return {
+          borderColor: "#FF0000",
+          boxShadow: "0 0 30px #FF0000, inset 0 0 20px rgba(255, 0, 0, 0.8)",
+          animation: "borderPulse 0.8s infinite alternate",
+          borderWidth: "4px",
+          borderStyle: "solid",
+        }
       }
-    }
 
-    if (isWarningOrange) {
-      // Interpolate between yellow and red based on intensity
-      const r = Math.floor(255)
-      const g = Math.floor(165 - orangeIntensity * 165)
-      const b = Math.floor(0)
-      const color = `rgb(${r}, ${g}, ${b})`
+      if (isWarningOrange) {
+        // Interpolate between yellow and red based on intensity
+        const r = Math.floor(255)
+        const g = Math.floor(165 - orangeIntensity * 165)
+        const b = Math.floor(0)
+        const color = `rgb(${r}, ${g}, ${b})`
 
-      return {
-        borderColor: color,
-        boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
-        animation: warningAnimationEnabled ? "borderPulse 1.2s infinite alternate" : "none",
-        borderWidth: "3px",
-        borderStyle: "solid",
+        return {
+          borderColor: color,
+          boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
+          animation: warningAnimationEnabled ? "borderPulse 1.2s infinite alternate" : "none",
+          borderWidth: "3px",
+          borderStyle: "solid",
+        }
       }
-    }
 
-    if (isWarningYellow) {
-      return {
-        borderColor: "#FFFF00",
-        boxShadow: "0 0 25px #FFFF00, inset 0 0 15px rgba(255, 255, 0, 0.8)",
-        animation: warningAnimationEnabled ? "borderPulse 1.5s infinite alternate" : "none",
-        borderWidth: "3px",
-        borderStyle: "solid",
+      if (isWarningYellow) {
+        return {
+          borderColor: "#FFFF00",
+          boxShadow: "0 0 25px #FFFF00, inset 0 0 15px rgba(255, 255, 0, 0.8)",
+          animation: warningAnimationEnabled ? "borderPulse 1.5s infinite alternate" : "none",
+          borderWidth: "3px",
+          borderStyle: "solid",
+        }
       }
-    }
 
-    if (table.isActive) {
+      if (localTable.isActive) {
+        return {
+          borderColor: "#00FF00",
+          boxShadow: "0 0 20px #00FF00, inset 0 0 10px rgba(0, 255, 0, 0.8)",
+          animation: "none",
+          borderWidth: "3px",
+          borderStyle: "solid",
+        }
+      }
+
       return {
-        borderColor: "#00FF00",
-        boxShadow: "0 0 20px #00FF00, inset 0 0 10px rgba(0, 255, 0, 0.8)",
+        borderColor: "#00FFFF",
+        boxShadow: "0 0 20px #00FFFF, inset 0 0 10px rgba(0, 255, 255, 0.7)",
         animation: "none",
         borderWidth: "3px",
         borderStyle: "solid",
       }
     }
+  }, [tableStatus, localTable.groupId, warningAnimationEnabled, getGroupColor])
 
-    return {
-      borderColor: "#00FFFF",
-      boxShadow: "0 0 20px #00FFFF, inset 0 0 10px rgba(0, 255, 255, 0.7)",
-      animation: "none",
-      borderWidth: "3px",
-      borderStyle: "solid",
-    }
-  }
+  // Get background styles based on table status - memoized
+  const getBackgroundStyles = useMemo(() => {
+    return () => {
+      const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
 
-  // Get background styles based on table status
-  const getBackgroundStyles = () => {
-    if (!table.isActive) {
+      if (!localTable.isActive) {
+        return {
+          background: "linear-gradient(135deg, rgba(0, 20, 40, 0.95), rgba(0, 10, 30, 0.98))",
+          animation: "none",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      if (isOvertime) {
+        return {
+          background: "linear-gradient(135deg, rgba(100, 0, 0, 0.95), rgba(60, 0, 0, 0.98))",
+          animation: "pulseRed 1s infinite alternate",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      if (isWarningOrange) {
+        // Interpolate between yellow and red based on intensity
+        const r = Math.floor(80 + orangeIntensity * 20)
+        const g = Math.floor(40 + (1 - orangeIntensity) * 40)
+        const b = Math.floor(0)
+
+        return {
+          background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.95), rgba(${r - 20}, ${g - 10}, ${b}, 0.98))`,
+          animation: warningAnimationEnabled ? "pulseOrange 1.2s infinite alternate" : "none",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      if (isWarningYellow) {
+        return {
+          background: "linear-gradient(135deg, rgba(80, 80, 0, 0.95), rgba(50, 50, 0, 0.98))",
+          animation: warningAnimationEnabled ? "pulseYellow 1.5s infinite alternate" : "none",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
       return {
-        background: "linear-gradient(135deg, rgba(0, 20, 40, 0.95), rgba(0, 10, 30, 0.98))",
-        animation: "none",
+        background: "linear-gradient(135deg, rgba(0, 60, 30, 0.95), rgba(0, 40, 20, 0.98))",
+        animation: "pulseGreen 3s infinite alternate",
         backdropFilter: "blur(10px)",
       }
     }
+  }, [tableStatus, localTable.isActive, warningAnimationEnabled])
 
-    if (isOvertime) {
-      return {
-        background: "linear-gradient(135deg, rgba(100, 0, 0, 0.95), rgba(60, 0, 0, 0.98))",
-        animation: "pulseRed 1s infinite alternate",
-        backdropFilter: "blur(10px)",
+  // Format time for display in table card - memoized
+  const formatTime = useMemo(() => {
+    return (ms: number) => {
+      // For inactive tables, show the initial time in minutes
+      if (!localTable.isActive) {
+        const initialMinutes = Math.floor(ms / 60000)
+        return `${initialMinutes}:00`
       }
+
+      // For active tables, show remaining time
+      const remainingTime = calculateRemainingTime()
+      const isNegative = remainingTime < 0
+      const absoluteTime = Math.abs(remainingTime)
+      const minutes = Math.floor(absoluteTime / 60000)
+      const seconds = Math.floor((absoluteTime % 60000) / 1000)
+      const sign = isNegative ? "-" : ""
+      return `${sign}${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     }
-
-    if (isWarningOrange) {
-      // Interpolate between yellow and red based on intensity
-      const r = Math.floor(80 + orangeIntensity * 20)
-      const g = Math.floor(40 + (1 - orangeIntensity) * 40)
-      const b = Math.floor(0)
-
-      return {
-        background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.95), rgba(${r - 20}, ${g - 10}, ${b}, 0.98))`,
-        animation: warningAnimationEnabled ? "pulseOrange 1.2s infinite alternate" : "none",
-        backdropFilter: "blur(10px)",
-      }
-    }
-
-    if (isWarningYellow) {
-      return {
-        background: "linear-gradient(135deg, rgba(80, 80, 0, 0.95), rgba(50, 50, 0, 0.98))",
-        animation: warningAnimationEnabled ? "pulseYellow 1.5s infinite alternate" : "none",
-        backdropFilter: "blur(10px)",
-      }
-    }
-
-    return {
-      background: "linear-gradient(135deg, rgba(0, 60, 30, 0.95), rgba(0, 40, 20, 0.98))",
-      animation: "pulseGreen 3s infinite alternate",
-      backdropFilter: "blur(10px)",
-    }
-  }
-
-  // Format time for display in table card
-  const formatTime = (ms: number) => {
-    // For inactive tables, show the initial time in minutes
-    if (!table.isActive) {
-      const initialMinutes = Math.floor(ms / 60000)
-      return `${initialMinutes}:00`
-    }
-
-    // For active tables, show remaining time
-    const remainingTime = calculateRemainingTime()
-    const minutes = Math.floor(Math.abs(remainingTime) / 60000)
-    const seconds = Math.floor((Math.abs(remainingTime) % 60000) / 1000)
-    const sign = remainingTime < 0 ? "-" : ""
-    return `${sign}${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-  }
+  }, [localTable.isActive, calculateRemainingTime])
 
   // Handle mouse down for long press detection
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!table.isActive) return
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (!localTable.isActive) return
 
-    // Set position for popup
-    setPopupPosition({ x: e.clientX, y: e.clientY })
+      // Set position for popup
+      setPopupPosition({ x: e.clientX, y: e.clientY })
 
-    // Clear any existing timeout
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current)
-    }
+      // Clear any existing timeout
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current)
+      }
 
-    isLongPressRef.current = false
+      isLongPressRef.current = false
 
-    // Set timeout for long press detection (500ms)
-    longPressTimeoutRef.current = setTimeout(() => {
-      isLongPressRef.current = true
-      setShowSessionLog(true)
-    }, 500)
-  }
+      // Set timeout for long press detection (500ms)
+      longPressTimeoutRef.current = setTimeout(() => {
+        isLongPressRef.current = true
+        setShowSessionLog(true)
+      }, 500)
+    },
+    [localTable.isActive],
+  )
 
   // Handle mouse up
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     // Clear timeout
     if (longPressTimeoutRef.current) {
       clearTimeout(longPressTimeoutRef.current)
@@ -297,75 +528,84 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     if (!isLongPressRef.current && !showSessionLog) {
       onClick()
     }
-  }
+  }, [onClick, showSessionLog])
 
   // Improved touch handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!table.isActive) return
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (!localTable.isActive) return
 
-    const touch = e.touches[0]
+      const touch = e.touches[0]
 
-    // Record the starting position
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
-    hasMoved.current = false
+      // Record the starting position
+      touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+      hasMoved.current = false
 
-    setPopupPosition({ x: touch.clientX, y: touch.clientY })
+      setPopupPosition({ x: touch.clientX, y: touch.clientY })
 
-    // Clear any existing timeout
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current)
-    }
+      // Clear any existing timeout
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current)
+      }
 
-    isLongPressRef.current = false
+      isLongPressRef.current = false
 
-    // Set timeout for long press detection (500ms)
-    longPressTimeoutRef.current = setTimeout(() => {
-      isLongPressRef.current = true
-      setShowSessionLog(true)
-    }, 500)
-  }
+      // Set timeout for long press detection (500ms)
+      longPressTimeoutRef.current = setTimeout(() => {
+        isLongPressRef.current = true
+        setShowSessionLog(true)
+      }, 500)
+    },
+    [localTable.isActive],
+  )
 
   // Handle touch move to detect scrolling
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!table.isActive) return
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!localTable.isActive) return
 
-    const touch = e.touches[0]
-    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x)
-    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y)
+      const touch = e.touches[0]
+      const deltaX = Math.abs(touch.clientX - touchStartRef.current.x)
+      const deltaY = Math.abs(touch.clientY - touchStartRef.current.y)
 
-    // If moved more than 10px in any direction, consider it a scroll
-    if (deltaX > 10 || deltaY > 10) {
-      hasMoved.current = true
+      // If moved more than 10px in any direction, consider it a scroll
+      if (deltaX > 10 || deltaY > 10) {
+        hasMoved.current = true
 
-      // Clear long press timeout if we're scrolling
+        // Clear long press timeout if we're scrolling
+        if (longPressTimeoutRef.current) {
+          clearTimeout(longPressTimeoutRef.current)
+          longPressTimeoutRef.current = null
+        }
+      }
+    },
+    [localTable.isActive],
+  )
+
+  // Handle touch end
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      // Clear timeout
       if (longPressTimeoutRef.current) {
         clearTimeout(longPressTimeoutRef.current)
         longPressTimeoutRef.current = null
       }
-    }
-  }
 
-  // Handle touch end
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    // Clear timeout
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current)
-      longPressTimeoutRef.current = null
-    }
-
-    // Only trigger click if:
-    // 1. It wasn't a long press
-    // 2. We're not showing the session log
-    // 3. The user didn't move (scroll) significantly
-    if (!isLongPressRef.current && !showSessionLog && !hasMoved.current) {
-      // Prevent default to avoid any double-tap zoom issues
-      e.preventDefault()
-      onClick()
-    }
-  }
+      // Only trigger click if:
+      // 1. It wasn't a long press
+      // 2. We're not showing the session log
+      // 3. The user didn't move (scroll) significantly
+      if (!isLongPressRef.current && !showSessionLog && !hasMoved.current) {
+        // Prevent default to avoid any double-tap zoom issues
+        e.preventDefault()
+        onClick()
+      }
+    },
+    [onClick, showSessionLog],
+  )
 
   // Handle mouse move for 3D effect
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!cardRef.current) return
 
     const rect = cardRef.current.getBoundingClientRect()
@@ -379,31 +619,115 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     const rotateX = -(mouseY / (rect.height / 2)) * 5
 
     setRotation({ x: rotateX, y: rotateY })
-  }
+  }, [])
 
   // Handle mouse enter/leave for 3D effect
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
     setIsHovered(true)
-  }
+  }, [])
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     setIsHovered(false)
     setRotation({ x: 0, y: 0 })
-  }
+  }, [])
 
-  // FIXED: Toggle warning animation with completely isolated event handling
-  const toggleWarningAnimation = (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent opening the table dialog
-    e.preventDefault() // Additional prevention
+  // Add effect to update elapsed time and remaining time
+  const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime())
+  const [remainingTime, setRemainingTime] = useState(calculateRemainingTime())
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Create a completely isolated event handler that won't bubble
-    const event = e.nativeEvent
-    if (event.stopImmediatePropagation) {
-      event.stopImmediatePropagation()
+  useEffect(() => {
+    // Clear any existing interval
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current)
+      timerIntervalRef.current = null
     }
 
-    setWarningAnimationEnabled(!warningAnimationEnabled)
-  }
+    if (localTable.isActive) {
+      // Initial update
+      setElapsedTime(calculateElapsedTime())
+
+      // Only update remaining time if it hasn't been modified locally
+      if (!localTable.manuallyUpdated) {
+        setRemainingTime(calculateRemainingTime())
+      }
+
+      // Set up interval for active tables
+      timerIntervalRef.current = setInterval(() => {
+        setElapsedTime(calculateElapsedTime())
+
+        // Only update remaining time if it hasn't been modified locally
+        if (!localTable.manuallyUpdated) {
+          setRemainingTime(calculateRemainingTime())
+        }
+      }, 1000)
+    } else {
+      // For inactive tables, reset to initial values
+      setElapsedTime(0)
+
+      // Only update remaining time if it hasn't been modified locally
+      if (!localTable.manuallyUpdated) {
+        setRemainingTime(localTable.initialTime)
+      }
+    }
+
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current)
+        timerIntervalRef.current = null
+      }
+    }
+  }, [
+    localTable.isActive,
+    localTable.startTime,
+    localTable.initialTime,
+    localTable.manuallyUpdated,
+    calculateElapsedTime,
+    calculateRemainingTime,
+  ])
+
+  // Listen for timer-update events
+  useEffect(() => {
+    const handleTimerUpdate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tableId === localTable.id) {
+        setRemainingTime(event.detail.remainingTime)
+      }
+    }
+
+    window.addEventListener("timer-update", handleTimerUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("timer-update", handleTimerUpdate as EventListener)
+    }
+  }, [localTable.id])
+
+  // Listen for table-updated events
+  useEffect(() => {
+    const handleTableUpdate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tableId === localTable.id && event.detail.table) {
+        // Use requestAnimationFrame to ensure updates happen outside render cycle
+        requestAnimationFrame(() => {
+          const updatedTable = event.detail.table
+
+          // Update remaining time if it's changed
+          if (updatedTable.remainingTime !== localTable.remainingTime) {
+            setRemainingTime(updatedTable.remainingTime)
+          }
+
+          // Update elapsed time if start time changed
+          if (updatedTable.startTime !== localTable.startTime) {
+            setElapsedTime(updatedTable.startTime ? Date.now() - updatedTable.startTime : 0)
+          }
+        })
+      }
+    }
+
+    window.addEventListener("table-updated", handleTableUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("table-updated", handleTableUpdate as EventListener)
+    }
+  }, [localTable.id, localTable.remainingTime, localTable.startTime])
 
   // Particle animation effect
   useEffect(() => {
@@ -436,8 +760,10 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     }> = []
 
     // Determine particle color based on table status
+    const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
     let particleColor = "#00FFFF"
-    if (table.isActive) {
+
+    if (localTable.isActive) {
       if (isOvertime) {
         particleColor = "#FF0000"
       } else if (isWarningOrange) {
@@ -454,12 +780,12 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     }
 
     // If table is in a group, use group color for some particles
-    if (table.groupId) {
+    if (localTable.groupId) {
       particleColor = getGroupColor()
     }
 
     // Create initial particles
-    const particleCount = table.isActive ? 50 : 30
+    const particleCount = localTable.isActive ? 50 : 30
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
@@ -511,11 +837,11 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
       window.removeEventListener("resize", updateCanvasSize)
       cancelAnimationFrame(animationFrame)
     }
-  }, [table.isActive, isWarningYellow, isWarningOrange, isOvertime, table.groupId, orangeIntensity])
+  }, [localTable.isActive, localTable.groupId, tableStatus, getGroupColor])
 
   // Enhanced group indicator animation
   useEffect(() => {
-    if (!table.groupId || !groupIndicatorRef.current) return
+    if (!localTable.groupId || !groupIndicatorRef.current) return
 
     const groupColor = getGroupColor()
     const indicator = groupIndicatorRef.current
@@ -547,57 +873,26 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     }
 
     animateBorder()
-  }, [table.groupId])
-
-  // Add effect to update elapsed time
-  const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime())
-  const [remainingTime, setRemainingTime] = useState(calculateRemainingTime())
-
-  useEffect(() => {
-    if (!table.isActive) return
-
-    const timer = setInterval(() => {
-      setElapsedTime(calculateElapsedTime())
-      setRemainingTime(calculateRemainingTime())
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [table.isActive, table.startTime])
-
-  // Add an event listener to handle table updates
-  useEffect(() => {
-    const handleTableUpdate = (event: CustomEvent) => {
-      // Check if event.detail exists and has the expected structure
-      if (event.detail && event.detail.tableId === table.id && event.detail.table) {
-        // Use the table from the event detail instead of 'updatedTable'
-        const updatedTable = event.detail.table
-        setRemainingTime(updatedTable.remainingTime)
-      }
-    }
-
-    // Add event listener
-    window.addEventListener("table-updated", handleTableUpdate as EventListener)
-
-    // Clean up
-    return () => {
-      window.removeEventListener("table-updated", handleTableUpdate as EventListener)
-    }
-  }, [table.id])
+  }, [localTable.groupId, getGroupColor])
 
   const borderStyles = getBorderStyles()
   const backgroundStyles = getBackgroundStyles()
 
   // Get text color based on status for better visibility
-  const getTimerTextColor = () => {
+  const getTimerTextColor = useCallback(() => {
+    const { isOvertime, isWarningYellow, isWarningOrange } = tableStatus
+
     if (isOvertime) return "#FFFFFF"
     if (isWarningOrange) return "#FFFFFF"
     if (isWarningYellow) return "#FFFFFF"
-    if (table.isActive) return "#FFFFFF"
+    if (localTable.isActive) return "#FFFFFF"
     return "#00FFFF"
-  }
+  }, [tableStatus, localTable.isActive])
 
   // Get text shadow based on status for better visibility
-  const getTimerTextShadow = () => {
+  const getTimerTextShadow = useCallback(() => {
+    const { isOvertime, isWarningYellow, isWarningOrange } = tableStatus
+
     if (isOvertime) {
       return "0 0 10px rgba(255, 0, 0, 1), 0 0 20px rgba(255, 0, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
     }
@@ -607,11 +902,11 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
     if (isWarningYellow) {
       return "0 0 10px rgba(255, 255, 0, 1), 0 0 20px rgba(255, 255, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
     }
-    if (table.isActive) {
+    if (localTable.isActive) {
       return "0 0 10px rgba(0, 255, 0, 1), 0 0 20px rgba(0, 255, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
     }
     return "0 0 10px rgba(0, 255, 255, 1), 0 0 20px rgba(0, 255, 255, 0.8)"
-  }
+  }, [tableStatus, localTable.isActive])
 
   return (
     <>
@@ -646,7 +941,7 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
         />
 
         {/* Group indicator with enhanced visuals */}
-        {table.groupId && (
+        {localTable.groupId && (
           <>
             {/* Corner triangle indicator */}
             <div
@@ -670,7 +965,7 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                 animation: "pulse 1.5s infinite alternate",
               }}
             >
-              {table.groupId}
+              {localTable.groupId}
             </div>
 
             {/* Animated group border */}
@@ -731,16 +1026,16 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                   textShadow: "0 0 10px rgba(0, 255, 255, 1), 0 0 5px rgba(0, 255, 255, 0.8)",
                 }}
               >
-                {table.name}
+                {localTable.name}
               </span>
 
               <div
                 className={`px-1 py-0.5 rounded-full text-xs font-medium ${
-                  table.isActive ? (isOvertime ? "bg-[#FF0000]/40" : "bg-[#00FF00]/40") : "bg-gray-700"
+                  localTable.isActive ? (tableStatus.isOvertime ? "bg-[#FF0000]/40" : "bg-[#00FF00]/40") : "bg-gray-700"
                 }`}
               >
-                {table.isActive ? (
-                  isOvertime ? (
+                {localTable.isActive ? (
+                  tableStatus.isOvertime ? (
                     <NeonGlow color="red" pulse intensity="high">
                       <span>OVERTIME</span>
                     </NeonGlow>
@@ -763,19 +1058,19 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                   color: getTimerTextColor(),
                   textShadow: getTimerTextShadow(),
                   backgroundColor: "rgba(0, 0, 0, 0.3)",
-                  border: isOvertime
+                  border: tableStatus.isOvertime
                     ? "1px solid rgba(255, 0, 0, 0.5)"
-                    : isWarningOrange
+                    : tableStatus.isWarningOrange
                       ? "1px solid rgba(255, 165, 0, 0.5)"
-                      : isWarningYellow
+                      : tableStatus.isWarningYellow
                         ? "1px solid rgba(255, 255, 0, 0.5)"
-                        : table.isActive
+                        : localTable.isActive
                           ? "1px solid rgba(0, 255, 0, 0.5)"
                           : "1px solid rgba(0, 255, 255, 0.5)",
                   boxShadow: "0 0 10px rgba(0, 0, 0, 0.5)",
                 }}
               >
-                {formatRemainingTime(remainingTime)}
+                {formatTime(remainingTime)}
               </div>
             </div>
 
@@ -793,12 +1088,12 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                       textShadow: "0 0 8px rgba(255, 0, 255, 1)",
                     }}
                   >
-                    {table.isActive ? table.guestCount : "0"}
+                    {localTable.isActive ? localTable.guestCount : "0"}
                   </span>
                 </div>
 
                 {/* Server information */}
-                {table.isActive && table.server && (
+                {localTable.isActive && localTable.server && (
                   <div className="flex items-center gap-1">
                     <ServerIcon className="h-4 w-4 text-[#00FF00]" />
                     <span
@@ -808,14 +1103,14 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                         textShadow: "0 0 8px rgba(0, 255, 0, 1)",
                       }}
                     >
-                      {servers.find((s) => s.id === table.server)?.name || "Unknown"}
+                      {servers.find((s) => s.id === localTable.server)?.name || "Unknown"}
                     </span>
                   </div>
                 )}
               </div>
 
               {/* Notes information - always visible when present, positioned before time info */}
-              {table.isActive && table.hasNotes && (
+              {localTable.isActive && localTable.hasNotes && (
                 <div className="flex items-center gap-1 w-full">
                   <MessageSquareIcon className="h-3.5 w-3.5 flex-shrink-0 text-[#FFFF00]" />
                   <span
@@ -825,13 +1120,13 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                       textShadow: "0 0 5px rgba(255, 255, 0, 1)",
                     }}
                   >
-                    {table.noteText}
+                    {localTable.noteText}
                   </span>
                 </div>
               )}
 
               {/* Start time and elapsed time in one row */}
-              {table.isActive && (
+              {localTable.isActive && (
                 <div className="flex justify-between items-center">
                   {/* Start time */}
                   <div className="flex items-center gap-1">
@@ -843,7 +1138,7 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
                         textShadow: "0 0 5px rgba(0, 255, 255, 1)",
                       }}
                     >
-                      {formatStartTime(table.startTime)}
+                      {formatStartTime(localTable.startTime)}
                     </span>
                   </div>
 
@@ -871,12 +1166,12 @@ export function TableCard({ table, servers, logs, onClick }: TableCardProps) {
       {showSessionLog && (
         <PopupSessionLog
           logs={logs}
-          tableId={table.id}
-          sessionStartTime={table.startTime}
+          tableId={localTable.id}
+          sessionStartTime={localTable.startTime}
           position={popupPosition}
           onClose={() => setShowSessionLog(false)}
         />
       )}
     </>
   )
-}
+})

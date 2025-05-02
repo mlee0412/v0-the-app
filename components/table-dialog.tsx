@@ -1,8 +1,6 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { PlusIcon, MinusIcon, UsersIcon, ClockIcon, ServerIcon, ArrowDownIcon, PlayIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -77,12 +75,28 @@ export function TableDialog({
   const elapsedTimeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const [dialogOpen, setDialogOpen] = useState(true)
   const [editingServer, setEditingServer] = useState(!table.server)
+  const [initialTimeDisplay, setInitialTimeDisplay] = useState(Math.floor(table.initialTime / 60000))
+
+  // Refs to track last update time for throttling
+  const lastGuestUpdateRef = useRef(0)
+  const lastServerUpdateRef = useRef(0)
+  const lastTimeUpdateRef = useRef(0)
+
+  // Ref to track if a touch is in progress
+  const touchInProgressRef = useRef(false)
+
+  // Throttle time in ms - reduced for better responsiveness
+  const THROTTLE_TIME = 200
 
   // Update displayed time when table time changes
   useEffect(() => {
-    setDisplayedRemainingTime(table.remainingTime)
-    setRemainingTime(table.remainingTime)
-  }, [table.remainingTime])
+    // Only update from table prop if we're not in the middle of a time change
+    if (!pendingTimeAction) {
+      setDisplayedRemainingTime(table.remainingTime)
+      setRemainingTime(table.remainingTime)
+      setInitialTimeDisplay(Math.floor(table.initialTime / 60000))
+    }
+  }, [table.remainingTime, table.initialTime, pendingTimeAction])
 
   // Update guest count when table guest count changes
   useEffect(() => {
@@ -114,10 +128,13 @@ export function TableDialog({
     const handleTableUpdate = (event: CustomEvent) => {
       // Check if event.detail exists and has the expected structure
       if (event.detail && event.detail.tableId === table.id && event.detail.table) {
-        // Use the table from the event detail
-        const updatedTable = event.detail.table
-        setRemainingTime(updatedTable.remainingTime)
-        setDisplayedRemainingTime(updatedTable.remainingTime)
+        // Use requestAnimationFrame to schedule updates outside of render cycle
+        requestAnimationFrame(() => {
+          const updatedTable = event.detail.table
+          setRemainingTime(updatedTable.remainingTime)
+          setDisplayedRemainingTime(updatedTable.remainingTime)
+          setInitialTimeDisplay(Math.floor(updatedTable.initialTime / 60000))
+        })
       }
     }
 
@@ -130,22 +147,30 @@ export function TableDialog({
     }
   }, [table.id])
 
-  // Calculate remaining time
-  const calculateRemainingTime = () => {
+  // Calculate remaining time - FIXED to allow negative values
+  const calculateRemainingTime = useCallback(() => {
     if (!table.isActive) return table.initialTime
     if (!table.startTime) return table.remainingTime
 
     const elapsed = Date.now() - table.startTime
+    // REMOVED Math.max to allow negative values for overtime
     return table.initialTime - elapsed
-  }
+  }, [table.isActive, table.startTime, table.initialTime, table.remainingTime])
 
   // Update elapsed time and remaining time for active tables
   useEffect(() => {
+    // Clear any existing interval
+    if (elapsedTimeIntervalRef.current) {
+      clearInterval(elapsedTimeIntervalRef.current)
+      elapsedTimeIntervalRef.current = null
+    }
+
     if (table.isActive && table.startTime) {
       // Calculate initial elapsed time
       setElapsedTime(Date.now() - table.startTime)
-      setRemainingTime(calculateRemainingTime())
-      setDisplayedRemainingTime(calculateRemainingTime())
+      const newRemainingTime = calculateRemainingTime()
+      setRemainingTime(newRemainingTime)
+      setDisplayedRemainingTime(newRemainingTime)
 
       // Set up interval to update elapsed time every second
       elapsedTimeIntervalRef.current = setInterval(() => {
@@ -162,6 +187,7 @@ export function TableDialog({
       setElapsedTime(0)
       setRemainingTime(table.initialTime)
       setDisplayedRemainingTime(table.initialTime)
+      setInitialTimeDisplay(Math.floor(table.initialTime / 60000))
     }
 
     // Clean up interval on unmount or when table becomes inactive
@@ -171,19 +197,70 @@ export function TableDialog({
         elapsedTimeIntervalRef.current = null
       }
     }
-  }, [table.isActive, table.startTime, table.initialTime])
+  }, [table.isActive, table.startTime, table.initialTime, calculateRemainingTime])
+
+  // Listen for timer-update events
+  useEffect(() => {
+    const handleTimerUpdate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tableId === table.id) {
+        // Use requestAnimationFrame to schedule updates outside of render cycle
+        requestAnimationFrame(() => {
+          setRemainingTime(event.detail.remainingTime)
+          setDisplayedRemainingTime(event.detail.remainingTime)
+
+          // Also update the initial time display
+          if (event.detail.initialTime) {
+            setInitialTimeDisplay(Math.floor(event.detail.initialTime / 60000))
+          }
+        })
+      }
+    }
+
+    window.addEventListener("timer-update", handleTimerUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("timer-update", handleTimerUpdate as EventListener)
+    }
+  }, [table.id])
+
+  // Listen for table-time-update events (new unified event)
+  useEffect(() => {
+    const handleTableTimeUpdate = (event: CustomEvent) => {
+      if (event.detail && event.detail.tableId === table.id) {
+        // Only update if the event didn't come from this component
+        if (event.detail.source !== "dialog") {
+          // Use requestAnimationFrame to schedule updates outside of render cycle
+          requestAnimationFrame(() => {
+            setRemainingTime(event.detail.remainingTime)
+            setDisplayedRemainingTime(event.detail.remainingTime)
+
+            // Also update the initial time display
+            if (event.detail.initialTime) {
+              setInitialTimeDisplay(Math.floor(event.detail.initialTime / 60000))
+            }
+          })
+        }
+      }
+    }
+
+    window.addEventListener("table-time-update", handleTableTimeUpdate as EventListener)
+
+    return () => {
+      window.removeEventListener("table-time-update", handleTableTimeUpdate as EventListener)
+    }
+  }, [table.id])
 
   // Time increment buttons
   const timeIncrements = [5, 15, 30, 60]
 
   // Handle group table selection
-  const toggleTableSelection = (tableId: number) => {
+  const toggleTableSelection = useCallback((tableId: number) => {
     setSelectedTables((prev) => (prev.includes(tableId) ? prev.filter((id) => id !== tableId) : [...prev, tableId]))
     setValidationError(null) // Clear any validation errors when selection changes
-  }
+  }, [])
 
   // Create group
-  const handleCreateGroup = () => {
+  const handleCreateGroup = useCallback(() => {
     if (selectedTables.length < 2) {
       setValidationError("Please select at least two tables to create a group")
       return
@@ -192,16 +269,16 @@ export function TableDialog({
     onGroupTables(selectedTables)
     setSelectedTables([table.id]) // Reset to just the current table
     handleDialogClose()
-  }
+  }, [selectedTables, onGroupTables, table.id])
 
   // Handle ungroup
-  const handleUngroup = () => {
+  const handleUngroup = useCallback(() => {
     onUngroupTable(table.id)
     handleDialogClose()
-  }
+  }, [onUngroupTable, table.id])
 
   // Handle move table
-  const handleMoveTable = () => {
+  const handleMoveTable = useCallback(() => {
     if (!targetTableId) {
       setValidationError("Please select a target table")
       return
@@ -210,132 +287,377 @@ export function TableDialog({
     onMoveTable(table.id, targetTableId)
     setTargetTableId(null)
     handleDialogClose()
-  }
+  }, [targetTableId, onMoveTable, table.id])
 
   // Handle note selection with immediate save
-  const handleNoteSelection = (noteId: string) => {
-    setSelectedNoteId(noteId)
+  const handleNoteSelection = useCallback(
+    (noteId: string) => {
+      setSelectedNoteId(noteId)
 
-    // Immediately save the note
-    if (noteId) {
-      const selectedTemplate = noteTemplates.find((t) => t.id === noteId)
-      if (selectedTemplate) {
-        onUpdateNotes(table.id, noteId, selectedTemplate.text)
+      // Immediately save the note
+      if (noteId) {
+        const selectedTemplate = noteTemplates.find((t) => t.id === noteId)
+        if (selectedTemplate) {
+          // Update local state first
+          window.dispatchEvent(
+            new CustomEvent("local-table-update", {
+              detail: {
+                tableId: table.id,
+                field: "notes",
+                value: {
+                  noteId,
+                  noteText: selectedTemplate.text,
+                  hasNotes: true,
+                },
+              },
+            }),
+          )
+
+          // Then update via props
+          onUpdateNotes(table.id, noteId, selectedTemplate.text)
+        }
+      } else {
+        // Update local state first
+        window.dispatchEvent(
+          new CustomEvent("local-table-update", {
+            detail: {
+              tableId: table.id,
+              field: "notes",
+              value: {
+                noteId: "",
+                noteText: "",
+                hasNotes: false,
+              },
+            },
+          }),
+        )
+
+        // Then update via props
+        onUpdateNotes(table.id, "", "")
       }
-    } else {
-      onUpdateNotes(table.id, "", "")
-    }
-  }
+    },
+    [noteTemplates, table.id, onUpdateNotes],
+  )
 
   // Add a function to toggle edit mode for server selection
-  const toggleServerEditMode = () => {
+  const toggleServerEditMode = useCallback(() => {
     setEditingServer(!editingServer)
-  }
+    // When entering edit mode, expand the server selection
+    if (!editingServer) {
+      setServerSelectionExpanded(true)
+    }
+  }, [editingServer])
 
   // Update the handleServerSelection function to hide other servers after selection
-  const handleServerSelection = (serverId: string) => {
-    // Call the onAssignServer function with both tableId and serverId
-    onAssignServer(table.id, serverId)
+  const handleServerSelection = useCallback(
+    (serverId: string) => {
+      // Update local state first for immediate UI feedback
+      window.dispatchEvent(
+        new CustomEvent("local-table-update", {
+          detail: {
+            tableId: table.id,
+            field: "server",
+            value: serverId,
+          },
+        }),
+      )
 
-    // Exit edit mode after selection
-    setEditingServer(false)
+      // Exit edit mode after selection
+      setEditingServer(false)
+      // Hide server selection after making a choice
+      setServerSelectionExpanded(false)
 
-    // Force update the UI to reflect the selection immediately
-    setValidationError(null)
-  }
+      // Force update the UI to reflect the selection immediately
+      setValidationError(null)
+
+      // Throttle the actual server assignment to reduce Supabase calls
+      const now = Date.now()
+      if (now - lastServerUpdateRef.current > THROTTLE_TIME) {
+        lastServerUpdateRef.current = now
+        // Call the onAssignServer prop to update the table in the parent component
+        onAssignServer(table.id, serverId)
+      } else {
+        // Debounce the update
+        setTimeout(() => {
+          onAssignServer(table.id, serverId)
+        }, THROTTLE_TIME)
+      }
+    },
+    [table.id, onAssignServer, THROTTLE_TIME],
+  )
+
+  // Check if current user can manage this table
+  const canManageTable = useMemo(
+    () =>
+      isAdmin ||
+      (isServer && currentUser && (table.server === currentUser.id || !table.server)) ||
+      hasPermission("canAssignServer"),
+    [isAdmin, isServer, currentUser, table.server, hasPermission],
+  )
 
   // Toggle server selection expansion
-  const toggleServerSelection = () => {
+  const toggleServerSelection = useCallback(() => {
     if (table.isActive && canManageTable) {
       setServerSelectionExpanded(!serverSelectionExpanded)
     }
-  }
+  }, [table.isActive, serverSelectionExpanded, canManageTable])
 
   // Update the handleAddTime function to show confirmation first
-  const handleAddTime = (minutes: number) => {
-    setPendingTimeAction({ type: "add", minutes })
-    setShowTimeConfirmation(true)
-  }
+  const handleAddTime = useCallback(
+    (minutes: number) => {
+      // Prevent multiple rapid clicks
+      if (touchInProgressRef.current) return
+      touchInProgressRef.current = true
+
+      // Preview the time change immediately
+      const previewRemainingTime = remainingTime + minutes * 60 * 1000
+      const previewInitialTime = Math.floor((table.initialTime + minutes * 60 * 1000) / 60000)
+
+      setDisplayedRemainingTime(previewRemainingTime)
+      setInitialTimeDisplay(previewInitialTime)
+
+      setPendingTimeAction({ type: "add", minutes })
+      setShowTimeConfirmation(true)
+
+      // Reset touch flag after a short delay
+      setTimeout(() => {
+        touchInProgressRef.current = false
+      }, 300)
+    },
+    [remainingTime, table.initialTime],
+  )
 
   // Update the handleSubtractTime function to show confirmation first
-  const handleSubtractTime = (minutes: number) => {
-    setPendingTimeAction({ type: "subtract", minutes })
-    setShowTimeConfirmation(true)
-  }
+  const handleSubtractTime = useCallback(
+    (minutes: number) => {
+      // Prevent multiple rapid clicks
+      if (touchInProgressRef.current) return
+      touchInProgressRef.current = true
+
+      // Preview the time change immediately
+      const previewRemainingTime = remainingTime - minutes * 60 * 1000
+      const previewInitialTime = Math.floor(Math.max(0, table.initialTime - minutes * 60 * 1000) / 60000)
+
+      setDisplayedRemainingTime(previewRemainingTime)
+      setInitialTimeDisplay(previewInitialTime)
+
+      setPendingTimeAction({ type: "subtract", minutes })
+      setShowTimeConfirmation(true)
+
+      // Reset touch flag after a short delay
+      setTimeout(() => {
+        touchInProgressRef.current = false
+      }, 300)
+    },
+    [remainingTime, table.initialTime],
+  )
 
   // Update the executeTimeChange function to properly handle time changes
-  const executeTimeChange = () => {
+  const executeTimeChange = useCallback(() => {
     if (!pendingTimeAction) return
 
+    // Calculate new times
+    let newRemainingTime, newInitialTime
+
     if (pendingTimeAction.type === "add") {
-      // Update local state for immediate UI feedback
-      const newRemainingTime = remainingTime + pendingTimeAction.minutes * 60 * 1000
-      setRemainingTime(newRemainingTime)
-      setDisplayedRemainingTime(newRemainingTime)
-
-      // Call the onAddTime prop to update the table in the parent component
-      onAddTime(table.id, pendingTimeAction.minutes)
+      newRemainingTime = remainingTime + pendingTimeAction.minutes * 60 * 1000
+      newInitialTime = table.initialTime + pendingTimeAction.minutes * 60 * 1000
     } else {
-      // Update local state for immediate UI feedback
-      const newRemainingTime = Math.max(0, remainingTime - pendingTimeAction.minutes * 60 * 1000)
-      setRemainingTime(newRemainingTime)
-      setDisplayedRemainingTime(newRemainingTime)
-
-      // Call the onSubtractTime prop to update the table in the parent component
-      onSubtractTime(table.id, pendingTimeAction.minutes)
+      newRemainingTime = remainingTime - pendingTimeAction.minutes * 60 * 1000
+      newInitialTime = Math.max(0, table.initialTime - pendingTimeAction.minutes * 60 * 1000)
     }
 
+    // Update local state FIRST for immediate UI feedback
+    setRemainingTime(newRemainingTime)
+    setDisplayedRemainingTime(newRemainingTime)
+    setInitialTimeDisplay(Math.floor(newInitialTime / 60000))
+
+    // Clear the pending action and close the confirmation dialog first
     setShowTimeConfirmation(false)
     setPendingTimeAction(null)
-  }
 
-  // Handle guest count increment
-  const handleIncrementGuests = () => {
+    // Use requestAnimationFrame to schedule the event dispatches
+    requestAnimationFrame(() => {
+      // Dispatch event for real-time updates to all components
+      window.dispatchEvent(
+        new CustomEvent("table-time-update", {
+          detail: {
+            tableId: table.id,
+            remainingTime: newRemainingTime,
+            initialTime: newInitialTime,
+            source: "dialog",
+          },
+        }),
+      )
+
+      // Schedule the second event dispatch separately
+      setTimeout(() => {
+        // Also dispatch the local-table-update for backward compatibility
+        window.dispatchEvent(
+          new CustomEvent("local-table-update", {
+            detail: {
+              tableId: table.id,
+              field: "time",
+              value: {
+                remainingTime: newRemainingTime,
+                initialTime: newInitialTime,
+              },
+            },
+          }),
+        )
+
+        // Call the appropriate function to update the table in the parent component
+        if (pendingTimeAction?.type === "add") {
+          onAddTime(table.id, pendingTimeAction.minutes)
+        } else if (pendingTimeAction?.type === "subtract") {
+          onSubtractTime(table.id, pendingTimeAction.minutes)
+        }
+      }, 0)
+    })
+  }, [pendingTimeAction, remainingTime, table.id, table.initialTime, onAddTime, onSubtractTime])
+
+  // Listen for time updates from the confirmation dialog
+  useEffect(() => {
+    if (showTimeConfirmation && pendingTimeAction) {
+      // Pre-calculate what the new time would be
+      const previewRemainingTime =
+        pendingTimeAction.type === "add"
+          ? remainingTime + pendingTimeAction.minutes * 60 * 1000
+          : remainingTime - pendingTimeAction.minutes * 60 * 1000
+
+      const previewInitialTime =
+        pendingTimeAction.type === "add"
+          ? Math.floor((table.initialTime + pendingTimeAction.minutes * 60 * 1000) / 60000)
+          : Math.floor(Math.max(0, table.initialTime - minutes * 60 * 1000) / 60000)
+
+      // Show the preview time while confirmation is open
+      setDisplayedRemainingTime(previewRemainingTime)
+      setInitialTimeDisplay(previewInitialTime)
+    }
+  }, [showTimeConfirmation, pendingTimeAction, remainingTime, table.initialTime])
+
+  // Handle guest count increment with debounce for better touch response
+  const handleIncrementGuests = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+
     const newCount = Math.min(16, guestCount + 1) // Limit to 16
     setGuestCount(newCount)
+
+    // Update local state first for immediate UI feedback
+    window.dispatchEvent(
+      new CustomEvent("local-table-update", {
+        detail: {
+          tableId: table.id,
+          field: "guestCount",
+          value: newCount,
+        },
+      }),
+    )
+
+    // Call the update function directly for immediate response
     onUpdateGuestCount(table.id, newCount)
+
     setGuestInputMethod("buttons")
     setValidationError(null) // Clear validation error if guest count is updated
-  }
 
-  // Handle guest count decrement
-  const handleDecrementGuests = () => {
+    // Reset touch flag after a short delay
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
+  }, [guestCount, table.id, onUpdateGuestCount])
+
+  // Handle guest count decrement with debounce for better touch response
+  const handleDecrementGuests = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+
     const newCount = Math.max(0, guestCount - 1)
     setGuestCount(newCount)
-    onUpdateGuestCount(table.id, newCount)
-    setGuestInputMethod("buttons")
-  }
 
-  // Handle guest count click to show number pad
-  const handleGuestCountClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setShowNumberPad(true)
-  }
+    // Update local state first for immediate UI feedback
+    window.dispatchEvent(
+      new CustomEvent("local-table-update", {
+        detail: {
+          tableId: table.id,
+          field: "guestCount",
+          value: newCount,
+        },
+      }),
+    )
+
+    // Call the update function directly for immediate response
+    onUpdateGuestCount(table.id, newCount)
+
+    setGuestInputMethod("buttons")
+
+    // Reset touch flag after a short delay
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
+  }, [guestCount, table.id, onUpdateGuestCount])
 
   // Handle number pad input
-  const handleNumberPadInput = (value: number) => {
-    const newCount = Math.min(16, Math.max(0, value)) // Ensure between 0 and 16
-    setGuestCount(newCount)
-    onUpdateGuestCount(table.id, newCount)
-    setShowNumberPad(false)
-    setGuestInputMethod("numberpad") // Mark that numberpad was used
-    setValidationError(null) // Clear validation error if guest count is updated
-  }
+  const handleNumberPadInput = useCallback(
+    (value: number) => {
+      const newCount = Math.min(16, Math.max(0, value)) // Ensure between 0 and 16
+      setGuestCount(newCount)
+
+      // Update local state first for immediate UI feedback
+      window.dispatchEvent(
+        new CustomEvent("local-table-update", {
+          detail: {
+            tableId: table.id,
+            field: "guestCount",
+            value: newCount,
+          },
+        }),
+      )
+
+      // Call the update function directly for immediate response
+      onUpdateGuestCount(table.id, newCount)
+
+      setShowNumberPad(false)
+      setGuestInputMethod("numberpad") // Mark that numberpad was used
+      setValidationError(null) // Clear validation error if guest count is updated
+    },
+    [table.id, onUpdateGuestCount],
+  )
+
+  // Handle click on guest count to open number pad
+  const handleGuestCountClick = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+
+    setShowNumberPad(true)
+
+    // Reset touch flag after a short delay
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
+  }, [])
 
   // Handle end session with proper cleanup
-  const handleEndSession = () => {
+  const handleEndSession = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+
     setIsClosing(true)
     setDialogOpen(false)
     // Use setTimeout to ensure dialog closes before ending session
     setTimeout(() => {
       onEndSession(table.id)
       onClose()
+      touchInProgressRef.current = false
     }, 100)
-  }
+  }, [table.id, onEndSession, onClose])
 
   // Validate and start session
-  const validateAndStartSession = () => {
+  const validateAndStartSession = useCallback(() => {
     console.log("Validating session start:", { guestCount, server: table.server })
 
     // Check if guest count is greater than 0
@@ -355,20 +677,26 @@ export function TableDialog({
 
     // All validation passed
     return true
-  }
+  }, [guestCount, table.server])
 
   // Handle start session button click with validation
-  const handleStartSessionClick = () => {
+  const handleStartSessionClick = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+
     console.log("Start session button clicked")
 
     if (viewOnlyMode) {
       // In view-only mode, show notification instead of starting session
       setValidationError("Cannot start session in view-only mode")
+      touchInProgressRef.current = false
       return
     }
 
     // Run validation
     if (!validateAndStartSession()) {
+      touchInProgressRef.current = false
       return
     }
 
@@ -381,11 +709,16 @@ export function TableDialog({
     setTimeout(() => {
       onStartSession(table.id)
       onClose()
+      touchInProgressRef.current = false
     }, 100)
-  }
+  }, [table.id, viewOnlyMode, validateAndStartSession, onStartSession, onClose])
 
   // Handle dialog close with proper cleanup
-  const handleDialogClose = () => {
+  const handleDialogClose = useCallback(() => {
+    // Prevent multiple rapid clicks
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+
     console.log("Dialog closing, table active status:", table.isActive)
 
     // Set closing state to prevent reopening
@@ -414,6 +747,12 @@ export function TableDialog({
         onUpdateNotes(table.id, "", "")
         console.log("Reset notes to empty")
       }
+
+      // Reset any group selections if they were made but session wasn't started
+      if (table.groupId) {
+        onUngroupTable(table.id)
+        console.log("Reset group assignment")
+      }
     }
 
     // Reset local state
@@ -431,83 +770,100 @@ export function TableDialog({
     // Call the onClose prop after a short delay
     setTimeout(() => {
       onClose()
+      touchInProgressRef.current = false
     }, 100)
-  }
+  }, [
+    table.isActive,
+    table.server,
+    table.hasNotes,
+    table.noteId,
+    table.noteText,
+    table.groupId,
+    guestCount,
+    table.id,
+    onUpdateGuestCount,
+    onAssignServer,
+    onUpdateNotes,
+    onUngroupTable,
+    onClose,
+  ])
 
   // Determine if table is in overtime
   const isOvertime = table.isActive && remainingTime < 0
 
-  // Check if current user can manage this table
-  const canManageTable =
-    isAdmin ||
-    (isServer && currentUser && (table.server === currentUser.id || !table.server)) ||
-    hasPermission("canAssignServer")
-
-  // Filter servers based on enabled status
-  const getAvailableServers = () => {
+  // Filter servers based on enabled status - memoized
+  const availableServers = useMemo(() => {
     // Filter enabled servers and remove duplicates
-    const uniqueServers = servers
+    return servers
       .filter((server) => server.enabled !== false)
       .filter((server, index, self) => index === self.findIndex((s) => s.id === server.id))
-    return uniqueServers
-  }
-
-  const availableServers = getAvailableServers()
+  }, [servers])
 
   // Get the current server object
-  const currentServer = table.server ? availableServers.find((s) => s.id === table.server) : null
+  const currentServer = useMemo(
+    () => (table.server ? availableServers.find((s) => s.id === table.server) : null),
+    [table.server, availableServers],
+  )
 
   // Function to format start time
-  const formatStartTime = (startTime: number | null | undefined) => {
+  const formatStartTime = useCallback((startTime: number | null | undefined) => {
     if (!startTime) return "N/A"
     const date = new Date(startTime)
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
+  }, [])
 
   // Function to format elapsed time
-  const formatElapsedTime = (ms: number) => {
-    if (!table.isActive) {
-      // For inactive tables, show the initial time (60 minutes)
-      const totalMinutes = Math.floor(table.initialTime / 60000)
-      const hours = Math.floor(totalMinutes / 60)
-      const minutes = totalMinutes % 60
-      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:00`
-    }
+  const formatElapsedTime = useCallback(
+    (ms: number) => {
+      if (!table.isActive) {
+        // For inactive tables, show the initial time (60 minutes)
+        const totalMinutes = Math.floor(table.initialTime / 60000)
+        const hours = Math.floor(totalMinutes / 60)
+        const minutes = totalMinutes % 60
+        const seconds = 0
+        return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+      }
 
-    // For active tables, show elapsed time
-    const totalSeconds = Math.floor(ms / 1000)
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
+      // For active tables, show elapsed time
+      const totalSeconds = Math.floor(ms / 1000)
+      const hours = Math.floor(totalSeconds / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
 
-    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-  }
+      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+    },
+    [table.isActive, table.initialTime],
+  )
 
-  // Format remaining time as MM:SS
-  const formatRemainingTime = (ms: number) => {
+  // Format remaining time as MM:SS - FIXED to properly show negative values
+  const formatRemainingTime = useCallback((ms: number) => {
+    const isNegative = ms < 0
     const totalSeconds = Math.floor(Math.abs(ms) / 1000)
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
-    const sign = ms < 0 ? "-" : ""
+    const sign = isNegative ? "-" : ""
     return `${sign}${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
-  }
+  }, [])
 
-  // Format time for display in timer
-  const formatDisplayTime = (ms: number) => {
-    if (!table.isActive) {
-      // For inactive tables, show the initial time in minutes
-      const initialMinutes = Math.floor(ms / 60000)
-      return `${initialMinutes.toString().padStart(2, "0")}:00`
-    }
+  // Format time for display in timer - FIXED to properly show negative values
+  const formatDisplayTime = useCallback(
+    (ms: number) => {
+      if (!table.isActive) {
+        // For inactive tables, show the initial time in minutes
+        const initialMinutes = Math.floor(ms / 60000)
+        return `${initialMinutes.toString().padStart(2, "0")}:00`
+      }
 
-    // For active tables, show remaining time
-    return formatRemainingTime(ms)
-  }
+      // For active tables, show remaining time (including negative for overtime)
+      return formatRemainingTime(ms)
+    },
+    [table.isActive, formatRemainingTime],
+  )
 
   // Add the formatMinutes function if it doesn't exist
-  const formatMinutes = (minutes: number) => {
+  const formatMinutes = useCallback((minutes: number) => {
     return Math.round(minutes)
-  }
+  }, [])
 
   // If we're in the process of closing, don't render the dialog
   if (isClosing) {
@@ -587,7 +943,7 @@ export function TableDialog({
                   }}
                 >
                   <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
-                  <div className="text-[#00FFFF] text-xs mt-1">{formatMinutes(table.initialTime / 60000)} min</div>
+                  <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
                   <div className="text-[#00FFFF] text-xs">{table.isActive ? "Time Remaining" : "Time Allotted"}</div>
                 </div>
               </div>
@@ -597,7 +953,7 @@ export function TableDialog({
                 <Button
                   size="sm"
                   onClick={handleStartSessionClick}
-                  className="h-14 w-14 p-0 rounded-full bg-[#00FF33] hover:bg-[#00CC00] text-black transition-transform duration-200 hover:scale-110"
+                  className="h-14 w-14 p-0 rounded-full bg-[#00FF33] hover:bg-[#00CC00] text-black transition-transform duration-200 hover:scale-110 active:scale-95"
                   disabled={viewOnlyMode || !hasPermission("canStartSession")}
                 >
                   <PlayIcon className="h-8 w-8" />
@@ -607,7 +963,7 @@ export function TableDialog({
                   <Button
                     size="sm"
                     onClick={handleEndSession}
-                    className="h-14 w-14 p-0 rounded-full bg-[#FF3300] hover:bg-[#CC0000] text-white transition-transform duration-200 hover:scale-110"
+                    className="h-14 w-14 p-0 rounded-full bg-[#FF3300] hover:bg-[#CC0000] text-white transition-transform duration-200 hover:scale-110 active:scale-95"
                     disabled={viewOnlyMode || !hasPermission("canEndSession")}
                   >
                     <span className="text-lg font-bold">End</span>
@@ -633,7 +989,7 @@ export function TableDialog({
                   <MinusIcon className="h-6 w-6" />
                 </Button>
                 <div
-                  className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022]"
+                  className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95"
                   onClick={handleGuestCountClick}
                   style={{
                     boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)",
@@ -671,7 +1027,7 @@ export function TableDialog({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00]"
+                    className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95"
                     onClick={toggleServerEditMode}
                     disabled={viewOnlyMode}
                   >
@@ -691,8 +1047,8 @@ export function TableDialog({
                             variant={isSelected ? "default" : "outline"}
                             className={
                               isSelected
-                                ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold"
-                                : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation"
+                                ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
                             }
                             onClick={(e) => {
                               e.preventDefault()
@@ -718,8 +1074,8 @@ export function TableDialog({
                             variant={isSelected ? "default" : "outline"}
                             className={
                               isSelected
-                                ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold"
-                                : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation"
+                                ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
                             }
                             onClick={(e) => {
                               e.preventDefault()
@@ -827,6 +1183,21 @@ export function TableDialog({
             {selectedTab === "merge" && (
               <div className="mt-4 space-y-3">
                 <h3 className="text-center text-sm font-medium text-[#FF00FF]">Select tables to merge into a group</h3>
+
+                {/* Timer display - keep this consistent with the main timer display */}
+                <div className="flex justify-center items-center mb-4">
+                  <div
+                    className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
+                    style={{
+                      boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+                    }}
+                  >
+                    <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
+                    <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+                    <div className="text-[#00FFFF] text-xs">{table.isActive ? "Time Remaining" : "Time Allotted"}</div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-4 gap-2">
                   {allTables
                     .filter((t) => !t.isActive || t.groupId === table.groupId)
@@ -836,8 +1207,8 @@ export function TableDialog({
                         variant={selectedTables.includes(t.id) ? "default" : "outline"}
                         className={
                           selectedTables.includes(t.id)
-                            ? "w-full bg-[#FF00FF] text-white"
-                            : "w-full border-[#FF00FF] text-[#FF00FF]"
+                            ? "w-full bg-[#FF00FF] text-white active:scale-95"
+                            : "w-full border-[#FF00FF] text-[#FF00FF] active:scale-95"
                         }
                         onClick={() => toggleTableSelection(t.id)}
                       >
@@ -845,19 +1216,45 @@ export function TableDialog({
                       </Button>
                     ))}
                 </div>
-                <Button
-                  className="w-full bg-[#FF00FF] hover:bg-[#CC00CC] text-white"
-                  onClick={handleCreateGroup}
-                  disabled={selectedTables.length < 2}
-                >
-                  Create Group
-                </Button>
+
+                <div className="flex justify-between mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedTab("manage")}
+                    className="border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] active:scale-95"
+                  >
+                    Back
+                  </Button>
+
+                  <Button
+                    className="bg-[#FF00FF] hover:bg-[#CC00CC] text-white active:scale-95"
+                    onClick={handleCreateGroup}
+                    disabled={selectedTables.length < 2}
+                  >
+                    Create Group
+                  </Button>
+                </div>
               </div>
             )}
 
             {selectedTab === "move" && (
               <div className="mt-4 space-y-3">
                 <h3 className="text-center text-sm font-medium text-[#00FFFF]">Select target table</h3>
+
+                {/* Timer display - keep this consistent with the main timer display */}
+                <div className="flex justify-center items-center mb-4">
+                  <div
+                    className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
+                    style={{
+                      boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+                    }}
+                  >
+                    <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
+                    <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+                    <div className="text-[#00FFFF] text-xs">{table.isActive ? "Time Remaining" : "Time Allotted"}</div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-4 gap-2">
                   {allTables
                     .filter((t) => t.id !== table.id && !t.isActive)
@@ -867,8 +1264,8 @@ export function TableDialog({
                         variant={targetTableId === t.id ? "default" : "outline"}
                         className={
                           targetTableId === t.id
-                            ? "w-full bg-[#00FFFF] text-black"
-                            : "w-full border-[#00FFFF] text-[#00FFFF]"
+                            ? "w-full bg-[#00FFFF] text-black active:scale-95"
+                            : "w-full border-[#00FFFF] text-[#00FFFF] active:scale-95"
                         }
                         onClick={() => setTargetTableId(t.id)}
                       >
@@ -879,26 +1276,52 @@ export function TableDialog({
                 {allTables.filter((t) => t.id !== table.id && !t.isActive).length === 0 && (
                   <p className="text-center text-gray-400">No available target tables</p>
                 )}
-                <Button
-                  className="w-full bg-[#00FFFF] hover:bg-[#00CCCC] text-black"
-                  onClick={handleMoveTable}
-                  disabled={!targetTableId}
-                >
-                  Move Table Data
-                </Button>
+
+                <div className="flex justify-between mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedTab("manage")}
+                    className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] active:scale-95"
+                  >
+                    Back
+                  </Button>
+
+                  <Button
+                    className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black active:scale-95"
+                    onClick={handleMoveTable}
+                    disabled={!targetTableId}
+                  >
+                    Move Table Data
+                  </Button>
+                </div>
               </div>
             )}
 
             {selectedTab === "notes" && (
               <div className="mt-4 space-y-3">
                 <h3 className="text-center text-sm font-medium text-[#FFFF00]">Select note template</h3>
+
+                {/* Timer display - keep this consistent with the main timer display */}
+                <div className="flex justify-center items-center mb-4">
+                  <div
+                    className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
+                    style={{
+                      boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+                    }}
+                  >
+                    <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
+                    <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+                    <div className="text-[#00FFFF] text-xs">{table.isActive ? "Time Remaining" : "Time Allotted"}</div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant={selectedNoteId === "" ? "default" : "outline"}
                     className={
                       selectedNoteId === ""
-                        ? "w-full bg-[#FFFF00] text-black"
-                        : "w-full border-[#FFFF00] text-[#FFFF00]"
+                        ? "w-full bg-[#FFFF00] text-black active:scale-95"
+                        : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"
                     }
                     onClick={() => handleNoteSelection("")}
                   >
@@ -910,8 +1333,8 @@ export function TableDialog({
                       variant={selectedNoteId === note.id ? "default" : "outline"}
                       className={
                         selectedNoteId === note.id
-                          ? "w-full bg-[#FFFF00] text-black"
-                          : "w-full border-[#FFFF00] text-[#FFFF00]"
+                          ? "w-full bg-[#FFFF00] text-black active:scale-95"
+                          : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"
                       }
                       onClick={() => handleNoteSelection(note.id)}
                     >
@@ -925,6 +1348,16 @@ export function TableDialog({
                     <p className="text-[#FFFF00]">{noteTemplates.find((n) => n.id === selectedNoteId)?.text || ""}</p>
                   </div>
                 )}
+
+                <div className="flex justify-between mt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setSelectedTab("manage")}
+                    className="border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] active:scale-95"
+                  >
+                    Back
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -939,7 +1372,7 @@ export function TableDialog({
             <Button
               variant="outline"
               onClick={handleDialogClose}
-              className="w-full border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] h-10"
+              className="w-full border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] h-10 active:scale-95"
             >
               Close
             </Button>
@@ -952,14 +1385,7 @@ export function TableDialog({
         <NumberPad
           open={showNumberPad}
           onClose={() => setShowNumberPad(false)}
-          onSubmit={(value) => {
-            const newCount = Math.min(16, Math.max(0, value)) // Ensure value is between 0 and 16
-            setGuestCount(newCount)
-            onUpdateGuestCount(table.id, newCount)
-            setShowNumberPad(false)
-            setGuestInputMethod("numberpad") // Mark that numberpad was used
-            setValidationError(null) // Clear validation error if guest count is updated
-          }}
+          onSubmit={handleNumberPadInput}
           initialValue={guestCount}
           maxValue={16}
           minValue={0}
@@ -1005,7 +1431,7 @@ export function TableDialog({
               <Button
                 variant="outline"
                 onClick={() => setShowTimeConfirmation(false)}
-                className="border-gray-600 bg-[#000033] hover:bg-[#000066] text-white"
+                className="border-gray-600 bg-[#000033] hover:bg-[#000066] text-white active:scale-95"
               >
                 Cancel
               </Button>
@@ -1013,8 +1439,8 @@ export function TableDialog({
                 onClick={executeTimeChange}
                 className={
                   pendingTimeAction.type === "add"
-                    ? "bg-[#00FFFF] hover:bg-[#00CCCC] text-black font-bold"
-                    : "bg-[#FFFF00] hover:bg-[#CCCC00] text-black font-bold"
+                    ? "bg-[#00FFFF] hover:bg-[#00CCCC] text-black font-bold active:scale-95"
+                    : "bg-[#FFFF00] hover:bg-[#CCCC00] text-black font-bold active:scale-95"
                 }
               >
                 Confirm
