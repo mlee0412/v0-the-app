@@ -1359,9 +1359,35 @@ export function BilliardsTimerDashboard() {
 
   // Complete start day after report
   const completeStartDay = async () => {
-    // Reset all tables but preserve servers and note templates
-    await updateTables(initialTables)
+    // Reset all tables to default status
+    const resetTables = initialTables.map((table) => ({
+      ...table,
+      isActive: false,
+      startTime: null,
+      remainingTime: DEFAULT_TIME,
+      initialTime: DEFAULT_TIME,
+      guestCount: 0,
+      server: null,
+      groupId: null,
+      hasNotes: false,
+      noteId: "",
+      noteText: "",
+      updated_by_admin: false,
+      updated_by: null,
+      updatedAt: new Date().toISOString(),
+    }))
+
+    // Update tables in Supabase
+    await updateTables(resetTables)
     await updateSystemSettings(true, 1)
+
+    // Also update the local state
+    setTables(resetTables)
+
+    // Notify table store about the reset
+    resetTables.forEach((table) => {
+      useTableStore.getState().refreshTable(table.id, table)
+    })
 
     await addLogEntry(0, "Day Started", `Started at ${formatCurrentTime(new Date())}`)
     showNotification("Day started successfully", "success")
@@ -1377,21 +1403,35 @@ export function BilliardsTimerDashboard() {
       }
     }
 
-    // Reset all tables with proper null values for UUID fields
-    // but preserve servers and note templates
+    // Reset all tables to default status
     const resetTables = initialTables.map((table) => ({
       ...table,
-      server: null, // Ensure server is null, not empty string
-      groupId: null, // Ensure groupId is null, not empty string
-      noteId: "", // noteId can be empty string as it's not a UUID in the database
-      noteText: "",
+      isActive: false,
+      startTime: null,
+      remainingTime: DEFAULT_TIME,
+      initialTime: DEFAULT_TIME,
+      guestCount: 0,
+      server: null,
+      groupId: null,
       hasNotes: false,
-      updated_by: null, // Ensure updated_by is null, not empty string
+      noteId: "",
+      noteText: "",
+      updated_by_admin: false,
+      updated_by: null,
       updatedAt: new Date().toISOString(),
     }))
 
+    // Update tables in Supabase
     await updateTables(resetTables)
     await updateSystemSettings(false, 1)
+
+    // Also update the local state
+    setTables(resetTables)
+
+    // Notify table store about the reset
+    resetTables.forEach((table) => {
+      useTableStore.getState().refreshTable(table.id, table)
+    })
 
     await addLogEntry(0, "Day Ended", `Ended at ${formatCurrentTime(new Date())}`)
     showNotification("Day ended successfully", "info")
