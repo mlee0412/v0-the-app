@@ -592,10 +592,9 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   // Format time for display in table card - memoized
   const formatTime = useMemo(() => {
     return (ms: number) => {
-      // For inactive tables, show the initial time in minutes
+      // For inactive tables, always show exactly 60:00 regardless of stored time
       if (!localTable.isActive) {
-        const initialMinutes = Math.floor(ms / 60000)
-        return `${initialMinutes}:00`
+        return "60:00"
       }
 
       // For active tables, show remaining time
