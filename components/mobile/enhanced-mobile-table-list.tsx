@@ -68,6 +68,7 @@ export function EnhancedMobileTableList({
   const pullMoveY = useRef(0)
   const refreshing = useRef(false)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartTime = useRef(0)
 
   // Detect orientation changes
   useEffect(() => {
@@ -114,6 +115,9 @@ export function EnhancedMobileTableList({
 
   // Pull to refresh implementation
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Record touch start time for distinguishing between taps and swipes
+    touchStartTime.current = Date.now()
+
     // Only enable pull-to-refresh when at the top of the container
     if (containerRef.current && containerRef.current.scrollTop === 0) {
       pullStartY.current = e.touches[0].clientY
@@ -137,7 +141,7 @@ export function EnhancedMobileTableList({
     }
   }
 
-  const handleTouchEnd = async () => {
+  const handleTouchEnd = async (e: React.TouchEvent) => {
     if (refreshing.current) return
 
     const pullDistance = pullMoveY.current - pullStartY.current
@@ -268,7 +272,7 @@ export function EnhancedMobileTableList({
   return (
     <div
       ref={containerRef}
-      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto h-full pb-20 mobile-scroll-container"
+      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto h-full pb-20 mobile-scroll-container ios-touch-fix"
       style={{ WebkitOverflowScrolling: "touch" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -380,39 +384,41 @@ export function EnhancedMobileTableList({
 
       {/* Table dialog */}
       {selectedTable && (
-        <TableDialog
-          table={selectedTable}
-          servers={servers}
-          allTables={tables}
-          noteTemplates={noteTemplates}
-          logs={logs}
-          onClose={closeTableDialog}
-          onStartSession={onStartSession}
-          onEndSession={onEndSession}
-          onAddTime={onAddTime}
-          onSubtractTime={(tableId, minutes) => {
-            // Provide haptic feedback
-            if (navigator.vibrate) {
-              navigator.vibrate(15)
-            }
-            onAddTime(tableId)
-          }}
-          onUpdateGuestCount={onUpdateGuestCount}
-          onAssignServer={onAssignServer}
-          onGroupTables={onGroupTables}
-          onUngroupTable={onUngroupTable}
-          onMoveTable={onMoveTable}
-          onUpdateNotes={onUpdateNotes}
-          getServerName={getServerName}
-          currentUser={currentUser}
-          hasPermission={hasPermission}
-          viewOnlyMode={viewOnlyMode}
-        />
+        <div className="table-dialog">
+          <TableDialog
+            table={selectedTable}
+            servers={servers}
+            allTables={tables}
+            noteTemplates={noteTemplates}
+            logs={logs}
+            onClose={closeTableDialog}
+            onStartSession={onStartSession}
+            onEndSession={onEndSession}
+            onAddTime={onAddTime}
+            onSubtractTime={(tableId, minutes) => {
+              // Provide haptic feedback
+              if (navigator.vibrate) {
+                navigator.vibrate(15)
+              }
+              onAddTime(tableId)
+            }}
+            onUpdateGuestCount={onUpdateGuestCount}
+            onAssignServer={onAssignServer}
+            onGroupTables={onGroupTables}
+            onUngroupTable={onUngroupTable}
+            onMoveTable={onMoveTable}
+            onUpdateNotes={onUpdateNotes}
+            getServerName={getServerName}
+            currentUser={currentUser}
+            hasPermission={hasPermission}
+            viewOnlyMode={viewOnlyMode}
+          />
+        </div>
       )}
 
       {/* Add Time Dialog */}
       {showAddTimeDialog && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 table-dialog">
           <div className="bg-[#000033] border border-[#00FFFF] rounded-lg p-4 w-[90%] max-w-[300px]">
             <h3 className="text-[#00FFFF] text-lg mb-4 text-center">Add Time</h3>
             <div className="grid grid-cols-2 gap-3 mb-4">

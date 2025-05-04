@@ -123,6 +123,7 @@
   transition: transform 0.3s ease;
   position: relative;
   z-index: 1;
+  touch-action: pan-y;
 }
 
 .swipe-action-left,
@@ -256,4 +257,63 @@
 
 .swipe-indicator.visible {
   opacity: 1;
+}
+
+/* Hide system elements on mobile */
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  /* Ensure dialogs are properly positioned and accessible */
+  .dialog-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none; /* Prevent scrolling behind dialog */
+  }
+
+  /* Improve touch targets for all interactive elements */
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  .interactive {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 8px;
+    touch-action: manipulation; /* Improve touch handling */
+  }
+
+  /* Fix iOS-specific touch issues */
+  .ios-touch-fix {
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Fix for iOS touch events */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure table dialog is accessible on mobile */
+.table-dialog {
+  z-index: 1000;
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
+.table-dialog-content {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }

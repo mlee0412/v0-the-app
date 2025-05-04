@@ -170,6 +170,9 @@ export function BilliardsTimerDashboard() {
   const [showAddSessionDialog, setShowAddSessionDialog] = useState(false)
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
 
+  // Add state to hide system elements on mobile
+  const [hideSystemElements, setHideSystemElements] = useState(isMobile)
+
   // Add this state near the other state declarations
   const [showServerSelectionDialog, setShowServerSelectionDialog] = useState(false)
 
@@ -198,6 +201,11 @@ export function BilliardsTimerDashboard() {
 
   // Add a new state to track view-only mode
   const [viewOnlyMode, setViewOnlyMode] = useState(false)
+
+  // Update hideSystemElements when isMobile changes
+  useEffect(() => {
+    setHideSystemElements(isMobile)
+  }, [isMobile])
 
   // Sync tables from Supabase
   useEffect(() => {
