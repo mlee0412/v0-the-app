@@ -378,13 +378,17 @@ export default function TableDialog({
       if (touchInProgressRef.current) return
       touchInProgressRef.current = true
 
-      // Preview the time change immediately
-      const previewRemainingTime = remainingTime + minutes * 60 * 1000
-      const previewInitialTime = Math.floor((localTable.initialTime + minutes * 60 * 1000) / 60000)
+      // Update the display immediately
+      const additionalMs = minutes * 60 * 1000
+      const newRemainingTime = remainingTime + additionalMs
+      const newInitialTime = localTable.initialTime + additionalMs
 
-      setDisplayedRemainingTime(previewRemainingTime)
-      setInitialTimeDisplay(previewInitialTime)
+      // Update displayed values immediately
+      setDisplayedRemainingTime(newRemainingTime)
+      setRemainingTime(newRemainingTime)
+      setInitialTimeDisplay(Math.floor(newInitialTime / 60000))
 
+      // Store the pending action for confirmation
       setPendingTimeAction({ type: "add", minutes })
       setShowTimeConfirmation(true)
 
@@ -403,13 +407,17 @@ export default function TableDialog({
       if (touchInProgressRef.current) return
       touchInProgressRef.current = true
 
-      // Preview the time change immediately
-      const previewRemainingTime = remainingTime - minutes * 60 * 1000
-      const previewInitialTime = Math.floor(Math.max(0, localTable.initialTime - minutes * 60 * 1000) / 60000)
+      // Update the display immediately
+      const additionalMs = minutes * 60 * 1000
+      const newRemainingTime = remainingTime - additionalMs
+      const newInitialTime = Math.max(0, localTable.initialTime - additionalMs)
 
-      setDisplayedRemainingTime(previewRemainingTime)
-      setInitialTimeDisplay(previewInitialTime)
+      // Update displayed values immediately
+      setDisplayedRemainingTime(newRemainingTime)
+      setRemainingTime(newRemainingTime)
+      setInitialTimeDisplay(Math.floor(newInitialTime / 60000))
 
+      // Store the pending action for confirmation
       setPendingTimeAction({ type: "subtract", minutes })
       setShowTimeConfirmation(true)
 
@@ -1254,7 +1262,15 @@ export default function TableDialog({
 
                   <div className="grid grid-cols-4 gap-2">
                     {allTables
-                      .filter((t) => !t.isActive || t.groupId === localTable.groupId)
+                      .filter(
+                        (t) => (!t.isActive || t.groupId === localTable.groupId) && t.name.toLowerCase() !== "system",
+                      )
+                      .sort((a, b) => {
+                        // Extract numeric part from table names (e.g., "T1" -> 1)
+                        const numA = Number.parseInt(a.name.replace(/\D/g, "")) || 0
+                        const numB = Number.parseInt(b.name.replace(/\D/g, "")) || 0
+                        return numA - numB
+                      })
                       .map((t) => (
                         <Button
                           key={t.id}
@@ -1303,7 +1319,13 @@ export default function TableDialog({
 
                   <div className="grid grid-cols-4 gap-2">
                     {allTables
-                      .filter((t) => t.id !== localTable.id && !t.isActive)
+                      .filter((t) => t.id !== localTable.id && !t.isActive && t.name.toLowerCase() !== "system")
+                      .sort((a, b) => {
+                        // Extract numeric part from table names (e.g., "T1" -> 1)
+                        const numA = Number.parseInt(a.name.replace(/\D/g, "")) || 0
+                        const numB = Number.parseInt(b.name.replace(/\D/g, "")) || 0
+                        return numA - numB
+                      })
                       .map((t) => (
                         <Button
                           key={t.id}
