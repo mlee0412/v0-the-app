@@ -27,6 +27,7 @@ import { OfflineDetector } from "@/components/mobile/offline-detector"
 import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container"
 import { AccessibilityControls } from "@/components/mobile/accessibility-controls"
 import { useMobileDetect } from "@/hooks/use-mobile"
+import { IOSTouchFix } from "@/components/ios-touch-fix"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -422,43 +423,15 @@ export function BilliardsTimerDashboard() {
     await addSupabaseLogEntry(tableId, tableId === 0 ? "System" : table?.name || "Unknown", action, details)
   }
 
-  // Open table dialog
+  // Open table dialog - simplified to always open the dialog first
   const openTableDialog = (table: Table) => {
-    // Check if day has been started
-    if (!supabaseDayStarted) {
-      showNotification("Please start the day before managing tables", "error")
-      return
-    }
-
-    if (!isAuthenticated && !viewOnlyMode) {
-      // Instead of showing login dialog, show notification to use Admin button
-      if (loginAttemptFailed) {
-        showNotification("Please log in using the Admin button", "error")
-      } else {
-        setLoginUsername("admin")
-        setLoginPassword("")
-        setShowTouchLogin(true)
-      }
-      return
-    }
-
-    // If in view-only mode, show a limited view of the table
-    if (viewOnlyMode) {
-      // We'll still show the dialog but all action buttons will be disabled
-      setSelectedTable(table)
-      return
-    }
-
-    // If server, check if they can interact with this table
-    if (isServer) {
-      // If table is already assigned to a different server, don't allow interaction
-      if (table.server && table.server !== currentUser?.id) {
-        showNotification("This table is assigned to another server", "error")
-        return
-      }
-    }
-
+    // Always set the selected table immediately to show the dialog
     setSelectedTable(table)
+
+    // Show login prompt if needed, but don't block the dialog
+    if (!isAuthenticated && !viewOnlyMode) {
+      showNotification("Login required for some actions", "info")
+    }
   }
 
   // Close table dialog
@@ -1618,6 +1591,9 @@ export function BilliardsTimerDashboard() {
           flexDirection: "column",
         }}
       >
+        {/* Add the iOS touch fix component */}
+        <IOSTouchFix />
+
         {/* Replace the 3D Space Background with our new animation */}
         <SpaceBackgroundAnimation intensity={1.5} />
 

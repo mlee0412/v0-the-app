@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef } from "react"
 import type { Table } from "@/components/billiards-timer-dashboard"
 import type { Server } from "@/components/billiards-timer-dashboard"
 import type { LogEntry } from "@/components/billiards-timer-dashboard"
@@ -18,38 +18,7 @@ export function MobileTableList({ tables, servers, logs, onTableClick }: MobileT
   const { isAuthenticated, isServer, currentUser } = useAuth()
   const [filterActive, setFilterActive] = useState(false)
   const [filterAssigned, setFilterAssigned] = useState(false)
-  const [isScrolling, setIsScrolling] = useState(false)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-
-  // Handle scroll events
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleScroll = () => {
-      setIsScrolling(true)
-
-      // Clear any existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
-
-      // Set a timeout to reset the scrolling flag
-      scrollTimeoutRef.current = setTimeout(() => {
-        setIsScrolling(false)
-      }, 200)
-    }
-
-    container.addEventListener("scroll", handleScroll, { passive: true })
-
-    return () => {
-      container.removeEventListener("scroll", handleScroll)
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
-    }
-  }, [])
 
   // Filter tables based on active status and assigned tables
   let filteredTables = [...tables]
@@ -66,24 +35,6 @@ export function MobileTableList({ tables, servers, logs, onTableClick }: MobileT
 
   // Sort tables numerically by ID
   filteredTables.sort((a, b) => a.id - b.id)
-
-  // Check if current user can interact with this table
-  const canInteractWithTable = (table: Table) => {
-    if (!isAuthenticated) return false
-    if (!isServer) return true // Admin or viewer can see all tables
-
-    // Server can only interact with their own tables or unassigned tables
-    return !table.server || table.server === currentUser?.id
-  }
-
-  // Handle table click with scrolling check
-  const handleTableClick = (table: Table) => {
-    if (isScrolling) return
-
-    if (canInteractWithTable(table)) {
-      onTableClick(table)
-    }
-  }
 
   return (
     <div
@@ -118,11 +69,11 @@ export function MobileTableList({ tables, servers, logs, onTableClick }: MobileT
 
       <div className="space-y-4 pb-4">
         {filteredTables.map((table) => {
-          const canInteract = canInteractWithTable(table)
-
+          // Simple direct click handler - no conditions or checks
           return (
-            <div key={table.id} className={`${canInteract ? "" : "opacity-70"} mb-4`}>
-              <TableCard table={table} servers={servers} logs={logs} onClick={() => handleTableClick(table)} />
+            <div key={table.id} className="mb-4 relative">
+              <div className="absolute inset-0 z-30" onClick={() => onTableClick(table)}></div>
+              <TableCard table={table} servers={servers} logs={logs} onClick={() => onTableClick(table)} />
             </div>
           )
         })}

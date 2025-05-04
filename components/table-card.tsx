@@ -41,6 +41,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   // Track touch start position to detect scrolling
   const touchStartRef = useRef({ x: 0, y: 0 })
   const hasMoved = useRef(false)
+  const touchStartTime = useRef(0)
 
   // New state for warning animation toggle
   const [warningAnimationEnabled, setWarningAnimationEnabled] = useState(true)
@@ -327,6 +328,9 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
     }
   }, [localTable.id, localTable.remainingTime, localTable.startTime])
 
@@ -589,6 +593,8 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     }
   }, [tableStatus, localTable.isActive, warningAnimationEnabled])
 
+  // Format time  warningAnimationEnabled])
+
   // Format time for display in table card - memoized
   const formatTime = useMemo(() => {
     return (ms: number) => {
@@ -613,381 +619,71 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   const [remainingTime, setRemainingTime] = useState(calculateRemainingTime())
   const [displayedRemainingTime, setDisplayedRemainingTime] = useState(calculateRemainingTime())
 
-  // Handle mouse down for long press detection
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (!localTable.isActive) return
+  // Use a simple click handler instead of the complicated touch handlers
+  const handleClick = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      // Prevent default behavior to avoid any browser interference
+      e.preventDefault()
+      e.stopPropagation()
 
-      // Set position for popup
-      setPopupPosition({ x: e.clientX, y: e.clientY })
+      // On iOS, we need to make sure the click isn't swallowed
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 
-      // Clear any existing timeout
-      if (longPressTimeoutRef.current) {
-        clearTimeout(longPressTimeoutRef.current)
-      }
-
-      isLongPressRef.current = false
-
-      // Set timeout for long press detection (500ms)
-      longPressTimeoutRef.current = setTimeout(() => {
-        isLongPressRef.current = true
-        setShowSessionLog(true)
-      }, 500)
-    },
-    [localTable.isActive],
-  )
-
-  // Handle mouse up
-  const handleMouseUp = useCallback(() => {
-    // Clear timeout
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current)
-      longPressTimeoutRef.current = null
-    }
-
-    // If not a long press, trigger normal click
-    if (!isLongPressRef.current && !showSessionLog) {
-      onClick()
-    }
-  }, [onClick, showSessionLog])
-
-  // Improved touch handlers for mobile
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      if (!localTable.isActive) return
-
-      const touch = e.touches[0]
-
-      // Record the starting position
-      touchStartRef.current = { x: touch.clientX, y: touch.clientY }
-      hasMoved.current = false
-
-      setPopupPosition({ x: touch.clientX, y: touch.clientY })
-
-      // Clear any existing timeout
-      if (longPressTimeoutRef.current) {
-        clearTimeout(longPressTimeoutRef.current)
-      }
-
-      isLongPressRef.current = false
-
-      // Set timeout for long press detection (500ms)
-      longPressTimeoutRef.current = setTimeout(() => {
-        isLongPressRef.current = true
-        setShowSessionLog(true)
-      }, 500)
-    },
-    [localTable.isActive],
-  )
-
-  // Handle touch move to detect scrolling
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!localTable.isActive) return
-
-      const touch = e.touches[0]
-      const deltaX = Math.abs(touch.clientX - touchStartRef.current.x)
-      const deltaY = Math.abs(touch.clientY - touchStartRef.current.y)
-
-      // If moved more than 10px in any direction, consider it a scroll
-      if (deltaX > 10 || deltaY > 10) {
-        hasMoved.current = true
-
-        // Clear long press timeout if we're scrolling
-        if (longPressTimeoutRef.current) {
-          clearTimeout(longPressTimeoutRef.current)
-          longPressTimeoutRef.current = null
-        }
-      }
-    },
-    [localTable.isActive],
-  )
-
-  // Handle touch end
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      // Clear timeout
-      if (longPressTimeoutRef.current) {
-        clearTimeout(longPressTimeoutRef.current)
-        longPressTimeoutRef.current = null
-      }
-
-      // Only trigger click if:
-      // 1. It wasn't a long press
-      // 2. We're not showing the session log
-      // 3. The user didn't move (scroll) significantly
-      if (!isLongPressRef.current && !showSessionLog && !hasMoved.current) {
-        // Prevent default to avoid any double-tap zoom issues
-        e.preventDefault()
-        onClick()
-      }
-    },
-    [onClick, showSessionLog],
-  )
-
-  // Handle mouse move for 3D effect
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!cardRef.current) return
-
-    const rect = cardRef.current.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    const mouseX = e.clientX - centerX
-    const mouseY = e.clientY - centerY
-
-    // Calculate rotation (limited to +/- 5 degrees)
-    const rotateY = (mouseX / (rect.width / 2)) * 5
-    const rotateX = -(mouseY / (rect.height / 2)) * 5
-
-    setRotation({ x: rotateX, y: rotateY })
-  }, [])
-
-  // Handle mouse enter/leave for 3D effect
-  const handleMouseEnter = useCallback(() => {
-    setIsHovered(true)
-  }, [])
-
-  const handleMouseLeave = useCallback(() => {
-    setIsHovered(false)
-    setRotation({ x: 0, y: 0 })
-  }, [])
-
-  // Listen for global time tick instead of using our own interval
-  useEffect(() => {
-    const handleGlobalTimeTick = (event: CustomEvent) => {
-      if (!localTable.isActive || !localTable.startTime) return
-
-      const now = event.detail.timestamp
-      const newElapsedTime = localTable.startTime ? now - localTable.startTime : 0
-      const newRemainingTime = localTable.initialTime - newElapsedTime
-
-      // Use requestAnimationFrame to ensure updates happen outside render cycle
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-
-      animationFrameRef.current = requestAnimationFrame(() => {
-        setElapsedTime(newElapsedTime)
-        setRemainingTime(newRemainingTime)
-        setDisplayedRemainingTime(newRemainingTime)
-      })
-    }
-
-    window.addEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
-
-    // Initial calculation
-    if (localTable.isActive && localTable.startTime) {
-      const now = Date.now()
-      setElapsedTime(now - localTable.startTime)
-      setRemainingTime(localTable.initialTime - (now - localTable.startTime))
-    }
-
-    return () => {
-      window.removeEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
-    }
-  }, [localTable.isActive, localTable.startTime, localTable.initialTime])
-
-  // Particle animation effect with optimizations
-  useEffect(() => {
-    const canvas = particlesRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    // Set canvas dimensions
-    const updateCanvasSize = () => {
-      if (!cardRef.current || !canvas) return
-      const rect = cardRef.current.getBoundingClientRect()
-      canvas.width = rect.width
-      canvas.height = rect.height
-    }
-
-    updateCanvasSize()
-
-    // Use a more efficient resize observer instead of window resize event
-    const resizeObserver = new ResizeObserver(updateCanvasSize)
-    if (cardRef.current) {
-      resizeObserver.observe(cardRef.current)
-    }
-
-    // Create particles
-    const particles: Array<{
-      x: number
-      y: number
-      size: number
-      speedX: number
-      speedY: number
-      color: string
-      opacity: number
-    }> = []
-
-    // Determine particle color based on table status
-    const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
-    let particleColor = "#00FFFF"
-
-    if (localTable.isActive) {
-      if (isOvertime) {
-        particleColor = "#FF0000"
-      } else if (isWarningOrange) {
-        // Interpolate between yellow and red based on intensity
-        const r = Math.floor(255)
-        const g = Math.floor(165 - orangeIntensity * 165)
-        const b = Math.floor(0)
-        particleColor = `rgb(${r}, ${g}, ${b})`
-      } else if (isWarningYellow) {
-        particleColor = "#FFFF00"
+      if (isIOS) {
+        // Call onClick directly with a slight delay
+        setTimeout(() => {
+          onClick()
+        }, 50) // Increased delay for better touch discrimination
       } else {
-        particleColor = "#00FF00"
+        // For non-iOS, just call onClick directly with a small delay
+        setTimeout(() => {
+          onClick()
+        }, 10)
       }
-    }
+    },
+    [onClick],
+  )
 
-    // If table is in a group, use group color for some particles
-    if (localTable.groupId) {
-      particleColor = getGroupColor()
-    }
+  const borderStyles = useMemo(() => getBorderStyles(), [getBorderStyles])
+  const backgroundStyles = useMemo(() => getBackgroundStyles(), [getBackgroundStyles])
 
-    // Create initial particles - reduce count for better performance
-    const particleCount = localTable.isActive ? 30 : 15
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 2.5 + 0.8,
-        speedX: (Math.random() - 0.5) * 0.5,
-        speedY: (Math.random() - 0.5) * 0.5,
-        color: particleColor,
-        opacity: Math.random() * 0.7 + 0.4,
-      })
-    }
-
-    // Animation loop with performance optimizations
-    const animate = () => {
-      if (!ctx || !canvas) return
-
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      // Update and draw particles
-      particles.forEach((particle) => {
-        // Update position
-        particle.x += particle.speedX
-        particle.y += particle.speedY
-
-        // Wrap around edges
-        if (particle.x < 0) particle.x = canvas.width
-        if (particle.x > canvas.width) particle.x = 0
-        if (particle.y < 0) particle.y = canvas.height
-        if (particle.y > canvas.height) particle.y = 0
-
-        // Draw particle with glow
-        ctx.beginPath()
-        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
-        ctx.fillStyle = particle.color.replace("1)", `${particle.opacity})`)
-        ctx.shadowBlur = 10
-        ctx.shadowColor = particle.color
-        ctx.fill()
-        ctx.shadowBlur = 0
-      })
-
-      particleAnimationRef.current = requestAnimationFrame(animate)
-    }
-
-    animate()
-
-    return () => {
-      resizeObserver.disconnect()
-      if (particleAnimationRef.current) {
-        cancelAnimationFrame(particleAnimationRef.current)
-      }
-    }
-  }, [localTable.isActive, localTable.groupId, tableStatus, getGroupColor])
-
-  // Enhanced group indicator animation
-  useEffect(() => {
-    if (!localTable.groupId || !groupIndicatorRef.current) return
-
-    const groupColor = getGroupColor()
-    const indicator = groupIndicatorRef.current
-
-    // Create animated border effect
-    const animateBorder = () => {
-      let phase = 0
-      let direction = 1
-
-      const animate = () => {
-        phase += 0.05 * direction
-
-        if (phase > 1) {
-          phase = 1
-          direction = -1
-        } else if (phase < 0) {
-          phase = 0
-          direction = 1
-        }
-
-        const intensity = 0.5 + phase * 0.5
-        indicator.style.boxShadow = `0 0 ${10 + phase * 20}px ${groupColor}, inset 0 0 ${5 + phase * 15}px ${groupColor}`
-        indicator.style.opacity = (0.7 + phase * 0.3).toString()
-
-        requestAnimationFrame(animate)
-      }
-
-      animate()
-    }
-
-    animateBorder()
-  }, [localTable.groupId, getGroupColor])
-
-  const borderStyles = getBorderStyles()
-  const backgroundStyles = getBackgroundStyles()
-
-  // Get text color based on status for better visibility
   const getTimerTextColor = useCallback(() => {
-    const { isOvertime, isWarningYellow, isWarningOrange } = tableStatus
-
-    if (isOvertime) return "#FFFFFF"
-    if (isWarningOrange) return "#FFFFFF"
-    if (isWarningYellow) return "#FFFFFF"
-    if (localTable.isActive) return "#FFFFFF"
-    return "#00FFFF"
+    if (tableStatus.isOvertime) {
+      return "#FF4500" // Red-orange for overtime
+    } else if (tableStatus.isWarningOrange) {
+      return "#FF8C00" // Dark orange for warning
+    } else if (tableStatus.isWarningYellow) {
+      return "#FFFF00" // Yellow for warning
+    } else if (localTable.isActive) {
+      return "#ADFF2F" // Green-yellow for active
+    } else {
+      return "#FFFFFF" // White for inactive
+    }
   }, [tableStatus, localTable.isActive])
 
-  // Get text shadow based on status for better visibility
   const getTimerTextShadow = useCallback(() => {
-    const { isOvertime, isWarningYellow, isWarningOrange } = tableStatus
-
-    if (isOvertime) {
-      return "0 0 10px rgba(255, 0, 0, 1), 0 0 20px rgba(255, 0, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
+    if (tableStatus.isOvertime) {
+      return "0 0 15px rgba(255, 69, 0, 0.8)" // Red-orange glow
+    } else if (tableStatus.isWarningOrange) {
+      return "0 0 12px rgba(255, 140, 0, 0.8)" // Dark orange glow
+    } else if (tableStatus.isWarningYellow) {
+      return "0 0 10px rgba(255, 255, 0, 0.8)" // Yellow glow
+    } else if (localTable.isActive) {
+      return "0 0 8px rgba(173, 255, 47, 0.8)" // Green-yellow glow
+    } else {
+      return "0 0 5px rgba(255, 255, 255, 0.5)" // Soft white glow
     }
-    if (isWarningOrange) {
-      return "0 0 10px rgba(255, 165, 0, 1), 0 0 20px rgba(255, 165, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
-    }
-    if (isWarningYellow) {
-      return "0 0 10px rgba(255, 255, 0, 1), 0 0 20px rgba(255, 255, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
-    }
-    if (localTable.isActive) {
-      return "0 0 10px rgba(0, 255, 0, 1), 0 0 20px rgba(0, 255, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.8)"
-    }
-    return "0 0 10px rgba(0, 255, 255, 1), 0 0 20px rgba(0, 255, 255, 0.8)"
   }, [tableStatus, localTable.isActive])
 
+  // Replace the existing click handlers with this simpler version
   return (
     <>
       <div
         ref={cardRef}
-        className="rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:scale-[1.02] h-[130px] relative table-card"
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseMove={handleMouseMove}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        className="rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:scale-[1.02] h-[130px] relative table-card ios-touch-fix"
+        onClick={handleClick}
         style={{
           transform: isHovered
             ? `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`

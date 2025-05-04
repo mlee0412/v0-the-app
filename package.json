@@ -61,6 +61,9 @@
     "@theatre/core": "latest",
     "immer": "latest",
     "use-sync-external-store": "latest",
+    "@emotion/react": "latest",
+    "@emotion/styled": "latest",
+    "@mui/material-pigment-css": "latest",
     "@theatre/studio": "latest",
     "three": "latest",
     "@supabase/supabase-js": "latest",
@@ -68,7 +71,9 @@
     "ai": "latest",
     "@ai-sdk/xai": "latest",
     "zustand": "latest",
-    "lodash": "latest"
+    "lodash": "latest",
+    "@mui/material": "latest",
+    "react-swipeable": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

@@ -317,3 +317,144 @@
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Make table cards tappable on iOS */
+.table-card-container {
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Add a transparent overlay to improve touch detection */
+.table-card-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+}
+
+/* Ensure the table card is visible through the overlay */
+.table-card {
+  position: relative;
+  z-index: 1;
+}
+
+/* Add active state for touch feedback */
+.table-card-container:active {
+  opacity: 0.8;
+  transform: scale(0.98);
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+/* Improved touch handling */
+.touch-safe-zone {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prevent-scroll-while-swiping {
+  touch-action: none;
+}
+
+/* Add a delay to touch feedback to prevent accidental activation */
+.delayed-touch-feedback {
+  transition-delay: 50ms;
+}
+
+/* Increase the size of touch targets for better accessibility */
+.enhanced-touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Prevent text selection during touch interactions */
+.no-text-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Improve scroll momentum */
+.improved-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+}
+
+/* Scroll cooldown indicator */
+.scroll-cooldown-active {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #00ffff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* Space-themed open button */
+.space-open-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 20, 0.7);
+  border: 2px solid rgba(0, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.7), inset 0 0 5px rgba(0, 255, 255, 0.5);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+  animation: pulseGlow 2s infinite alternate;
+}
+
+.space-open-button:active {
+  transform: translateY(-50%) scale(0.9);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.9), inset 0 0 8px rgba(0, 255, 255, 0.7);
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.7), inset 0 0 5px rgba(0, 255, 255, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.9), inset 0 0 8px rgba(0, 255, 255, 0.7);
+  }
+}
+
+/* Scroll direction indicators */
+.scroll-direction-indicator {
+  position: fixed;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.scroll-direction-indicator.visible {
+  opacity: 0.7;
+}
+
+.scroll-direction-up {
+  bottom: 80px;
+}
+
+.scroll-direction-down {
+  bottom: 120px;
+}

@@ -1,7 +1,17 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { PlusIcon, MinusIcon, UsersIcon, ClockIcon, ServerIcon, ArrowDownIcon, PlayIcon } from "lucide-react"
+import {
+  PlusIcon,
+  MinusIcon,
+  UsersIcon,
+  ClockIcon,
+  ServerIcon,
+  ArrowDownIcon,
+  PlayIcon,
+  FileTextIcon,
+  BrainIcon,
+} from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiards-timer-dashboard"
@@ -10,6 +20,7 @@ import type { User } from "@/services/user-service"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { NumberPad } from "@/components/number-pad"
 import { MenuRecommendations } from "@/components/menu-recommendations"
+import { useMobileDetect } from "@/hooks/use-mobile"
 
 interface TableDialogProps {
   table: Table
@@ -75,6 +86,10 @@ export default function TableDialog({
   const [dialogOpen, setDialogOpen] = useState(true)
   const [editingServer, setEditingServer] = useState(!table.server)
   const [initialTimeDisplay, setInitialTimeDisplay] = useState(Math.floor(table.initialTime / 60000))
+
+  const isMobile = useMobileDetect()
+  const [mobileTabView, setMobileTabView] = useState<"logs" | "menu" | "ai">("logs")
+  const [logActionFilter, setLogActionFilter] = useState<string | null>(null)
 
   // Define a variable to track if we should render the dialog
   const shouldRenderDialog = !isClosing
@@ -875,6 +890,20 @@ export default function TableDialog({
     return Math.round(minutes)
   }, [])
 
+  // Get unique action types from logs
+  const getUniqueActionTypes = useCallback(() => {
+    if (!logs) return []
+
+    const uniqueActions = new Set<string>()
+    logs.forEach((log) => {
+      if (log.tableId === table.id && table.sessionStartTime && log.timestamp >= table.sessionStartTime && log.action) {
+        uniqueActions.add(log.action)
+      }
+    })
+
+    return Array.from(uniqueActions).sort()
+  }, [logs, table.id, table.sessionStartTime])
+
   // Reusable timer display component that's clickable
   const TimerDisplay = useCallback(() => {
     return (
@@ -940,487 +969,684 @@ export default function TableDialog({
               border: "2px solid #00FFFF",
             }}
           >
-            <div className="p-4 space-y-4">
-              {/* Header with table name and status */}
-              <div className="flex items-center justify-between">
-                <div className="text-[#00FFFF] text-xl font-bold">{localTable.name}</div>
-                <div className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-xs">
-                  {localTable.isActive ? "Active" : "Inactive"}
-                </div>
-              </div>
-
-              {/* Validation Error Message */}
-              {validationError && (
-                <div className="bg-red-900/50 border border-red-500 text-white p-2 rounded-md text-sm">
-                  {validationError}
-                </div>
-              )}
-
-              {/* Action Buttons Row */}
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-10 text-sm border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] flex-1 ${
-                    !isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables") ? "opacity-50" : ""
-                  }`}
-                  onClick={() => isAuthenticated && hasPermission("canGroupTables") && setSelectedTab("group")}
-                  disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables")}
-                >
-                  Group
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-10 text-sm border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] flex-1 ${
-                    !isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable") ? "opacity-50" : ""
-                  }`}
-                  onClick={() => isAuthenticated && hasPermission("canMoveTable") && setSelectedTab("move")}
-                  disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable")}
-                >
-                  Move
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-10 text-sm border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] flex-1 relative ${
-                    !isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes") ? "opacity-50" : ""
-                  }`}
-                  onClick={() => isAuthenticated && hasPermission("canUpdateNotes") && setSelectedTab("notes")}
-                  disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes")}
-                >
-                  Notes
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`h-10 text-sm border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] flex-1`}
-                  onClick={() => setSelectedTab("manage")}
-                >
-                  Manage
-                </Button>
-              </div>
-
-              {/* Content Area - Show either main content or selected tab */}
-              {selectedTab === "manage" ? (
-                <>
-                  {/* Timer Display with Play Button */}
-                  <div className="flex items-center justify-between gap-4 mt-2">
-                    <div className="flex-1 flex justify-center">
-                      <div
-                        className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] inline-block"
-                        style={{
-                          boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
-                        }}
-                      >
-                        <div className="text-[#00FFFF] text-3xl font-bold">
-                          {formatDisplayTime(displayedRemainingTime)}
-                        </div>
-                        <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
-                        <div className="text-[#00FFFF] text-xs">
-                          {localTable.isActive ? "Time Remaining" : "Time Allotted"}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Play Button */}
-                    <ActionButton />
+            {isMobile ? (
+              // Mobile view - restricted functionality
+              <div className="p-4 space-y-4">
+                {/* Header with table name and status */}
+                <div className="flex items-center justify-between">
+                  <div className="text-[#00FFFF] text-xl font-bold">{localTable.name}</div>
+                  <div className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-xs">
+                    {localTable.isActive ? "Active" : "Inactive"}
                   </div>
+                </div>
 
-                  {/* Players Section */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-center mb-2">
-                      <UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" />
-                      <h3 className="text-sm font-medium text-[#FF00FF]">Players</h3>
-                    </div>
-                    <div className="flex items-center justify-center gap-5">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
-                        onClick={handleDecrementGuests}
-                        disabled={viewOnlyMode}
-                      >
-                        <MinusIcon className="h-6 w-6" />
-                      </Button>
-                      <div
-                        className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95"
-                        onClick={handleGuestCountClick}
-                        style={{
-                          boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)",
-                          border: "2px solid rgba(255, 0, 255, 0.7)",
-                        }}
-                      >
-                        {guestCount}
-                        <span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
-                        onClick={handleIncrementGuests}
-                        disabled={viewOnlyMode}
-                      >
-                        <PlusIcon className="h-6 w-6" />
-                      </Button>
+                {/* Elapsed time and remaining time display */}
+                <div className="flex items-center justify-center gap-4 mt-2">
+                  <div
+                    className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] inline-block"
+                    style={{
+                      boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+                    }}
+                  >
+                    <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
+                    <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+                    <div className="text-[#00FFFF] text-xs">
+                      {localTable.isActive ? "Time Remaining" : "Time Allotted"}
                     </div>
                   </div>
+                </div>
 
-                  {/* Server Section */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-center mb-2">
-                      <ServerIcon className="mr-1 h-4 w-4 text-[#00FF00]" />
-                      <h3 className="text-sm font-medium text-[#00FF00]">Server</h3>
-                    </div>
+                {/* Mobile Tab Navigation */}
+                <div className="flex space-x-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`flex-1 text-sm ${
+                      mobileTabView === "logs"
+                        ? "bg-[#00FFFF] text-black border-[#00FFFF]"
+                        : "border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
+                    }`}
+                    onClick={() => setMobileTabView("logs")}
+                  >
+                    <FileTextIcon className="w-4 h-4 mr-1" />
+                    Logs
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`flex-1 text-sm ${
+                      mobileTabView === "menu"
+                        ? "bg-[#FF00FF] text-white border-[#FF00FF]"
+                        : "border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF]"
+                    }`}
+                    onClick={() => setMobileTabView("menu")}
+                  >
+                    <ServerIcon className="w-4 h-4 mr-1" />
+                    Menu
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`flex-1 text-sm ${
+                      mobileTabView === "ai"
+                        ? "bg-[#00FF00] text-black border-[#00FF00]"
+                        : "border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00]"
+                    }`}
+                    onClick={() => setMobileTabView("ai")}
+                  >
+                    <BrainIcon className="w-4 h-4 mr-1" />
+                    AI
+                  </Button>
+                </div>
 
-                    {localTable.server && !editingServer ? (
-                      // Show only the selected server with an edit button
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="flex-1 bg-[#00FF00] text-black text-center py-2 px-3 rounded-md font-bold">
-                          {getServerName(localTable.server)}
+                {/* Mobile Tab Content */}
+                <div className="mt-4">
+                  {mobileTabView === "logs" && (
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto p-2">
+                      <h3 className="text-[#00FFFF] text-center mb-2 text-sm font-bold">Session Logs</h3>
+
+                      {/* Action type filter */}
+                      <div className="mb-3">
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`text-xs py-1 px-2 h-auto ${
+                              logActionFilter === null
+                                ? "bg-[#00FFFF] text-black border-[#00FFFF]"
+                                : "border-[#00FFFF] bg-[#000033] text-[#00FFFF]"
+                            }`}
+                            onClick={() => setLogActionFilter(null)}
+                          >
+                            All
+                          </Button>
+
+                          {getUniqueActionTypes().map((action) => (
+                            <Button
+                              key={action}
+                              variant="outline"
+                              size="sm"
+                              className={`text-xs py-1 px-2 h-auto ${
+                                logActionFilter === action
+                                  ? "bg-purple-600 text-white border-purple-600"
+                                  : "border-purple-600/50 bg-[#000033] text-purple-300"
+                              }`}
+                              onClick={() => setLogActionFilter(action)}
+                            >
+                              {action}
+                            </Button>
+                          ))}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95"
-                          onClick={toggleServerEditMode}
-                          disabled={viewOnlyMode}
-                        >
-                          Edit
-                        </Button>
                       </div>
-                    ) : (
-                      // Show all servers in selection mode
-                      <div>
-                        <div className="grid grid-cols-5 gap-2">
-                          {availableServers && availableServers.length > 0 ? (
-                            availableServers.slice(0, 5).map((server) => {
-                              const isSelected = currentServerRef.current === server.id
-                              return (
-                                <Button
-                                  key={server.id}
-                                  variant={isSelected ? "default" : "outline"}
-                                  className={
-                                    isSelected
-                                      ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
-                                      : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
-                                  }
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    handleServerSelection(server.id)
-                                  }}
-                                  disabled={viewOnlyMode}
-                                >
-                                  <span className="truncate">{server.name}</span>
-                                </Button>
-                              )
-                            })
-                          ) : (
-                            <div className="col-span-5 text-center text-gray-400">No servers available</div>
-                          )}
-                        </div>
-                        {availableServers && availableServers.length > 5 && (
-                          <div className="grid grid-cols-5 gap-2 mt-2">
-                            {availableServers.slice(5, 10).map((server) => {
-                              const isSelected = currentServerRef.current === server.id
-                              return (
-                                <Button
-                                  key={server.id}
-                                  variant={isSelected ? "default" : "outline"}
-                                  className={
-                                    isSelected
-                                      ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
-                                      : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
-                                  }
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    handleServerSelection(server.id)
-                                  }}
-                                  disabled={viewOnlyMode}
-                                >
-                                  <span className="truncate">{server.name}</span>
-                                </Button>
-                              )
-                            })}
+
+                      {/* Logs list */}
+                      {logs &&
+                      logs.filter(
+                        (log) =>
+                          log.tableId === table.id &&
+                          table.sessionStartTime &&
+                          log.timestamp >= table.sessionStartTime &&
+                          (logActionFilter === null || log.action === logActionFilter),
+                      ).length > 0 ? (
+                        logs
+                          .filter(
+                            (log) =>
+                              log.tableId === table.id &&
+                              table.sessionStartTime &&
+                              log.timestamp >= table.sessionStartTime &&
+                              (logActionFilter === null || log.action === logActionFilter),
+                          )
+                          .sort((a, b) => b.timestamp - a.timestamp)
+                          .map((log) => (
+                            <div key={log.id} className="p-2 border border-[#00FFFF]/30 rounded-md bg-[#000033] mb-2">
+                              <div className="flex justify-between text-xs text-gray-400">
+                                <span className="bg-purple-900/30 px-1 py-0.5 rounded text-purple-300">
+                                  {log.action}
+                                </span>
+                                <span>
+                                  {new Date(log.timestamp).toLocaleTimeString([], {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                              {log.details && <div className="mt-1 text-sm text-[#00FFFF]">{log.details}</div>}
+                            </div>
+                          ))
+                      ) : (
+                        <div className="text-center text-gray-400 py-4">
+                          <div className="mb-2 opacity-50">
+                            <FileTextIcon className="h-8 w-8 mx-auto mb-1" />
                           </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Time Management Section */}
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    {/* Add Time */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-center">
-                        <ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" />
-                        <h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                          onClick={() => handleAddTime(5)}
-                          disabled={viewOnlyMode}
-                        >
-                          +5 min
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                          onClick={() => handleAddTime(15)}
-                          disabled={viewOnlyMode}
-                        >
-                          +15 min
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                          onClick={() => handleAddTime(30)}
-                          disabled={viewOnlyMode}
-                        >
-                          +30 min
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                          onClick={() => handleAddTime(60)}
-                          disabled={viewOnlyMode}
-                        >
-                          +60 min
-                        </Button>
-                      </div>
+                          {logActionFilter
+                            ? `No "${logActionFilter}" logs available`
+                            : "No session logs available for this table"}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Subtract Time */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-center">
-                        <ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" />
-                        <h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                          onClick={() => handleSubtractTime(5)}
-                          disabled={viewOnlyMode}
-                        >
-                          -5 min
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                          onClick={() => handleSubtractTime(15)}
-                          disabled={viewOnlyMode}
-                        >
-                          -15 min
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                          onClick={() => handleSubtractTime(30)}
-                          disabled={viewOnlyMode}
-                        >
-                          -30 min
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                          onClick={() => handleSubtractTime(60)}
-                          disabled={viewOnlyMode}
-                        >
-                          -60 min
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recommendations Message - Only shown on manage tab */}
-                  <div className="text-center text-[#00FFFF] text-sm mt-4">
-                    {localTable.isActive ? (
-                      <MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTime / 60000)} />
-                    ) : (
-                      <div className="p-4 text-center">
-                        <p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p>
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : selectedTab === "group" ? (
-                <div className="mt-4 space-y-3">
-                  <h3 className="text-center text-sm font-medium text-[#FF00FF]">
-                    Select tables to merge into a group
-                  </h3>
-
-                  {/* Timer display - clickable to return to manage tab */}
-                  <TimerDisplay />
-
-                  {/* Action Button - available on all tabs */}
-                  <div className="flex justify-center mb-4">
-                    <ActionButton />
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {allTables
-                      .filter(
-                        (t) => (!t.isActive || t.groupId === localTable.groupId) && t.name.toLowerCase() !== "system",
-                      )
-                      .sort((a, b) => {
-                        // Extract numeric part from table names (e.g., "T1" -> 1)
-                        const numA = Number.parseInt(a.name.replace(/\D/g, "")) || 0
-                        const numB = Number.parseInt(b.name.replace(/\D/g, "")) || 0
-                        return numA - numB
-                      })
-                      .map((t) => (
-                        <Button
-                          key={t.id}
-                          variant={selectedTables.includes(t.id) ? "default" : "outline"}
-                          className={
-                            selectedTables.includes(t.id)
-                              ? "w-full bg-[#FF00FF] text-white active:scale-95"
-                              : "w-full border-[#FF00FF] text-[#FF00FF] active:scale-95"
-                          }
-                          onClick={() => toggleTableSelection(t.id)}
-                        >
-                          {t.name}
-                        </Button>
-                      ))}
-                  </div>
-
-                  <div className="flex justify-between mt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedTab("manage")}
-                      className="border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] active:scale-95"
-                    >
-                      Back
-                    </Button>
-
-                    <Button
-                      className="bg-[#FF00FF] hover:bg-[#CC00CC] text-white active:scale-95"
-                      onClick={handleCreateGroup}
-                      disabled={selectedTables.length < 2}
-                    >
-                      Create Group
-                    </Button>
-                  </div>
-                </div>
-              ) : selectedTab === "move" ? (
-                <div className="mt-4 space-y-3">
-                  <h3 className="text-center text-sm font-medium text-[#00FFFF]">Select target table</h3>
-
-                  {/* Timer display - clickable to return to manage tab */}
-                  <TimerDisplay />
-
-                  {/* Action Button - available on all tabs */}
-                  <div className="flex justify-center mb-4">
-                    <ActionButton />
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2">
-                    {allTables
-                      .filter((t) => t.id !== localTable.id && !t.isActive && t.name.toLowerCase() !== "system")
-                      .sort((a, b) => {
-                        // Extract numeric part from table names (e.g., "T1" -> 1)
-                        const numA = Number.parseInt(a.name.replace(/\D/g, "")) || 0
-                        const numB = Number.parseInt(b.name.replace(/\D/g, "")) || 0
-                        return numA - numB
-                      })
-                      .map((t) => (
-                        <Button
-                          key={t.id}
-                          variant={targetTableId === t.id ? "default" : "outline"}
-                          className={
-                            targetTableId === t.id
-                              ? "w-full bg-[#00FFFF] text-black active:scale-95"
-                              : "w-full border-[#00FFFF] text-[#00FFFF] active:scale-95"
-                          }
-                          onClick={() => setTargetTableId(t.id)}
-                        >
-                          {t.name}
-                        </Button>
-                      ))}
-                  </div>
-                  {allTables.filter((t) => t.id !== localTable.id && !t.isActive).length === 0 && (
-                    <p className="text-center text-gray-400">No available target tables</p>
                   )}
 
-                  <div className="flex justify-between mt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedTab("manage")}
-                      className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] active:scale-95"
-                    >
-                      Back
-                    </Button>
+                  {mobileTabView === "menu" && (
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto p-2">
+                      <h3 className="text-[#FF00FF] text-center mb-2 text-sm font-bold">Menu Recommendations</h3>
+                      <MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTime / 60000)} />
+                    </div>
+                  )}
 
-                    <Button
-                      className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black active:scale-95"
-                      onClick={handleMoveTable}
-                      disabled={!targetTableId}
-                    >
-                      Move Table Data
-                    </Button>
+                  {mobileTabView === "ai" && (
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto p-2">
+                      <h3 className="text-[#00FF00] text-center mb-2 text-sm font-bold">AI Insights</h3>
+                      <div className="p-3 rounded-md border border-[#00FF00]/30 bg-[#001100]">
+                        <p className="text-sm text-[#00FF00]">
+                          {localTable.isActive
+                            ? `Table ${localTable.name} has ${guestCount} guests and has been active for ${Math.floor(
+                                elapsedTime / 60000,
+                              )} minutes. ${
+                                remainingTime < 0
+                                  ? `Currently ${Math.abs(Math.floor(remainingTime / 60000))} minutes in overtime.`
+                                  : `${Math.floor(remainingTime / 60000)} minutes remaining.`
+                              }`
+                            : `Table ${localTable.name} is currently inactive.`}
+                        </p>
+                        {localTable.server && (
+                          <p className="text-sm mt-2 text-[#00FF00]">Server: {getServerName(localTable.server)}</p>
+                        )}
+                        {localTable.noteId && (
+                          <p className="text-sm mt-2 text-[#00FF00]">
+                            Note: {noteTemplates.find((n) => n.id === localTable.noteId)?.text || ""}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Desktop view - full functionality
+              <div className="p-4 space-y-4">
+                {/* Header with table name and status */}
+                <div className="flex items-center justify-between">
+                  <div className="text-[#00FFFF] text-xl font-bold">{localTable.name}</div>
+                  <div className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-xs">
+                    {localTable.isActive ? "Active" : "Inactive"}
                   </div>
                 </div>
-              ) : selectedTab === "notes" ? (
-                <div className="mt-4 space-y-3">
-                  <h3 className="text-center text-sm font-medium text-[#FFFF00]">Select note template</h3>
 
-                  {/* Timer display - clickable to return to manage tab */}
-                  <TimerDisplay />
-
-                  {/* Action Button - available on all tabs */}
-                  <div className="flex justify-center mb-4">
-                    <ActionButton />
+                {/* Validation Error Message */}
+                {validationError && (
+                  <div className="bg-red-900/50 border border-red-500 text-white p-2 rounded-md text-sm">
+                    {validationError}
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant={selectedNoteId === "" ? "default" : "outline"}
-                      className={
-                        selectedNoteId === ""
-                          ? "w-full bg-[#FFFF00] text-black active:scale-95"
-                          : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"
-                      }
-                      onClick={() => handleNoteSelection("")}
-                    >
-                      No Note
-                    </Button>
-                    {noteTemplates.map((note) => (
+                {/* Action Buttons Row */}
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-10 text-sm border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] flex-1 ${
+                      !isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables") ? "opacity-50" : ""
+                    }`}
+                    onClick={() => isAuthenticated && hasPermission("canGroupTables") && setSelectedTab("group")}
+                    disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables")}
+                  >
+                    Group
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-10 text-sm border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] flex-1 ${
+                      !isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable") ? "opacity-50" : ""
+                    }`}
+                    onClick={() => isAuthenticated && hasPermission("canMoveTable") && setSelectedTab("move")}
+                    disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable")}
+                  >
+                    Move
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-10 text-sm border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] flex-1 relative ${
+                      !isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes") ? "opacity-50" : ""
+                    }`}
+                    onClick={() => isAuthenticated && hasPermission("canUpdateNotes") && setSelectedTab("notes")}
+                    disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes")}
+                  >
+                    Notes
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`h-10 text-sm border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] flex-1`}
+                    onClick={() => setSelectedTab("manage")}
+                  >
+                    Manage
+                  </Button>
+                </div>
+
+                {/* Content Area - Show either main content or selected tab */}
+                {selectedTab === "manage" ? (
+                  <>
+                    {/* Timer Display with Play Button */}
+                    <div className="flex items-center justify-between gap-4 mt-2">
+                      <div className="flex-1 flex justify-center">
+                        <div
+                          className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] inline-block"
+                          style={{
+                            boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+                          }}
+                        >
+                          <div className="text-[#00FFFF] text-3xl font-bold">
+                            {formatDisplayTime(displayedRemainingTime)}
+                          </div>
+                          <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+                          <div className="text-[#00FFFF] text-xs">
+                            {localTable.isActive ? "Time Remaining" : "Time Allotted"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Play Button */}
+                      <ActionButton />
+                    </div>
+
+                    {/* Players Section */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-center mb-2">
+                        <UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" />
+                        <h3 className="text-sm font-medium text-[#FF00FF]">Players</h3>
+                      </div>
+                      <div className="flex items-center justify-center gap-5">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
+                          onClick={handleDecrementGuests}
+                          disabled={viewOnlyMode}
+                        >
+                          <MinusIcon className="h-6 w-6" />
+                        </Button>
+                        <div
+                          className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95"
+                          onClick={handleGuestCountClick}
+                          style={{
+                            boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)",
+                            border: "2px solid rgba(255, 0, 255, 0.7)",
+                          }}
+                        >
+                          {guestCount}
+                          <span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
+                          onClick={handleIncrementGuests}
+                          disabled={viewOnlyMode}
+                        >
+                          <PlusIcon className="h-6 w-6" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Server Section */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-center mb-2">
+                        <ServerIcon className="mr-1 h-4 w-4 text-[#00FF00]" />
+                        <h3 className="text-sm font-medium text-[#00FF00]">Server</h3>
+                      </div>
+
+                      {localTable.server && !editingServer ? (
+                        // Show only the selected server with an edit button
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="flex-1 bg-[#00FF00] text-black text-center py-2 px-3 rounded-md font-bold">
+                            {getServerName(localTable.server)}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95"
+                            onClick={toggleServerEditMode}
+                            disabled={viewOnlyMode}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      ) : (
+                        // Show all servers in selection mode
+                        <div>
+                          <div className="grid grid-cols-5 gap-2">
+                            {availableServers && availableServers.length > 0 ? (
+                              availableServers.slice(0, 5).map((server) => {
+                                const isSelected = currentServerRef.current === server.id
+                                return (
+                                  <Button
+                                    key={server.id}
+                                    variant={isSelected ? "default" : "outline"}
+                                    className={
+                                      isSelected
+                                        ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                        : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
+                                    }
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      handleServerSelection(server.id)
+                                    }}
+                                    disabled={viewOnlyMode}
+                                  >
+                                    <span className="truncate">{server.name}</span>
+                                  </Button>
+                                )
+                              })
+                            ) : (
+                              <div className="col-span-5 text-center text-gray-400">No servers available</div>
+                            )}
+                          </div>
+                          {availableServers && availableServers.length > 5 && (
+                            <div className="grid grid-cols-5 gap-2 mt-2">
+                              {availableServers.slice(5, 10).map((server) => {
+                                const isSelected = currentServerRef.current === server.id
+                                return (
+                                  <Button
+                                    key={server.id}
+                                    variant={isSelected ? "default" : "outline"}
+                                    className={
+                                      isSelected
+                                        ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                        : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
+                                    }
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      handleServerSelection(server.id)
+                                    }}
+                                    disabled={viewOnlyMode}
+                                  >
+                                    <span className="truncate">{server.name}</span>
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Time Management Section */}
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      {/* Add Time */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center">
+                          <ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" />
+                          <h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                            onClick={() => handleAddTime(5)}
+                            disabled={viewOnlyMode}
+                          >
+                            +5 min
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                            onClick={() => handleAddTime(15)}
+                            disabled={viewOnlyMode}
+                          >
+                            +15 min
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                            onClick={() => handleAddTime(30)}
+                            disabled={viewOnlyMode}
+                          >
+                            +30 min
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                            onClick={() => handleAddTime(60)}
+                            disabled={viewOnlyMode}
+                          >
+                            +60 min
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Subtract Time */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-center">
+                          <ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" />
+                          <h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                            onClick={() => handleSubtractTime(5)}
+                            disabled={viewOnlyMode}
+                          >
+                            -5 min
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                            onClick={() => handleSubtractTime(15)}
+                            disabled={viewOnlyMode}
+                          >
+                            -15 min
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                            onClick={() => handleSubtractTime(30)}
+                            disabled={viewOnlyMode}
+                          >
+                            -30 min
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                            onClick={() => handleSubtractTime(60)}
+                            disabled={viewOnlyMode}
+                          >
+                            -60 min
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Recommendations Message - Only shown on manage tab */}
+                    <div className="text-center text-[#00FFFF] text-sm mt-4">
+                      {localTable.isActive ? (
+                        <MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTime / 60000)} />
+                      ) : (
+                        <div className="p-4 text-center">
+                          <p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : selectedTab === "group" ? (
+                  <div className="mt-4 space-y-3">
+                    <h3 className="text-center text-sm font-medium text-[#FF00FF]">
+                      Select tables to merge into a group
+                    </h3>
+
+                    {/* Timer display - clickable to return to manage tab */}
+                    <TimerDisplay />
+
+                    {/* Action Button - available on all tabs */}
+                    <div className="flex justify-center mb-4">
+                      <ActionButton />
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {allTables
+                        .filter(
+                          (t) => (!t.isActive || t.groupId === localTable.groupId) && t.name.toLowerCase() !== "system",
+                        )
+                        .sort((a, b) => {
+                          // Extract numeric part from table names (e.g., "T1" -> 1)
+                          const numA = Number.parseInt(a.name.replace(/\D/g, "")) || 0
+                          const numB = Number.parseInt(b.name.replace(/\D/g, "")) || 0
+                          return numA - numB
+                        })
+                        .map((t) => (
+                          <Button
+                            key={t.id}
+                            variant={selectedTables.includes(t.id) ? "default" : "outline"}
+                            className={
+                              selectedTables.includes(t.id)
+                                ? "w-full bg-[#FF00FF] text-white active:scale-95"
+                                : "w-full border-[#FF00FF] text-[#FF00FF] active:scale-95"
+                            }
+                            onClick={() => toggleTableSelection(t.id)}
+                          >
+                            {t.name}
+                          </Button>
+                        ))}
+                    </div>
+
+                    <div className="flex justify-between mt-4">
                       <Button
-                        key={note.id}
-                        variant={selectedNoteId === note.id ? "default" : "outline"}
+                        variant="outline"
+                        onClick={() => setSelectedTab("manage")}
+                        className="border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] active:scale-95"
+                      >
+                        Back
+                      </Button>
+
+                      <Button
+                        className="bg-[#FF00FF] hover:bg-[#CC00CC] text-white active:scale-95"
+                        onClick={handleCreateGroup}
+                        disabled={selectedTables.length < 2}
+                      >
+                        Create Group
+                      </Button>
+                    </div>
+                  </div>
+                ) : selectedTab === "move" ? (
+                  <div className="mt-4 space-y-3">
+                    <h3 className="text-center text-sm font-medium text-[#00FFFF]">Select target table</h3>
+
+                    {/* Timer display - clickable to return to manage tab */}
+                    <TimerDisplay />
+
+                    {/* Action Button - available on all tabs */}
+                    <div className="flex justify-center mb-4">
+                      <ActionButton />
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2">
+                      {allTables
+                        .filter((t) => t.id !== localTable.id && !t.isActive && t.name.toLowerCase() !== "system")
+                        .sort((a, b) => {
+                          // Extract numeric part from table names (e.g., "T1" -> 1)
+                          const numA = Number.parseInt(a.name.replace(/\D/g, "")) || 0
+                          const numB = Number.parseInt(b.name.replace(/\D/g, "")) || 0
+                          return numA - numB
+                        })
+                        .map((t) => (
+                          <Button
+                            key={t.id}
+                            variant={targetTableId === t.id ? "default" : "outline"}
+                            className={
+                              targetTableId === t.id
+                                ? "w-full bg-[#00FFFF] text-black active:scale-95"
+                                : "w-full border-[#00FFFF] text-[#00FFFF] active:scale-95"
+                            }
+                            onClick={() => setTargetTableId(t.id)}
+                          >
+                            {t.name}
+                          </Button>
+                        ))}
+                    </div>
+                    {allTables.filter((t) => t.id !== localTable.id && !t.isActive).length === 0 && (
+                      <p className="text-center text-gray-400">No available target tables</p>
+                    )}
+
+                    <div className="flex justify-between mt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setSelectedTab("manage")}
+                        className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] active:scale-95"
+                      >
+                        Back
+                      </Button>
+
+                      <Button
+                        className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black active:scale-95"
+                        onClick={handleMoveTable}
+                        disabled={!targetTableId}
+                      >
+                        Move Table Data
+                      </Button>
+                    </div>
+                  </div>
+                ) : selectedTab === "notes" ? (
+                  <div className="mt-4 space-y-3">
+                    <h3 className="text-center text-sm font-medium text-[#FFFF00]">Select note template</h3>
+
+                    {/* Timer display - clickable to return to manage tab */}
+                    <TimerDisplay />
+
+                    {/* Action Button - available on all tabs */}
+                    <div className="flex justify-center mb-4">
+                      <ActionButton />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant={selectedNoteId === "" ? "default" : "outline"}
                         className={
-                          selectedNoteId === note.id
+                          selectedNoteId === ""
                             ? "w-full bg-[#FFFF00] text-black active:scale-95"
                             : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"
                         }
-                        onClick={() => handleNoteSelection(note.id)}
+                        onClick={() => handleNoteSelection("")}
                       >
-                        {note.text.substring(0, 15)}
-                        {note.text.length > 15 ? "..." : ""}
+                        No Note
                       </Button>
-                    ))}
-                  </div>
-                  {selectedNoteId && (
-                    <div className="p-2 bg-[#111100] rounded-md border border-[#FFFF00]/50">
-                      <p className="text-[#FFFF00]">{noteTemplates.find((n) => n.id === selectedNoteId)?.text || ""}</p>
+                      {noteTemplates.map((note) => (
+                        <Button
+                          key={note.id}
+                          variant={selectedNoteId === note.id ? "default" : "outline"}
+                          className={
+                            selectedNoteId === note.id
+                              ? "w-full bg-[#FFFF00] text-black active:scale-95"
+                              : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"
+                          }
+                          onClick={() => handleNoteSelection(note.id)}
+                        >
+                          {note.text.substring(0, 15)}
+                          {note.text.length > 15 ? "..." : ""}
+                        </Button>
+                      ))}
                     </div>
-                  )}
+                    {selectedNoteId && (
+                      <div className="p-2 bg-[#111100] rounded-md border border-[#FFFF00]/50">
+                        <p className="text-[#FFFF00]">
+                          {noteTemplates.find((n) => n.id === selectedNoteId)?.text || ""}
+                        </p>
+                      </div>
+                    )}
 
-                  <div className="flex justify-between mt-4">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedTab("manage")}
-                      className="border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] active:scale-95"
-                    >
-                      Back
-                    </Button>
+                    <div className="flex justify-between mt-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => setSelectedTab("manage")}
+                        className="border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] active:scale-95"
+                      >
+                        Back
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            )}
 
             {/* Footer */}
             <div className="p-4 border-t border-[#00FFFF]/30">
@@ -1513,3 +1739,7 @@ export default function TableDialog({
 }
 
 export { TableDialog }
+
+// Forces mobile view mode with restricted functionality
+// On mobile devices, only logs, menu recommendations, and AI insights are shown
+// All editing capabilities are disabled on mobile to improve usability

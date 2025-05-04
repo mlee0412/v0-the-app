@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import type { Table, Server, LogEntry } from "@/components/billiards-timer-dashboard"
 import { useAuth } from "@/contexts/auth-context"
 import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card"
-import { RefreshCw, Search, X } from "lucide-react"
+import { RefreshCw, Search, X, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { TableDialog } from "@/components/table-dialog"
@@ -62,6 +62,9 @@ export function EnhancedMobileTableList({
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
   const [showAddTimeDialog, setShowAddTimeDialog] = useState(false)
   const [tableForAddTime, setTableForAddTime] = useState<number | null>(null)
+  const [lastTouchEnd, setLastTouchEnd] = useState(0)
+  const [touchDistance, setTouchDistance] = useState(0)
+  const [scrollEndTime, setScrollEndTime] = useState(0)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const pullStartY = useRef(0)
@@ -69,6 +72,17 @@ export function EnhancedMobileTableList({
   const refreshing = useRef(false)
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartTime = useRef(0)
+  const touchStartPos = useRef({ x: 0, y: 0 })
+  const touchEndPos = useRef({ x: 0, y: 0 })
+  const isTouchMoveRef = useRef(false)
+  const touchMoveCount = useRef(0)
+  const isScrollingRef = useRef(false)
+  const lastScrollTop = useRef(0)
+  const scrollVelocity = useRef(0)
+  const scrollTimestamp = useRef(0)
+  const scrollCooldownRef = useRef(false)
+  const scrollCooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const scrollDirectionRef = useRef<"up" | "down" | null>(null)
 
   // Detect orientation changes
   useEffect(() => {
@@ -84,23 +98,60 @@ export function EnhancedMobileTableList({
     }
   }, [])
 
-  // Handle scroll events
+  // Handle scroll events with improved detection
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const handleScroll = () => {
+      const now = Date.now()
+      const scrollTop = container.scrollTop
+
+      // Calculate scroll velocity
+      if (now - scrollTimestamp.current > 0) {
+        scrollVelocity.current = Math.abs(scrollTop - lastScrollTop.current) / (now - scrollTimestamp.current)
+      }
+
+      // Determine scroll direction
+      if (scrollTop > lastScrollTop.current) {
+        scrollDirectionRef.current = "down"
+      } else if (scrollTop < lastScrollTop.current) {
+        scrollDirectionRef.current = "up"
+      }
+
+      // Update references
+      lastScrollTop.current = scrollTop
+      scrollTimestamp.current = now
+
+      // Set scrolling state
       setIsScrolling(true)
+      isScrollingRef.current = true
 
       // Clear any existing timeout
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
 
-      // Set a timeout to reset the scrolling flag
+      // Set a timeout to detect when scrolling stops
       scrollTimeoutRef.current = setTimeout(() => {
         setIsScrolling(false)
-      }, 200)
+        isScrollingRef.current = false
+        setScrollEndTime(Date.now())
+
+        // Set a cooldown period after scrolling ends
+        scrollCooldownRef.current = true
+
+        // The faster the scroll, the longer the cooldown
+        const cooldownTime = Math.min(Math.max(scrollVelocity.current * 1000, 300), 1000)
+
+        if (scrollCooldownTimeoutRef.current) {
+          clearTimeout(scrollCooldownTimeoutRef.current)
+        }
+
+        scrollCooldownTimeoutRef.current = setTimeout(() => {
+          scrollCooldownRef.current = false
+        }, cooldownTime)
+      }, 100)
     }
 
     container.addEventListener("scroll", handleScroll, { passive: true })
@@ -110,13 +161,19 @@ export function EnhancedMobileTableList({
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
+      if (scrollCooldownTimeoutRef.current) {
+        clearTimeout(scrollCooldownTimeoutRef.current)
+      }
     }
   }, [])
 
   // Pull to refresh implementation
   const handleTouchStart = (e: React.TouchEvent) => {
-    // Record touch start time for distinguishing between taps and swipes
+    // Record touch start time and position for distinguishing between taps and swipes
     touchStartTime.current = Date.now()
+    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    touchMoveCount.current = 0
+    isTouchMoveRef.current = false
 
     // Only enable pull-to-refresh when at the top of the container
     if (containerRef.current && containerRef.current.scrollTop === 0) {
@@ -126,6 +183,21 @@ export function EnhancedMobileTableList({
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    isTouchMoveRef.current = true
+    touchMoveCount.current += 1
+    touchEndPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+
+    // Calculate distance moved
+    const dx = touchEndPos.current.x - touchStartPos.current.x
+    const dy = touchEndPos.current.y - touchStartPos.current.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    setTouchDistance(distance)
+
+    // If moved more than 5px, consider it a scroll
+    if (distance > 5) {
+      isScrollingRef.current = true
+    }
+
     if (refreshing.current) return
 
     pullMoveY.current = e.touches[0].clientY
@@ -142,6 +214,16 @@ export function EnhancedMobileTableList({
   }
 
   const handleTouchEnd = async (e: React.TouchEvent) => {
+    const now = Date.now()
+    const touchDuration = now - touchStartTime.current
+    const dx = touchEndPos.current.x - touchStartPos.current.x
+    const dy = touchEndPos.current.y - touchStartPos.current.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+
+    // Detect double-tap (prevent accidental double opens)
+    const isDoubleTap = now - lastTouchEnd < 300
+    setLastTouchEnd(now)
+
     if (refreshing.current) return
 
     const pullDistance = pullMoveY.current - pullStartY.current
@@ -176,6 +258,9 @@ export function EnhancedMobileTableList({
   // Filter tables based on active status, assigned tables, and search query
   const filteredTables = useMemo(() => {
     let filtered = [...tables]
+
+    // IMPORTANT: Filter out the System table on mobile
+    filtered = filtered.filter((table) => table.name.toLowerCase() !== "system")
 
     // Filter by active status if needed
     if (filterActive) {
@@ -223,16 +308,52 @@ export function EnhancedMobileTableList({
     [isAuthenticated, isServer, currentUser],
   )
 
-  // Handle table click with scrolling check
+  // Handle table click with improved scroll detection
   const handleTableClick = useCallback(
     (table: Table) => {
-      if (isScrolling) return
+      // Don't trigger click if we're in the scroll cooldown period
+      if (scrollCooldownRef.current) {
+        return
+      }
+
+      // Don't trigger click if we've detected significant movement or scrolling
+      if (
+        isScrollingRef.current ||
+        touchDistance > 5 ||
+        touchMoveCount.current > 2 ||
+        Date.now() - scrollEndTime < 300
+      ) {
+        return
+      }
 
       if (canInteractWithTable(table)) {
+        // Add haptic feedback for better UX
+        if (navigator.vibrate) {
+          navigator.vibrate(10)
+        }
         setSelectedTable(table)
+        onTableClick(table)
       }
     },
-    [isScrolling, canInteractWithTable],
+    [touchDistance, canInteractWithTable, scrollEndTime, onTableClick],
+  )
+
+  // Handle explicit table open via button
+  const handleExplicitTableOpen = useCallback(
+    (table: Table, e: React.MouseEvent) => {
+      e.stopPropagation()
+      e.preventDefault()
+
+      if (canInteractWithTable(table)) {
+        // Add haptic feedback for better UX
+        if (navigator.vibrate) {
+          navigator.vibrate(10)
+        }
+        setSelectedTable(table)
+        onTableClick(table)
+      }
+    },
+    [canInteractWithTable, onTableClick],
   )
 
   // Handle add time swipe action
@@ -272,8 +393,12 @@ export function EnhancedMobileTableList({
   return (
     <div
       ref={containerRef}
-      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto h-full pb-20 mobile-scroll-container ios-touch-fix"
-      style={{ WebkitOverflowScrolling: "touch" }}
+      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto h-full pb-20 mobile-scroll-container ios-touch-fix touch-safe-zone improved-scroll"
+      style={{
+        WebkitOverflowScrolling: "touch",
+        overscrollBehavior: "contain",
+        scrollBehavior: "smooth",
+      }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -359,17 +484,33 @@ export function EnhancedMobileTableList({
               const canAddSession = canInteract && hasPermission("canAddTime") && !viewOnlyMode
 
               return (
-                <div key={table.id} className={`${canInteract ? "" : "opacity-70"} mb-4`}>
-                  <SwipeableTableCard
-                    table={table}
-                    servers={servers}
-                    logs={logs}
-                    onClick={() => handleTableClick(table)}
-                    onAddTime={handleAddTime}
-                    onEndSession={onEndSession}
-                    canEndSession={canEnd}
-                    canAddTime={canAddSession}
-                  />
+                <div key={table.id} className="mb-4 relative">
+                  <div className="relative">
+                    <div
+                      className={`${canInteract ? "" : "opacity-70"} table-card-container no-text-select`}
+                      onClick={() => handleTableClick(table)}
+                    >
+                      <SwipeableTableCard
+                        table={table}
+                        servers={servers}
+                        logs={logs}
+                        onClick={() => handleTableClick(table)}
+                        onAddTime={handleAddTime}
+                        onEndSession={onEndSession}
+                        canEndSession={canEnd}
+                        canAddTime={canAddSession}
+                      />
+                    </div>
+
+                    {/* Redesigned open button that matches the space theme */}
+                    <button
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 z-20 space-open-button"
+                      onClick={(e) => handleExplicitTableOpen(table, e)}
+                      aria-label={`Open ${table.name} details`}
+                    >
+                      <ExternalLink className="h-5 w-5 text-[#00FFFF]" />
+                    </button>
+                  </div>
                 </div>
               )
             })}
@@ -382,13 +523,20 @@ export function EnhancedMobileTableList({
         )}
       </div>
 
+      {/* Scroll indicator - shows when scrolling is active */}
+      {isScrolling && (
+        <div className="fixed bottom-20 right-4 bg-black/50 text-[#00FFFF] text-xs px-2 py-1 rounded-full backdrop-blur-sm border border-[#00FFFF]/30">
+          Scrolling...
+        </div>
+      )}
+
       {/* Table dialog */}
       {selectedTable && (
         <div className="table-dialog">
           <TableDialog
             table={selectedTable}
             servers={servers}
-            allTables={tables}
+            allTables={tables.filter((t) => t.name.toLowerCase() !== "system")}
             noteTemplates={noteTemplates}
             logs={logs}
             onClose={closeTableDialog}

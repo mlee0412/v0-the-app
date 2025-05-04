@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/table-card"
 import { Clock, X } from "lucide-react"
 import type { Table, Server, LogEntry } from "@/components/billiards-timer-dashboard"
@@ -12,8 +12,8 @@ interface SwipeableTableCardProps {
   servers: Server[]
   logs: LogEntry[]
   onClick: () => void
-  onAddTime?: (tableId: number) => void
-  onEndSession?: (tableId: number) => void
+  onAddTime: (tableId: number) => void
+  onEndSession: (tableId: number) => void
   canEndSession: boolean
   canAddTime: boolean
 }
@@ -30,190 +30,253 @@ export function SwipeableTableCard({
 }: SwipeableTableCardProps) {
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
-  const [showLeftIndicator, setShowLeftIndicator] = useState(false)
-  const [showRightIndicator, setShowRightIndicator] = useState(false)
-  const startX = useRef(0)
-  const currentX = useRef(0)
-  const cardRef = useRef<HTMLDivElement>(null)
-  const isScrolling = useRef(false)
-  const startTime = useRef(0)
+  const [showLeftAction, setShowLeftAction] = useState(false)
+  const [showRightAction, setShowRightAction] = useState(false)
 
-  // Reset indicators when table changes
-  useEffect(() => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const startXRef = useRef(0)
+  const currentXRef = useRef(0)
+  const startTimeRef = useRef(0)
+  const swipeThreshold = 80 // Minimum distance to trigger action
+  const isSwipingRef = useRef(false)
+  const touchStartedRef = useRef(false)
+
+  // Reset swipe state
+  const resetSwipe = useCallback(() => {
     setSwipeOffset(0)
-    setShowLeftIndicator(false)
-    setShowRightIndicator(false)
-  }, [table.id])
-
-  // Show swipe indicators briefly when component mounts
-  useEffect(() => {
-    if (table.isActive) {
-      if (canEndSession) {
-        setShowLeftIndicator(true)
-      }
-      if (canAddTime) {
-        setShowRightIndicator(true)
-      }
-
-      const timer = setTimeout(() => {
-        setShowLeftIndicator(false)
-        setShowRightIndicator(false)
-      }, 2000)
-
-      return () => clearTimeout(timer)
-    }
-  }, [table.isActive, canEndSession, canAddTime])
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!table.isActive) return // Only allow swiping on active tables
-
-    // Store the start time to detect taps vs swipes
-    startTime.current = Date.now()
-
-    // Reset scrolling detection
-    isScrolling.current = false
-
-    startX.current = e.touches[0].clientX
-    currentX.current = startX.current
-    setIsSwiping(true)
-
-    // Prevent default to avoid iOS issues
-    e.stopPropagation()
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isSwiping || !table.isActive) return
-
-    // Check if user is scrolling vertically
-    const touchY = e.touches[0].clientY
-    const touchX = e.touches[0].clientX
-
-    // If this is primarily vertical movement, mark as scrolling and exit
-    if (!isScrolling.current && Math.abs(touchY - e.touches[0].clientY) > Math.abs(touchX - startX.current)) {
-      isScrolling.current = true
-      return
-    }
-
-    if (isScrolling.current) return
-
-    currentX.current = e.touches[0].clientX
-    const diff = currentX.current - startX.current
-
-    // Limit swipe distance and only allow appropriate actions
-    if ((diff < 0 && canEndSession) || (diff > 0 && canAddTime)) {
-      // Apply resistance as we get further from center
-      const resistance = Math.abs(diff) > 50 ? 0.2 : 0.8
-      setSwipeOffset(diff * resistance)
-
-      // Prevent default to avoid iOS issues
-      e.preventDefault()
-      e.stopPropagation()
-    }
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isSwiping || !table.isActive) return
-
-    // Calculate touch duration
-    const touchDuration = Date.now() - startTime.current
-
     setIsSwiping(false)
+    isSwipingRef.current = false
+    setShowLeftAction(false)
+    setShowRightAction(false)
+  }, [])
 
-    // If this was a quick tap (less than 300ms) and minimal movement, treat as a click
-    if (touchDuration < 300 && Math.abs(currentX.current - startX.current) < 10 && !isScrolling.current) {
+  // Handle touch start
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Store the initial touch position
+    startXRef.current = e.touches[0].clientX
+    currentXRef.current = e.touches[0].clientX
+    startTimeRef.current = Date.now()
+    touchStartedRef.current = true
+    setIsSwiping(true)
+    isSwipingRef.current = true
+  }, [])
+
+  // Handle touch move
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStartedRef.current) return
+
+      // Update current position
+      currentXRef.current = e.touches[0].clientX
+
+      // Calculate swipe distance
+      const distance = currentXRef.current - startXRef.current
+
+      // Update swipe offset with some resistance for better feel
+      const resistance = 0.5
+      const newOffset = distance * resistance
+
+      // Only allow swiping if the table is active and the appropriate permission exists
+      if (table.isActive && canEndSession && distance < 0) {
+        // Left swipe (end session)
+        setSwipeOffset(newOffset)
+        setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+      } else if (table.isActive && canAddTime && distance > 0) {
+        // Right swipe (add time)
+        setSwipeOffset(newOffset)
+        setShowRightAction(newOffset > swipeThreshold / 2)
+      }
+    },
+    [table.isActive, canEndSession, canAddTime, swipeThreshold],
+  )
+
+  // Handle touch end
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStartedRef.current) return
+    touchStartedRef.current = false
+
+    // Calculate swipe distance and duration
+    const distance = currentXRef.current - startXRef.current
+    const duration = Date.now() - startTimeRef.current
+    const velocity = Math.abs(distance) / duration
+
+    // Check if this was a tap rather than a swipe - use stricter criteria
+    const isTap = Math.abs(distance) < 5 && duration < 200
+
+    if (isTap) {
+      // This was a tap, not a swipe
+      resetSwipe()
       onClick()
       return
     }
 
-    // If we were scrolling, don't trigger swipe actions
-    if (isScrolling.current) {
-      setSwipeOffset(0)
-      return
-    }
+    // Determine if swipe should trigger action
+    const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
 
-    // Threshold for triggering action
-    const threshold = 80
-
-    if (swipeOffset < -threshold && canEndSession) {
-      // Swiped left - end session
-      if (onEndSession) {
-        // Provide haptic feedback
-        if (navigator.vibrate) {
-          navigator.vibrate([20, 30, 40])
-        }
+    if (isSwipeComplete) {
+      if (distance < 0 && table.isActive && canEndSession) {
+        // Complete left swipe - end session
         onEndSession(table.id)
-      }
-    } else if (swipeOffset > threshold && canAddTime) {
-      // Swiped right - add time
-      if (onAddTime) {
-        // Provide haptic feedback
+
+        // Provide haptic feedback if available
         if (navigator.vibrate) {
-          navigator.vibrate(15)
+          navigator.vibrate(20)
         }
+      } else if (distance > 0 && table.isActive && canAddTime) {
+        // Complete right swipe - add time
         onAddTime(table.id)
+
+        // Provide haptic feedback if available
+        if (navigator.vibrate) {
+          navigator.vibrate(20)
+        }
       }
     }
 
-    // Reset position with animation
-    setSwipeOffset(0)
+    // Reset swipe state with animation
+    resetSwipe()
+  }, [
+    table.id,
+    table.isActive,
+    canEndSession,
+    canAddTime,
+    onClick,
+    onEndSession,
+    onAddTime,
+    resetSwipe,
+    swipeThreshold,
+  ])
 
-    // Prevent default to avoid iOS issues
-    e.preventDefault()
-    e.stopPropagation()
-  }
+  // Add event listeners for mouse events (for desktop testing)
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
 
-  // Handle regular click for non-touch devices
-  const handleClick = (e: React.MouseEvent) => {
-    if (!isSwiping) {
-      onClick()
+    const handleMouseDown = (e: MouseEvent) => {
+      startXRef.current = e.clientX
+      currentXRef.current = e.clientX
+      startTimeRef.current = Date.now()
+      setIsSwiping(true)
+      isSwipingRef.current = true
+
+      // Add temporary event listeners for mouse move and up
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
     }
-  }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isSwipingRef.current) return
+
+      currentXRef.current = e.clientX
+      const distance = currentXRef.current - startXRef.current
+      const resistance = 0.5
+      const newOffset = distance * resistance
+
+      if (table.isActive && canEndSession && distance < 0) {
+        setSwipeOffset(newOffset)
+        setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+      } else if (table.isActive && canAddTime && distance > 0) {
+        setSwipeOffset(newOffset)
+        setShowRightAction(newOffset > swipeThreshold / 2)
+      }
+    }
+
+    const handleMouseUp = () => {
+      if (!isSwipingRef.current) return
+
+      const distance = currentXRef.current - startXRef.current
+      const duration = Date.now() - startTimeRef.current
+      const velocity = Math.abs(distance) / duration
+
+      const isTap = Math.abs(distance) < 10 && duration < 300
+
+      if (isTap) {
+        resetSwipe()
+        onClick()
+        return
+      }
+
+      const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
+
+      if (isSwipeComplete) {
+        if (distance < 0 && table.isActive && canEndSession) {
+          onEndSession(table.id)
+        } else if (distance > 0 && table.isActive && canAddTime) {
+          onAddTime(table.id)
+        }
+      }
+
+      resetSwipe()
+
+      // Remove temporary event listeners
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+
+    container.addEventListener("mousedown", handleMouseDown)
+
+    return () => {
+      container.removeEventListener("mousedown", handleMouseDown)
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [
+    table.id,
+    table.isActive,
+    canEndSession,
+    canAddTime,
+    onClick,
+    onEndSession,
+    onAddTime,
+    resetSwipe,
+    swipeThreshold,
+  ])
 
   return (
-    <div className="swipe-action-container relative ios-touch-fix" ref={cardRef}>
-      {/* Left action (End Session) */}
+    <div
+      ref={containerRef}
+      className="relative overflow-hidden rounded-lg ios-touch-fix"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Left action indicator (End Session) */}
       {table.isActive && canEndSession && (
-        <div className="swipe-action-left">
-          <X size={24} />
+        <div
+          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-0 ${
+            showLeftAction ? "opacity-100" : "opacity-70"
+          }`}
+        >
+          <div className="flex flex-col items-center">
+            <X size={24} />
+            <span className="text-xs mt-1">End</span>
+          </div>
         </div>
       )}
 
-      {/* Right action (Add Time) */}
+      {/* Right action indicator (Add Time) */}
       {table.isActive && canAddTime && (
-        <div className="swipe-action-right">
-          <Clock size={24} />
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-0 ${
+            showRightAction ? "opacity-100" : "opacity-70"
+          }`}
+        >
+          <div className="flex flex-col items-center">
+            <Clock size={24} />
+            <span className="text-xs mt-1">Add Time</span>
+          </div>
         </div>
       )}
 
-      {/* Swipe indicators */}
-      {showLeftIndicator && table.isActive && canEndSession && (
-        <div className="swipe-indicator left visible">
-          <X size={16} />
-        </div>
-      )}
-
-      {showRightIndicator && table.isActive && canAddTime && (
-        <div className="swipe-indicator right visible">
-          <Clock size={16} />
-        </div>
-      )}
-
-      {/* Card content */}
+      {/* Table card with transform based on swipe */}
       <div
-        className="swipe-action-content"
+        className="relative z-10 touch-action-none"
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? "none" : "transform 0.3s ease",
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onClick={handleClick}
-        role="button"
-        tabIndex={0}
-        aria-label={`Table ${table.name} - Click to view details`}
       >
-        <TableCard table={table} servers={servers} logs={logs} onClick={() => {}} />
+        <TableCard table={table} servers={servers} logs={logs} onClick={onClick} />
       </div>
     </div>
   )

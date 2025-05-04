@@ -14,6 +14,8 @@ import "./space-animations.css"
 import "./logo-effects.css"
 import "./cursor.css"
 import "./touch-improvements.css"
+import "@/app/ios-touch-fixes.css"
+import { DirectTouchHandler } from "@/components/direct-touch-handler"
 
 export default function ClientRootLayout({
   children,
@@ -28,6 +30,7 @@ export default function ClientRootLayout({
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <DirectTouchHandler />
       <AuthProvider>{isClient ? <BilliardsTimerDashboard /> : <div>Loading...</div>}</AuthProvider>
       <Toaster />
     </ThemeProvider>

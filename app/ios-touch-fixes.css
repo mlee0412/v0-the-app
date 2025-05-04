@@ -79,3 +79,45 @@ button:active,
 .interactive:active {
   opacity: 0.7;
 }
+
+/* Enhanced iOS touch fixes */
+.ios-touch-fix {
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Add specific fixes for iOS Safari */
+@supports (-webkit-touch-callout: none) {
+  /* Make table cards have higher touch priority */
+  .table-card {
+    z-index: 1;
+    position: relative;
+    cursor: pointer;
+    will-change: transform;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  /* Add click feedback for iOS */
+  .table-card:active {
+    transform: scale(0.98);
+  }
+
+  /* Make items in the card non-interactive for touch so the card itself gets the tap */
+  .table-card * {
+    pointer-events: none;
+  }
+
+  /* Make sure dialogs appear above everything */
+  .dialog-container {
+    z-index: 9999;
+    position: fixed;
+    touch-action: none;
+    -webkit-overflow-scrolling: touch;
+  }
+}

@@ -8,6 +8,7 @@ import "./mobile.css"
 import "./pull-up-panel.css"
 import "./touch-improvements.css"
 import "./mobile-optimizations.css"
+import "@/app/ios-touch-fixes.css"
 
 import type { Metadata, Viewport } from "next"
 import { SupabaseInitializer } from "@/components/supabase-initializer"
