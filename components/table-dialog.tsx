@@ -676,12 +676,14 @@ export default function TableDialog({
     // Check if guest count is greater than 0
     if (localTable.guestCount <= 0) {
       setValidationError("Please add at least one guest before starting the session")
+      setSelectedTab("manage") // Redirect to manage tab
       return false
     }
 
     // Check if server is assigned
     if (!localTable.server) {
       setValidationError("Please assign a server before starting the session")
+      setSelectedTab("manage") // Redirect to manage tab
       return false
     }
 
@@ -865,7 +867,55 @@ export default function TableDialog({
     return Math.round(minutes)
   }, [])
 
+  // Reusable timer display component that's clickable
+  const TimerDisplay = useCallback(() => {
+    return (
+      <div className="flex justify-center items-center mb-4 cursor-pointer" onClick={() => setSelectedTab("manage")}>
+        <div
+          className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] inline-block"
+          style={{
+            boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+          }}
+        >
+          <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
+          <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+          <div className="text-[#00FFFF] text-xs">{localTable.isActive ? "Time Remaining" : "Time Allotted"}</div>
+        </div>
+      </div>
+    )
+  }, [displayedRemainingTime, initialTimeDisplay, localTable.isActive, formatDisplayTime, setSelectedTab])
+
+  // Reusable play/end button component
+  const ActionButton = useCallback(() => {
+    return !localTable.isActive && hasPermission("canStartSession") ? (
+      <Button
+        size="sm"
+        onClick={handleStartSessionClick}
+        className="h-14 w-14 p-0 rounded-full bg-[#00FF33] hover:bg-[#00CC00] text-black transition-transform duration-200 hover:scale-110 active:scale-95"
+        disabled={viewOnlyMode || !hasPermission("canStartSession")}
+      >
+        <PlayIcon className="h-8 w-8" />
+      </Button>
+    ) : (
+      localTable.isActive && (
+        <Button
+          size="sm"
+          onClick={handleEndSession}
+          className="h-14 w-14 p-0 rounded-full bg-[#FF3300] hover:bg-[#CC0000] text-white transition-transform duration-200 hover:scale-110 active:scale-95"
+          disabled={viewOnlyMode || !hasPermission("canEndSession")}
+        >
+          <span className="text-lg font-bold">End</span>
+        </Button>
+      )
+    )
+  }, [localTable.isActive, hasPermission, handleStartSessionClick, handleEndSession, viewOnlyMode])
+
   // Add this near the top of the component, after the state declarations
+  useEffect(() => {
+    console.log("Local table updated:", localTable)
+  }, [localTable])
+
+  // Instead of early return, we'll use conditional rendering at the end
   useEffect(() => {
     console.log("Local table updated:", localTable)
   }, [localTable])
@@ -933,279 +983,273 @@ export default function TableDialog({
                 >
                   Notes
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-10 text-sm border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] flex-1`}
+                  onClick={() => setSelectedTab("manage")}
+                >
+                  Manage
+                </Button>
               </div>
 
-              {/* Timer Display with Play Button */}
-              <div className="flex items-center justify-between gap-4 mt-2">
-                <div className="flex-1 text-center">
-                  <div
-                    className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
-                    style={{
-                      boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
-                    }}
-                  >
-                    <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
-                    <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
-                    <div className="text-[#00FFFF] text-xs">
-                      {localTable.isActive ? "Time Remaining" : "Time Allotted"}
+              {/* Content Area - Show either main content or selected tab */}
+              {selectedTab === "manage" ? (
+                <>
+                  {/* Timer Display with Play Button */}
+                  <div className="flex items-center justify-between gap-4 mt-2">
+                    <div className="flex-1 flex justify-center">
+                      <div
+                        className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] inline-block"
+                        style={{
+                          boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
+                        }}
+                      >
+                        <div className="text-[#00FFFF] text-3xl font-bold">
+                          {formatDisplayTime(displayedRemainingTime)}
+                        </div>
+                        <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
+                        <div className="text-[#00FFFF] text-xs">
+                          {localTable.isActive ? "Time Remaining" : "Time Allotted"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Play Button */}
+                    <ActionButton />
+                  </div>
+
+                  {/* Players Section */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" />
+                      <h3 className="text-sm font-medium text-[#FF00FF]">Players</h3>
+                    </div>
+                    <div className="flex items-center justify-center gap-5">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
+                        onClick={handleDecrementGuests}
+                        disabled={viewOnlyMode}
+                      >
+                        <MinusIcon className="h-6 w-6" />
+                      </Button>
+                      <div
+                        className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95"
+                        onClick={handleGuestCountClick}
+                        style={{
+                          boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)",
+                          border: "2px solid rgba(255, 0, 255, 0.7)",
+                        }}
+                      >
+                        {guestCount}
+                        <span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
+                        onClick={handleIncrementGuests}
+                        disabled={viewOnlyMode}
+                      >
+                        <PlusIcon className="h-6 w-6" />
+                      </Button>
                     </div>
                   </div>
-                </div>
 
-                {/* Play Button */}
-                {!localTable.isActive && hasPermission("canStartSession") ? (
-                  <Button
-                    size="sm"
-                    onClick={handleStartSessionClick}
-                    className="h-14 w-14 p-0 rounded-full bg-[#00FF33] hover:bg-[#00CC00] text-black transition-transform duration-200 hover:scale-110 active:scale-95"
-                    disabled={viewOnlyMode || !hasPermission("canStartSession")}
-                  >
-                    <PlayIcon className="h-8 w-8" />
-                  </Button>
-                ) : (
-                  localTable.isActive && (
-                    <Button
-                      size="sm"
-                      onClick={handleEndSession}
-                      className="h-14 w-14 p-0 rounded-full bg-[#FF3300] hover:bg-[#CC0000] text-white transition-transform duration-200 hover:scale-110 active:scale-95"
-                      disabled={viewOnlyMode || !hasPermission("canEndSession")}
-                    >
-                      <span className="text-lg font-bold">End</span>
-                    </Button>
-                  )
-                )}
-              </div>
-
-              {/* Players Section */}
-              <div className="mt-4">
-                <div className="flex items-center justify-center mb-2">
-                  <UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" />
-                  <h3 className="text-sm font-medium text-[#FF00FF]">Players</h3>
-                </div>
-                <div className="flex items-center justify-center gap-5">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
-                    onClick={handleDecrementGuests}
-                    disabled={viewOnlyMode}
-                  >
-                    <MinusIcon className="h-6 w-6" />
-                  </Button>
-                  <div
-                    className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95"
-                    onClick={handleGuestCountClick}
-                    style={{
-                      boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)",
-                      border: "2px solid rgba(255, 0, 255, 0.7)",
-                    }}
-                  >
-                    {guestCount}
-                    <span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md"
-                    onClick={handleIncrementGuests}
-                    disabled={viewOnlyMode}
-                  >
-                    <PlusIcon className="h-6 w-6" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Server Section */}
-              <div className="mt-4">
-                <div className="flex items-center justify-center mb-2">
-                  <ServerIcon className="mr-1 h-4 w-4 text-[#00FF00]" />
-                  <h3 className="text-sm font-medium text-[#00FF00]">Server</h3>
-                </div>
-
-                {localTable.server && !editingServer ? (
-                  // Show only the selected server with an edit button
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="flex-1 bg-[#00FF00] text-black text-center py-2 px-3 rounded-md font-bold">
-                      {getServerName(localTable.server)}
+                  {/* Server Section */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <ServerIcon className="mr-1 h-4 w-4 text-[#00FF00]" />
+                      <h3 className="text-sm font-medium text-[#00FF00]">Server</h3>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95"
-                      onClick={toggleServerEditMode}
-                      disabled={viewOnlyMode}
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                ) : (
-                  // Show all servers in selection mode
-                  <div>
-                    <div className="grid grid-cols-5 gap-2">
-                      {availableServers && availableServers.length > 0 ? (
-                        availableServers.slice(0, 5).map((server) => {
-                          const isSelected = currentServerRef.current === server.id
-                          return (
-                            <Button
-                              key={server.id}
-                              variant={isSelected ? "default" : "outline"}
-                              className={
-                                isSelected
-                                  ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
-                                  : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
-                              }
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleServerSelection(server.id)
-                              }}
-                              disabled={viewOnlyMode}
-                            >
-                              <span className="truncate">{server.name}</span>
-                            </Button>
-                          )
-                        })
-                      ) : (
-                        <div className="col-span-5 text-center text-gray-400">No servers available</div>
-                      )}
-                    </div>
-                    {availableServers && availableServers.length > 5 && (
-                      <div className="grid grid-cols-5 gap-2 mt-2">
-                        {availableServers.slice(5, 10).map((server) => {
-                          const isSelected = currentServerRef.current === server.id
-                          return (
-                            <Button
-                              key={server.id}
-                              variant={isSelected ? "default" : "outline"}
-                              className={
-                                isSelected
-                                  ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
-                                  : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
-                              }
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleServerSelection(server.id)
-                              }}
-                              disabled={viewOnlyMode}
-                            >
-                              <span className="truncate">{server.name}</span>
-                            </Button>
-                          )
-                        })}
+
+                    {localTable.server && !editingServer ? (
+                      // Show only the selected server with an edit button
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="flex-1 bg-[#00FF00] text-black text-center py-2 px-3 rounded-md font-bold">
+                          {getServerName(localTable.server)}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95"
+                          onClick={toggleServerEditMode}
+                          disabled={viewOnlyMode}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    ) : (
+                      // Show all servers in selection mode
+                      <div>
+                        <div className="grid grid-cols-5 gap-2">
+                          {availableServers && availableServers.length > 0 ? (
+                            availableServers.slice(0, 5).map((server) => {
+                              const isSelected = currentServerRef.current === server.id
+                              return (
+                                <Button
+                                  key={server.id}
+                                  variant={isSelected ? "default" : "outline"}
+                                  className={
+                                    isSelected
+                                      ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                      : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
+                                  }
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleServerSelection(server.id)
+                                  }}
+                                  disabled={viewOnlyMode}
+                                >
+                                  <span className="truncate">{server.name}</span>
+                                </Button>
+                              )
+                            })
+                          ) : (
+                            <div className="col-span-5 text-center text-gray-400">No servers available</div>
+                          )}
+                        </div>
+                        {availableServers && availableServers.length > 5 && (
+                          <div className="grid grid-cols-5 gap-2 mt-2">
+                            {availableServers.slice(5, 10).map((server) => {
+                              const isSelected = currentServerRef.current === server.id
+                              return (
+                                <Button
+                                  key={server.id}
+                                  variant={isSelected ? "default" : "outline"}
+                                  className={
+                                    isSelected
+                                      ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                      : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
+                                  }
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    handleServerSelection(server.id)
+                                  }}
+                                  disabled={viewOnlyMode}
+                                >
+                                  <span className="truncate">{server.name}</span>
+                                </Button>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              {/* Time Management Section */}
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                {/* Add Time */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center">
-                    <ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" />
-                    <h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                      onClick={() => handleAddTime(5)}
-                      disabled={viewOnlyMode}
-                    >
-                      +5 min
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                      onClick={() => handleAddTime(15)}
-                      disabled={viewOnlyMode}
-                    >
-                      +15 min
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                      onClick={() => handleAddTime(30)}
-                      disabled={viewOnlyMode}
-                    >
-                      +30 min
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
-                      onClick={() => handleAddTime(60)}
-                      disabled={viewOnlyMode}
-                    >
-                      +60 min
-                    </Button>
-                  </div>
-                </div>
+                  {/* Time Management Section */}
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    {/* Add Time */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center">
+                        <ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" />
+                        <h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                          onClick={() => handleAddTime(5)}
+                          disabled={viewOnlyMode}
+                        >
+                          +5 min
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                          onClick={() => handleAddTime(15)}
+                          disabled={viewOnlyMode}
+                        >
+                          +15 min
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                          onClick={() => handleAddTime(30)}
+                          disabled={viewOnlyMode}
+                        >
+                          +30 min
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] hover:border-[#00FFFF] text-[#00FFFF] transition-all duration-200 active:scale-95"
+                          onClick={() => handleAddTime(60)}
+                          disabled={viewOnlyMode}
+                        >
+                          +60 min
+                        </Button>
+                      </div>
+                    </div>
 
-                {/* Subtract Time */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center">
-                    <ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" />
-                    <h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3>
+                    {/* Subtract Time */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center">
+                        <ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" />
+                        <h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                          onClick={() => handleSubtractTime(5)}
+                          disabled={viewOnlyMode}
+                        >
+                          -5 min
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                          onClick={() => handleSubtractTime(15)}
+                          disabled={viewOnlyMode}
+                        >
+                          -15 min
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                          onClick={() => handleSubtractTime(30)}
+                          disabled={viewOnlyMode}
+                        >
+                          -30 min
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
+                          onClick={() => handleSubtractTime(60)}
+                          disabled={viewOnlyMode}
+                        >
+                          -60 min
+                        </Button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                      onClick={() => handleSubtractTime(5)}
-                      disabled={viewOnlyMode}
-                    >
-                      -5 min
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                      onClick={() => handleSubtractTime(15)}
-                      disabled={viewOnlyMode}
-                    >
-                      -15 min
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                      onClick={() => handleSubtractTime(30)}
-                      disabled={viewOnlyMode}
-                    >
-                      -30 min
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] hover:border-[#FFFF00] text-[#FFFF00] transition-all duration-200 active:scale-95"
-                      onClick={() => handleSubtractTime(60)}
-                      disabled={viewOnlyMode}
-                    >
-                      -60 min
-                    </Button>
-                  </div>
-                </div>
-              </div>
 
-              {selectedTab === "group" && (
+                  {/* Recommendations Message - Only shown on manage tab */}
+                  <div className="text-center text-[#00FFFF] text-sm mt-4">
+                    {localTable.isActive ? (
+                      <MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTime / 60000)} />
+                    ) : (
+                      <div className="p-4 text-center">
+                        <p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : selectedTab === "group" ? (
                 <div className="mt-4 space-y-3">
                   <h3 className="text-center text-sm font-medium text-[#FF00FF]">
                     Select tables to merge into a group
                   </h3>
 
-                  {/* Timer display - keep this consistent with the main timer display */}
-                  <div className="flex justify-center items-center mb-4">
-                    <div
-                      className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
-                      style={{
-                        boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
-                      }}
-                    >
-                      <div className="text-[#00FFFF] text-3xl font-bold">
-                        {formatDisplayTime(displayedRemainingTime)}
-                      </div>
-                      <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
-                      <div className="text-[#00FFFF] text-xs">
-                        {localTable.isActive ? "Time Remaining" : "Time Allotted"}
-                      </div>
-                    </div>
+                  {/* Timer display - clickable to return to manage tab */}
+                  <TimerDisplay />
+
+                  {/* Action Button - available on all tabs */}
+                  <div className="flex justify-center mb-4">
+                    <ActionButton />
                   </div>
 
                   <div className="grid grid-cols-4 gap-2">
@@ -1245,28 +1289,16 @@ export default function TableDialog({
                     </Button>
                   </div>
                 </div>
-              )}
-
-              {selectedTab === "move" && (
+              ) : selectedTab === "move" ? (
                 <div className="mt-4 space-y-3">
                   <h3 className="text-center text-sm font-medium text-[#00FFFF]">Select target table</h3>
 
-                  {/* Timer display - keep this consistent with the main timer display */}
-                  <div className="flex justify-center items-center mb-4">
-                    <div
-                      className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
-                      style={{
-                        boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
-                      }}
-                    >
-                      <div className="text-[#00FFFF] text-3xl font-bold">
-                        {formatDisplayTime(displayedRemainingTime)}
-                      </div>
-                      <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
-                      <div className="text-[#00FFFF] text-xs">
-                        {localTable.isActive ? "Time Remaining" : "Time Allotted"}
-                      </div>
-                    </div>
+                  {/* Timer display - clickable to return to manage tab */}
+                  <TimerDisplay />
+
+                  {/* Action Button - available on all tabs */}
+                  <div className="flex justify-center mb-4">
+                    <ActionButton />
                   </div>
 
                   <div className="grid grid-cols-4 gap-2">
@@ -1309,28 +1341,16 @@ export default function TableDialog({
                     </Button>
                   </div>
                 </div>
-              )}
-
-              {selectedTab === "notes" && (
+              ) : selectedTab === "notes" ? (
                 <div className="mt-4 space-y-3">
                   <h3 className="text-center text-sm font-medium text-[#FFFF00]">Select note template</h3>
 
-                  {/* Timer display - keep this consistent with the main timer display */}
-                  <div className="flex justify-center items-center mb-4">
-                    <div
-                      className="p-3 rounded-md bg-[#000033] border border-[#00FFFF] mx-auto inline-block"
-                      style={{
-                        boxShadow: "0 0 15px rgba(0, 255, 255, 0.5)",
-                      }}
-                    >
-                      <div className="text-[#00FFFF] text-3xl font-bold">
-                        {formatDisplayTime(displayedRemainingTime)}
-                      </div>
-                      <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
-                      <div className="text-[#00FFFF] text-xs">
-                        {localTable.isActive ? "Time Remaining" : "Time Allotted"}
-                      </div>
-                    </div>
+                  {/* Timer display - clickable to return to manage tab */}
+                  <TimerDisplay />
+
+                  {/* Action Button - available on all tabs */}
+                  <div className="flex justify-center mb-4">
+                    <ActionButton />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -1377,16 +1397,7 @@ export default function TableDialog({
                     </Button>
                   </div>
                 </div>
-              )}
-
-              {/* Recommendations Message */}
-              <div className="text-center text-[#00FFFF] text-sm mt-4">
-                {guestCount === 0 ? (
-                  "Add guest count to see recommendations"
-                ) : (
-                  <MenuRecommendations table={localTable} />
-                )}
-              </div>
+              ) : null}
             </div>
 
             {/* Footer */}

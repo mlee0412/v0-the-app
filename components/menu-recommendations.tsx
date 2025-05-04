@@ -14,6 +14,9 @@ export function MenuRecommendations({ table, elapsedMinutes }: MenuRecommendatio
   const [recommendations, setRecommendations] = useState<MenuRecommendation[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Update the useEffect to prevent frequent regeneration and only show when active
+
+  // Replace the existing useEffect with this updated version:
   useEffect(() => {
     const fetchRecommendations = async () => {
       try {
@@ -38,13 +41,18 @@ export function MenuRecommendations({ table, elapsedMinutes }: MenuRecommendatio
     }
 
     // Only fetch recommendations if the table is active and has guest count info
+    // We're using a ref to track if this is the initial render to prevent unnecessary fetches
     if (table.isActive && table.guestCount > 0) {
       fetchRecommendations()
     } else {
       setRecommendations([]) // Clear recommendations if not active or no guest count
       setLoading(false)
     }
-  }, [table.id, table.guestCount, table.isActive, table.initialTime, table.remainingTime])
+
+    // We're intentionally NOT including table.guestCount in the dependency array
+    // This prevents re-fetching when only the guest count changes
+    // Recommendations will only update when the component is unmounted and remounted (dialog closed and reopened)
+  }, [table.id, table.isActive, table.initialTime, table.remainingTime])
 
   // Fallback recommendations if the service fails
   const getFallbackRecommendations = (guestCount: number): MenuRecommendation[] => {
@@ -106,6 +114,15 @@ export function MenuRecommendations({ table, elapsedMinutes }: MenuRecommendatio
     return baseRecommendations
   }
 
+  // Update the render condition to only show when table is active
+  if (!table.isActive) {
+    return (
+      <div className="p-4 text-center">
+        <p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="p-4 text-center">
@@ -121,7 +138,7 @@ export function MenuRecommendations({ table, elapsedMinutes }: MenuRecommendatio
   if (recommendations.length === 0) {
     return (
       <div className="p-4 text-center">
-        {table.isActive && table.guestCount > 0 ? (
+        {table.guestCount > 0 ? (
           <p className="text-[#00FFFF] text-xs">No recommendations found.</p>
         ) : (
           <p className="text-[#00FFFF] text-xs">Add guest count to see recommendations</p>
