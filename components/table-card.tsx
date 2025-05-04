@@ -48,6 +48,12 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   // Local table state to avoid re-renders from parent
   const [localTable, setLocalTable] = useState<Table>(table)
 
+  // Use refs to track previous values to prevent unnecessary updates
+  const prevTableRef = useRef<Table>(table)
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
+  const particleAnimationRef = useRef<number | null>(null)
+
   // Throttled update function to reduce Supabase calls
   // Timer updates are real-time, other updates are periodic (1 min)
   const throttledUpdateTable = useRef(
@@ -61,9 +67,13 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     ), // Real-time for timer, 1 min for other updates
   ).current
 
-  // Update local table when props change
+  // Update local table when props change, but only if there's a meaningful change
   useEffect(() => {
-    setLocalTable(table)
+    // Only update if there's a meaningful change to avoid unnecessary re-renders
+    if (JSON.stringify(table) !== JSON.stringify(prevTableRef.current)) {
+      setLocalTable(table)
+      prevTableRef.current = table
+    }
   }, [table])
 
   // Listen for updates from the dialog
@@ -72,7 +82,15 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     const unsubscribe = addTableUpdateListener((updatedTableId, updates) => {
       if (updatedTableId === table.id) {
         // Update local state
-        setLocalTable((prev) => ({ ...prev, ...updates }))
+        setLocalTable((prev) => {
+          const newTable = { ...prev, ...updates }
+          // Only update if there's a meaningful change
+          if (JSON.stringify(newTable) !== JSON.stringify(prev)) {
+            prevTableRef.current = newTable
+            return newTable
+          }
+          return prev
+        })
       }
     })
 
@@ -115,7 +133,11 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
 
       if (tableId === table.id) {
         // Use requestAnimationFrame to ensure updates happen outside render cycle
-        requestAnimationFrame(() => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+        }
+
+        animationFrameRef.current = requestAnimationFrame(() => {
           // Update local state immediately for responsive UI
           setLocalTable((prevTable) => {
             const newTable = { ...prevTable }
@@ -147,30 +169,41 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
               newTable.hasNotes = value.hasNotes
             }
 
-            return newTable
+            // Only update if there's a meaningful change
+            if (JSON.stringify(newTable) !== JSON.stringify(prevTable)) {
+              prevTableRef.current = newTable
+              return newTable
+            }
+            return prevTable
           })
 
           // Throttle the actual database update
-          if (field === "time") {
-            throttledUpdateTable(
-              tableId,
-              {
-                remainingTime: value.remainingTime,
-                initialTime: value.initialTime,
-              },
-              true,
-            )
-          } else if (field === "guestCount") {
-            throttledUpdateTable(tableId, { guestCount: value })
-          } else if (field === "server") {
-            throttledUpdateTable(tableId, { server: value })
-          } else if (field === "notes") {
-            throttledUpdateTable(tableId, {
-              noteId: value.noteId,
-              noteText: value.noteText,
-              hasNotes: value.hasNotes,
-            })
+          if (updateTimeoutRef.current) {
+            clearTimeout(updateTimeoutRef.current)
           }
+
+          updateTimeoutRef.current = setTimeout(() => {
+            if (field === "time") {
+              throttledUpdateTable(
+                tableId,
+                {
+                  remainingTime: value.remainingTime,
+                  initialTime: value.initialTime,
+                },
+                true,
+              )
+            } else if (field === "guestCount") {
+              throttledUpdateTable(tableId, { guestCount: value })
+            } else if (field === "server") {
+              throttledUpdateTable(tableId, { server: value })
+            } else if (field === "notes") {
+              throttledUpdateTable(tableId, {
+                noteId: value.noteId,
+                noteText: value.noteText,
+                hasNotes: value.hasNotes,
+              })
+            }
+          }, 300)
         })
       }
     }
@@ -179,6 +212,12 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
 
     return () => {
       window.removeEventListener("local-table-update", handleLocalTableUpdate as EventListener)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
     }
   }, [table.id, throttledUpdateTable])
 
@@ -187,28 +226,47 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     const handleTableTimeUpdate = (event: CustomEvent) => {
       if (event.detail && event.detail.tableId === localTable.id) {
         // Use requestAnimationFrame to ensure updates happen outside render cycle
-        requestAnimationFrame(() => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+        }
+
+        animationFrameRef.current = requestAnimationFrame(() => {
           // Update local state
           setRemainingTime(event.detail.remainingTime)
 
           // Update local table state
-          setLocalTable((prev) => ({
-            ...prev,
-            remainingTime: event.detail.remainingTime,
-            initialTime: event.detail.initialTime,
-          }))
+          setLocalTable((prev) => {
+            const newTable = {
+              ...prev,
+              remainingTime: event.detail.remainingTime,
+              initialTime: event.detail.initialTime,
+            }
+
+            // Only update if there's a meaningful change
+            if (JSON.stringify(newTable) !== JSON.stringify(prev)) {
+              prevTableRef.current = newTable
+              return newTable
+            }
+            return prev
+          })
 
           // Dispatch event for real-time updates if this event didn't come from this component
           if (event.detail.source !== "card") {
             // Throttle the actual database update
-            throttledUpdateTable(
-              localTable.id,
-              {
-                remainingTime: event.detail.remainingTime,
-                initialTime: event.detail.initialTime,
-              },
-              true,
-            )
+            if (updateTimeoutRef.current) {
+              clearTimeout(updateTimeoutRef.current)
+            }
+
+            updateTimeoutRef.current = setTimeout(() => {
+              throttledUpdateTable(
+                localTable.id,
+                {
+                  remainingTime: event.detail.remainingTime,
+                  initialTime: event.detail.initialTime,
+                },
+                true,
+              )
+            }, 300)
           }
         })
       }
@@ -218,6 +276,12 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
 
     return () => {
       window.removeEventListener("table-time-update", handleTableTimeUpdate as EventListener)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
     }
   }, [localTable.id, throttledUpdateTable])
 
@@ -226,7 +290,11 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     const handleTableUpdate = (event: CustomEvent) => {
       if (event.detail && event.detail.tableId === localTable.id && event.detail.table) {
         // Use requestAnimationFrame to ensure updates happen outside render cycle
-        requestAnimationFrame(() => {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current)
+        }
+
+        animationFrameRef.current = requestAnimationFrame(() => {
           const updatedTable = event.detail.table
 
           // Update remaining time if it's changed
@@ -238,6 +306,16 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
           if (updatedTable.startTime !== localTable.startTime) {
             setElapsedTime(updatedTable.startTime ? Date.now() - updatedTable.startTime : 0)
           }
+
+          // Update local table state
+          setLocalTable((prev) => {
+            // Only update if there's a meaningful change
+            if (JSON.stringify(updatedTable) !== JSON.stringify(prev)) {
+              prevTableRef.current = updatedTable
+              return updatedTable
+            }
+            return prev
+          })
         })
       }
     }
@@ -246,8 +324,47 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
 
     return () => {
       window.removeEventListener("table-updated", handleTableUpdate as EventListener)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
     }
   }, [localTable.id, localTable.remainingTime, localTable.startTime])
+
+  // Add this effect to properly handle session end events
+  useEffect(() => {
+    const handleSessionEnd = (event: CustomEvent) => {
+      if (event.detail?.tableId === localTable.id) {
+        // Reset all local state to default values
+        const DEFAULT_TIME = 60 * 60 * 1000 // 60 minutes
+
+        setLocalTable((prev) => {
+          const newTable = {
+            ...prev,
+            isActive: false,
+            startTime: null,
+            remainingTime: DEFAULT_TIME,
+            initialTime: DEFAULT_TIME,
+            guestCount: 0,
+            server: null,
+            groupId: null,
+            hasNotes: false,
+            noteId: "",
+            noteText: "",
+          }
+
+          prevTableRef.current = newTable
+          return newTable
+        })
+
+        setRemainingTime(DEFAULT_TIME)
+        setDisplayedRemainingTime(DEFAULT_TIME)
+        setElapsedTime(0)
+      }
+    }
+
+    window.addEventListener("session-ended", handleSessionEnd as EventListener)
+    return () => window.removeEventListener("session-ended", handleSessionEnd as EventListener)
+  }, [localTable.id])
 
   // Format start time - memoized to prevent recalculation
   const formatStartTime = useMemo(() => {
@@ -350,7 +467,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     return `hsl(${hue}, 100%, 50%)`
   }, [localTable.groupId])
 
-  // Get border color and animation based on group status - memoized
+  // Get border styles and animation based on group status - memoized
   const getBorderStyles = useMemo(() => {
     return () => {
       const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
@@ -492,6 +609,11 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     }
   }, [localTable.isActive, calculateRemainingTime])
 
+  // State for time tracking
+  const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime())
+  const [remainingTime, setRemainingTime] = useState(calculateRemainingTime())
+  const [displayedRemainingTime, setDisplayedRemainingTime] = useState(calculateRemainingTime())
+
   // Handle mouse down for long press detection
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -631,105 +753,45 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     setRotation({ x: 0, y: 0 })
   }, [])
 
-  // Add effect to update elapsed time and remaining time
-  const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime())
-  const [remainingTime, setRemainingTime] = useState(calculateRemainingTime())
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null)
-
+  // Listen for global time tick instead of using our own interval
   useEffect(() => {
-    // Clear any existing interval
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
-      timerIntervalRef.current = null
+    const handleGlobalTimeTick = (event: CustomEvent) => {
+      if (!localTable.isActive || !localTable.startTime) return
+
+      const now = event.detail.timestamp
+      const newElapsedTime = localTable.startTime ? now - localTable.startTime : 0
+      const newRemainingTime = localTable.initialTime - newElapsedTime
+
+      // Use requestAnimationFrame to ensure updates happen outside render cycle
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+
+      animationFrameRef.current = requestAnimationFrame(() => {
+        setElapsedTime(newElapsedTime)
+        setRemainingTime(newRemainingTime)
+        setDisplayedRemainingTime(newRemainingTime)
+      })
     }
 
-    if (localTable.isActive) {
-      // Initial update
-      setElapsedTime(calculateElapsedTime())
+    window.addEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
 
-      // Only update remaining time if it hasn't been modified locally
-      if (!localTable.manuallyUpdated) {
-        setRemainingTime(calculateRemainingTime())
-      }
-
-      // Set up interval for active tables
-      timerIntervalRef.current = setInterval(() => {
-        setElapsedTime(calculateElapsedTime())
-
-        // Only update remaining time if it hasn't been modified locally
-        if (!localTable.manuallyUpdated) {
-          setRemainingTime(calculateRemainingTime())
-        }
-      }, 1000)
-    } else {
-      // For inactive tables, reset to initial values
-      setElapsedTime(0)
-
-      // Only update remaining time if it hasn't been modified locally
-      if (!localTable.manuallyUpdated) {
-        setRemainingTime(localTable.initialTime)
-      }
+    // Initial calculation
+    if (localTable.isActive && localTable.startTime) {
+      const now = Date.now()
+      setElapsedTime(now - localTable.startTime)
+      setRemainingTime(localTable.initialTime - (now - localTable.startTime))
     }
 
     return () => {
-      if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current)
-        timerIntervalRef.current = null
+      window.removeEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [
-    localTable.isActive,
-    localTable.startTime,
-    localTable.initialTime,
-    localTable.manuallyUpdated,
-    calculateElapsedTime,
-    calculateRemainingTime,
-  ])
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime])
 
-  // Listen for timer-update events
-  useEffect(() => {
-    const handleTimerUpdate = (event: CustomEvent) => {
-      if (event.detail && event.detail.tableId === localTable.id) {
-        setRemainingTime(event.detail.remainingTime)
-      }
-    }
-
-    window.addEventListener("timer-update", handleTimerUpdate as EventListener)
-
-    return () => {
-      window.removeEventListener("timer-update", handleTimerUpdate as EventListener)
-    }
-  }, [localTable.id])
-
-  // Listen for table-updated events
-  useEffect(() => {
-    const handleTableUpdate = (event: CustomEvent) => {
-      if (event.detail && event.detail.tableId === localTable.id && event.detail.table) {
-        // Use requestAnimationFrame to ensure updates happen outside render cycle
-        requestAnimationFrame(() => {
-          const updatedTable = event.detail.table
-
-          // Update remaining time if it's changed
-          if (updatedTable.remainingTime !== localTable.remainingTime) {
-            setRemainingTime(updatedTable.remainingTime)
-          }
-
-          // Update elapsed time if start time changed
-          if (updatedTable.startTime !== localTable.startTime) {
-            setElapsedTime(updatedTable.startTime ? Date.now() - updatedTable.startTime : 0)
-          }
-        })
-      }
-    }
-
-    window.addEventListener("table-updated", handleTableUpdate as EventListener)
-
-    return () => {
-      window.removeEventListener("table-updated", handleTableUpdate as EventListener)
-    }
-  }, [localTable.id, localTable.remainingTime, localTable.startTime])
-
-  // Particle animation effect
+  // Particle animation effect with optimizations
   useEffect(() => {
     const canvas = particlesRef.current
     if (!canvas) return
@@ -746,7 +808,12 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     }
 
     updateCanvasSize()
-    window.addEventListener("resize", updateCanvasSize)
+
+    // Use a more efficient resize observer instead of window resize event
+    const resizeObserver = new ResizeObserver(updateCanvasSize)
+    if (cardRef.current) {
+      resizeObserver.observe(cardRef.current)
+    }
 
     // Create particles
     const particles: Array<{
@@ -784,8 +851,8 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       particleColor = getGroupColor()
     }
 
-    // Create initial particles
-    const particleCount = localTable.isActive ? 50 : 30
+    // Create initial particles - reduce count for better performance
+    const particleCount = localTable.isActive ? 30 : 15
     for (let i = 0; i < particleCount; i++) {
       particles.push({
         x: Math.random() * canvas.width,
@@ -798,8 +865,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       })
     }
 
-    // Animation loop
-    let animationFrame: number
+    // Animation loop with performance optimizations
     const animate = () => {
       if (!ctx || !canvas) return
 
@@ -828,14 +894,16 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
         ctx.shadowBlur = 0
       })
 
-      animationFrame = requestAnimationFrame(animate)
+      particleAnimationRef.current = requestAnimationFrame(animate)
     }
 
     animate()
 
     return () => {
-      window.removeEventListener("resize", updateCanvasSize)
-      cancelAnimationFrame(animationFrame)
+      resizeObserver.disconnect()
+      if (particleAnimationRef.current) {
+        cancelAnimationFrame(particleAnimationRef.current)
+      }
     }
   }, [localTable.isActive, localTable.groupId, tableStatus, getGroupColor])
 
@@ -1061,16 +1129,18 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
                   border: tableStatus.isOvertime
                     ? "1px solid rgba(255, 0, 0, 0.5)"
                     : tableStatus.isWarningOrange
-                      ? "1px solid rgba(255, 165, 0, 0.5)"
-                      : tableStatus.isWarningYellow
-                        ? "1px solid rgba(255, 255, 0, 0.5)"
-                        : localTable.isActive
-                          ? "1px solid rgba(0, 255, 0, 0.5)"
-                          : "1px solid rgba(0, 255, 255, 0.5)",
+                      ? "1px solid rgba(255, 165, 0, 0,0,0.5)"
+                      : tableStatus.isWarningOrange
+                        ? "1px solid rgba(255, 165, 0, 0.5)"
+                        : tableStatus.isWarningYellow
+                          ? "1px solid rgba(255, 255, 0, 0.5)"
+                          : localTable.isActive
+                            ? "1px solid rgba(0, 255, 0, 0.5)"
+                            : "1px solid rgba(0, 255, 255, 0.5)",
                   boxShadow: "0 0 10px rgba(0, 0, 0, 0.5)",
                 }}
               >
-                {formatTime(remainingTime)}
+                {formatTime(displayedRemainingTime)}
               </div>
             </div>
 

@@ -39,8 +39,10 @@ export function calculateRemainingTime(
   if (!startTime) return timerMinutes * 60 // Not started yet
 
   const totalSeconds = timerMinutes * 60
+
+  // Cache these values to avoid repeated calculations
   const startTimeMs = new Date(startTime).getTime()
-  const now = new Date().getTime()
+  const now = Date.now()
 
   let elapsedSeconds = 0
 
@@ -64,7 +66,7 @@ export function calculateRemainingTime(
 
 // Throttled version of broadcastTimerUpdate to prevent too many updates
 let lastTimerUpdateTime = 0
-const TIMER_UPDATE_THROTTLE = 500 // ms
+const TIMER_UPDATE_THROTTLE = 250 // Reduced from 500ms to 250ms for better responsiveness
 
 export function throttledBroadcastTimerUpdate(tableId: number, remainingTime: number, initialTime: number) {
   const now = Date.now()
@@ -95,8 +97,8 @@ export function formatTime(ms: number) {
   // Use template literals for faster string concatenation
   const formattedTime = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
 
-  // Add negative sign for overtime
-  return isNegative ? `-${formattedTime}` : formattedTime
+  // Add negative sign for overtime (using proper minus sign)
+  return isNegative ? `−${formattedTime}` : formattedTime
 }
 
 // Format time as MM:SS with support for negative values
@@ -111,8 +113,8 @@ export function formatShortTime(ms: number) {
 
   const formattedTime = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
 
-  // Add negative sign for overtime
-  return isNegative ? `-${formattedTime}` : formattedTime
+  // Add negative sign for overtime (using proper minus sign)
+  return isNegative ? `−${formattedTime}` : formattedTime
 }
 
 // Throttle function to limit how often a function can be called
@@ -160,4 +162,34 @@ export function animateWithRaf(callback: (timestamp: number) => void) {
   return () => {
     cancelAnimationFrame(animationFrameId)
   }
+}
+
+// Add a new function to calculate remaining time on-the-fly
+export function calculateRemainingTimeOnTheFly(
+  initialTime: number,
+  startTime: string | null,
+  isPaused: boolean,
+  pauseTime: string | null,
+  accumulatedTime: number,
+  currentTime: number,
+): number {
+  if (!startTime) return initialTime // Not started yet
+
+  const totalSeconds = initialTime / 1000
+  const startTimeMs = new Date(startTime).getTime()
+
+  let elapsedSeconds = 0
+
+  if (isPaused && pauseTime) {
+    const pauseTimeMs = new Date(pauseTime).getTime()
+    elapsedSeconds = (pauseTimeMs - startTimeMs) / 1000
+  } else {
+    elapsedSeconds = (currentTime - startTimeMs) / 1000
+  }
+
+  // Add accumulated time (from previous sessions)
+  elapsedSeconds += accumulatedTime
+
+  // Allow negative values for overtime
+  return (totalSeconds - elapsedSeconds) * 1000
 }

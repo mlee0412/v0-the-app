@@ -59,6 +59,18 @@ export const useTableStore = create<TableState>((set, get) => ({
       // Create a merged view for the UI (current table + all pending updates)
       const mergedTable = { ...currentTable, ...newPendingUpdates }
 
+      // Handle session end case - ensure complete reset
+      if (data.is_paused === false && data.start_time === null && currentTable.start_time !== null) {
+        // This is a session end event - reset all values to defaults
+        const DEFAULT_TIME = 60 * 60 * 1000
+        mergedTable.timer_minutes = DEFAULT_TIME / 60000
+        mergedTable.accumulated_time = 0
+        mergedTable.is_paused = false
+        mergedTable.pause_time = null
+        mergedTable.server_id = null
+        mergedTable.table_group_id = null
+      }
+
       return {
         tables: { ...state.tables, [tableId]: mergedTable },
         pendingUpdates: { ...state.pendingUpdates, [tableId]: newPendingUpdates },
@@ -87,15 +99,18 @@ export const useTableStore = create<TableState>((set, get) => ({
 
         if (updateType === "timer-only") {
           // Only send timer-related updates
+          const { timer_minutes, start_time, is_paused, pause_time, accumulated_time } = pendingUpdates
           updatesToSend = {
-            ...(pendingUpdates.remainingTime !== undefined ? { remainingTime: pendingUpdates.remainingTime } : {}),
-            ...(pendingUpdates.initialTime !== undefined ? { initialTime: pendingUpdates.initialTime } : {}),
-            ...(pendingUpdates.isActive !== undefined ? { isActive: pendingUpdates.isActive } : {}),
-            ...(pendingUpdates.startTime !== undefined ? { startTime: pendingUpdates.startTime } : {}),
+            ...(timer_minutes !== undefined ? { timer_minutes } : {}),
+            ...(start_time !== undefined ? { start_time } : {}),
+            ...(is_paused !== undefined ? { is_paused } : {}),
+            ...(pause_time !== undefined ? { pause_time } : {}),
+            ...(accumulated_time !== undefined ? { accumulated_time } : {}),
           }
         } else if (updateType === "non-timer") {
           // Only send non-timer updates
-          const { remainingTime, initialTime, isActive, startTime, ...nonTimerUpdates } = pendingUpdates
+          const { timer_minutes, start_time, is_paused, pause_time, accumulated_time, ...nonTimerUpdates } =
+            pendingUpdates
           updatesToSend = nonTimerUpdates
         }
 
@@ -127,8 +142,8 @@ export const useTableStore = create<TableState>((set, get) => ({
         }))
       }
     },
-    1000,
-    { leading: false, trailing: true },
+    500, // Reduced from 1000ms to 500ms for better responsiveness
+    { leading: true, trailing: true }, // Changed to leading: true to start updates immediately
   ),
 
   // Commit updates with different frequencies based on data type

@@ -56,7 +56,7 @@ function convertTableToDB(table: Table): TablesRecord {
     has_notes: table.hasNotes,
     note_id: table.noteId || "",
     note_text: table.noteText || "",
-    updated_by_admin: table.updated_by_admin,
+    updated_by_admin: table.updated_by_admin || false,
     updated_by: table.updated_by && table.updated_by.trim() !== "" ? table.updated_by : null, // Ensure empty strings become null
     updated_at: table.updatedAt,
   }
@@ -359,6 +359,111 @@ class SupabaseTablesService {
       }
     } catch (error) {
       console.error("Error batch updating timers:", error)
+    }
+  }
+
+  // Update a table's timer based on the current time
+  async updateTableTimerBasedOnCurrentTime(tableId: number): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Get the current table data
+      const { data, error } = await supabase.from(this.tableName).select("*").eq("id", tableId).single()
+
+      if (error || !data) {
+        console.error(`Error fetching table ${tableId} for timer update:`, error)
+        return
+      }
+
+      // Only update if the table is active
+      if (!data.is_active || !data.start_time) return
+
+      const now = Date.now()
+      const startTime = data.start_time
+      const initialTime = data.initial_time
+
+      // Calculate the current remaining time
+      const elapsedTime = now - startTime
+      const remainingTime = initialTime - elapsedTime
+
+      // Update the table with the current remaining time
+      const { error: updateError } = await supabase
+        .from(this.tableName)
+        .update({
+          remaining_time: remainingTime,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", tableId)
+
+      if (updateError) {
+        console.error(`Error updating table ${tableId} timer:`, updateError)
+      }
+
+      // Dispatch event for real-time updates
+      window.dispatchEvent(
+        new CustomEvent("supabase-timer-update", {
+          detail: {
+            tableId,
+            remainingTime,
+            initialTime,
+          },
+        }),
+      )
+    } catch (error) {
+      console.error("Error updating table timer based on current time:", error)
+    }
+  }
+
+  // Add a method to sync all active table timers
+  async syncAllActiveTableTimers(): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Get all active tables
+      const { data, error } = await supabase.from(this.tableName).select("*").eq("is_active", true).order("id")
+
+      if (error) {
+        console.error("Error fetching active tables for timer sync:", error)
+        return
+      }
+
+      if (!data || data.length === 0) return
+
+      const now = Date.now()
+
+      // Update each active table
+      for (const table of data) {
+        if (!table.start_time) continue
+
+        const elapsedTime = now - table.start_time
+        const remainingTime = table.initial_time - elapsedTime
+
+        // Update the table with the current remaining time
+        const { error: updateError } = await supabase
+          .from(this.tableName)
+          .update({
+            remaining_time: remainingTime,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", table.id)
+
+        if (updateError) {
+          console.error(`Error updating table ${table.id} timer during sync:`, updateError)
+        }
+
+        // Dispatch event for real-time updates
+        window.dispatchEvent(
+          new CustomEvent("supabase-timer-update", {
+            detail: {
+              tableId: table.id,
+              remainingTime,
+              initialTime: table.initial_time,
+            },
+          }),
+        )
+      }
+    } catch (error) {
+      console.error("Error syncing all active table timers:", error)
     }
   }
 

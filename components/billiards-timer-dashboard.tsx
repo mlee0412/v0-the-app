@@ -1,27 +1,27 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { TableGrid } from "@/components/table-grid"
 import { TableDialog } from "@/components/table-dialog"
-import { ConfirmDialog } from "@/components/confirm-dialog"
 import { TableLogsDialog } from "@/components/table-logs-dialog"
 import { DayReportDialog } from "@/components/day-report-dialog"
-import { ServerSelectionDialog } from "@/components/server-selection-dialog"
 import { SettingsDialog } from "@/components/settings-dialog"
-import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
-import { Header } from "@/components/header"
-import { useSupabaseData } from "@/hooks/use-supabase-data"
-import { useAuth } from "@/contexts/auth-context"
-import { MobileTableList } from "@/components/mobile/mobile-table-list"
-import { PullUpInsightsPanel } from "@/components/pull-up-insights-panel"
+import { ServerSelectionDialog } from "@/components/server-selection-dialog"
 import { UserManagementDialog } from "@/components/user-management-dialog"
 import { LoginDialog } from "@/components/auth/login-dialog"
+import { useSupabaseData } from "@/hooks/use-supabase-data"
+import { useAuth } from "@/contexts/auth-context"
+import { PullUpInsightsPanel } from "@/components/pull-up-insights-panel"
+import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
+import { MobileTableList } from "@/components/mobile/mobile-table-list"
 import { SpaceBackgroundAnimation } from "@/components/space-background-animation"
-import { BigBangAnimation } from "@/components/animations/big-bang-animation"
-import { ExplosionAnimation } from "@/components/animations/explosion-animation"
+import { Header } from "@/components/header"
+import { TableGrid } from "@/components/table-grid"
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import { TouchLogin } from "@/components/auth/touch-login"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useTableStore } from "@/utils/table-state-manager"
+import { BigBangAnimation } from "@/components/animations/big-bang-animation"
+import { ExplosionAnimation } from "@/components/animations/explosion-animation"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -37,8 +37,8 @@ export interface Table {
   hasNotes: boolean
   noteId: string
   noteText: string
-  updated_by_admin: boolean
-  updated_by: string | null
+  updated_by_admin?: boolean
+  updated_by?: string | null
   updatedAt: string
 }
 
@@ -46,7 +46,7 @@ export interface Table {
 export interface Server {
   id: string
   name: string
-  enabled?: boolean
+  enabled: boolean
 }
 
 // Define note template interface
@@ -62,7 +62,12 @@ export interface LogEntry {
   tableName: string
   action: string
   timestamp: number
-  details: string
+  details?: string
+}
+
+export interface Settings {
+  dayStarted: boolean
+  groupCounter: number
 }
 
 export interface SystemSettings {
@@ -165,8 +170,8 @@ export function BilliardsTimerDashboard() {
     logs: supabaseLogs,
     servers: serverUsers,
     noteTemplates,
-    dayStarted,
-    groupCounter,
+    dayStarted: supabaseDayStarted,
+    groupCounter: supabaseGroupCounter,
     loading,
     error,
     updateTable,
@@ -254,7 +259,17 @@ export function BilliardsTimerDashboard() {
   // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date())
+      const now = new Date()
+      setCurrentTime(now)
+
+      // Broadcast the current time to all components
+      window.dispatchEvent(
+        new CustomEvent("global-time-tick", {
+          detail: {
+            timestamp: now.getTime(),
+          },
+        }),
+      )
     }, 1000)
 
     return () => clearInterval(timer)
@@ -262,46 +277,14 @@ export function BilliardsTimerDashboard() {
 
   // Add this after the other useEffect blocks
   // Update remaining time for active tables
-  useEffect(() => {
-    if (!dayStarted) return
-
-    const timeInterval = setInterval(() => {
-      setTables((currentTables) =>
-        currentTables.map((table) => {
-          if (table.isActive && table.startTime) {
-            const elapsed = Date.now() - table.startTime
-            return {
-              ...table,
-              remainingTime: table.initialTime - elapsed,
-            }
-          }
-          return table
-        }),
-      )
-    }, 1000)
-
-    return () => clearInterval(timeInterval)
-  }, [dayStarted])
 
   // Add an event listener to handle table updates
   useEffect(() => {
     const handleTableUpdate = (event: CustomEvent) => {
-      const { tableId, table } = event.detail
-      // Update the table in the local state
-      setTables((prevTables) => prevTables.map((t) => (t.id === tableId ? table : t)))
+      const { table } = event.detail
+      setTables((ts) => ts.map((t) => (t.id === table.id ? table : t)))
     }
 
-    // Add event listener
-    window.addEventListener("table-updated", handleTableUpdate as EventListener)
-
-    // Clean up
-    return () => {
-      window.removeEventListener("table-updated", handleTableUpdate as EventListener)
-    }
-  }, [])
-
-  // Handle fullscreen change events
-  useEffect(() => {
     const handleFullScreenChange = () => {
       const isCurrentlyFullScreen = !!(
         document.fullscreenElement ||
@@ -318,12 +301,14 @@ export function BilliardsTimerDashboard() {
       }
     }
 
+    window.addEventListener("table-updated", handleTableUpdate as EventListener)
     document.addEventListener("fullscreenchange", handleFullScreenChange)
     document.addEventListener("webkitfullscreenchange", handleFullScreenChange)
     document.addEventListener("mozfullscreenchange", handleFullScreenChange)
     document.addEventListener("MSFullscreenChange", handleFullScreenChange)
 
     return () => {
+      window.removeEventListener("table-updated", handleTableUpdate as EventListener)
       document.removeEventListener("fullscreenchange", handleFullScreenChange)
       document.removeEventListener("webkitfullscreenchange", handleFullScreenChange)
       document.removeEventListener("mozfullscreenchange", handleFullScreenChange)
@@ -392,7 +377,7 @@ export function BilliardsTimerDashboard() {
   // Open table dialog
   const openTableDialog = (table: Table) => {
     // Check if day has been started
-    if (!dayStarted) {
+    if (!supabaseDayStarted) {
       showNotification("Please start the day before managing tables", "error")
       return
     }
@@ -596,7 +581,7 @@ export function BilliardsTimerDashboard() {
             remainingTime: DEFAULT_TIME,
             initialTime: DEFAULT_TIME,
             groupId: null, // Ungroup tables when session ends
-            server: null, // Clear server assignment
+            server: null, // Clear server assignment (explicitly null)
             guestCount: 0, // Reset guest count
             // Clear notes
             hasNotes: false,
@@ -611,6 +596,15 @@ export function BilliardsTimerDashboard() {
               detail: {
                 tableId: t.id,
                 table: updatedTable,
+              },
+            }),
+          )
+
+          // Also dispatch a specific session-ended event
+          window.dispatchEvent(
+            new CustomEvent("session-ended", {
+              detail: {
+                tableId: t.id,
               },
             }),
           )
@@ -645,7 +639,7 @@ export function BilliardsTimerDashboard() {
         remainingTime: DEFAULT_TIME,
         initialTime: DEFAULT_TIME,
         guestCount: 0,
-        server: null,
+        server: null, // This is already correct, but ensuring it's explicitly null
         // Clear notes
         hasNotes: false,
         noteId: "",
@@ -662,6 +656,15 @@ export function BilliardsTimerDashboard() {
           detail: {
             tableId: tableId,
             table: updatedTable,
+          },
+        }),
+      )
+
+      // Also dispatch a specific session-ended event
+      window.dispatchEvent(
+        new CustomEvent("session-ended", {
+          detail: {
+            tableId: tableId,
           },
         }),
       )
@@ -960,7 +963,7 @@ export function BilliardsTimerDashboard() {
       }
 
       // Check if day has been started
-      if (!dayStarted) {
+      if (!supabaseDayStarted) {
         showNotification("Please start the day before updating guest count", "error")
         return
       }
@@ -989,7 +992,7 @@ export function BilliardsTimerDashboard() {
         updateTable(updatedTable)
       }, 300)
     },
-    [tables, isAuthenticated, hasPermission, dayStarted, updateTable, setLoginAttemptFailed],
+    [tables, isAuthenticated, hasPermission, supabaseDayStarted, updateTable, setLoginAttemptFailed],
   )
 
   // Assign server to table with throttling
@@ -1070,11 +1073,11 @@ export function BilliardsTimerDashboard() {
     if (tableIds.length < 2) return
 
     // Auto-generate group name
-    const groupName = `Group ${groupCounter}`
-    const newGroupCounter = groupCounter + 1
+    const groupName = `Group ${supabaseGroupCounter}`
+    const newGroupCounter = supabaseGroupCounter + 1
 
     // Update system settings with new group counter
-    await updateSystemSettings(dayStarted, newGroupCounter)
+    await updateSystemSettings(supabaseDayStarted, newGroupCounter)
 
     await addLogEntry(
       tableIds[0],
@@ -1230,7 +1233,7 @@ export function BilliardsTimerDashboard() {
     }
 
     // Check if day has been started
-    if (!dayStarted) {
+    if (!supabaseDayStarted) {
       showNotification("Please start the day before updating notes", "error")
       return
     }
@@ -1474,7 +1477,7 @@ export function BilliardsTimerDashboard() {
           currentTime={currentTime}
           isAuthenticated={isAuthenticated}
           isAdmin={isAdmin}
-          dayStarted={dayStarted}
+          dayStarted={supabaseDayStarted}
           hasPermission={hasPermission}
           onStartDay={startDay}
           onEndDay={endDay}
@@ -1568,7 +1571,7 @@ export function BilliardsTimerDashboard() {
           onShowUserManagement={() => setShowUserManagementDialog(true)}
           onShowLogs={() => setShowLogsDialog(true)}
           onLogout={handleLogout}
-          showAdminControls={isAuthenticated && dayStarted}
+          showAdminControls={isAuthenticated && supabaseDayStarted}
         />
 
         <TableLogsDialog open={showLogsDialog} onClose={() => setShowLogsDialog(false)} logs={logs} />
@@ -1600,7 +1603,7 @@ export function BilliardsTimerDashboard() {
         />
 
         {/* Pull-up AI Insights Panel */}
-        {isAuthenticated && dayStarted && !isMobile && (
+        {isAuthenticated && supabaseDayStarted && !isMobile && (
           <PullUpInsightsPanel tables={tables} logs={logs} servers={serverUsers} />
         )}
       </div>

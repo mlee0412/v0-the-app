@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiards-timer-dashboard"
 import { v4 as uuidv4 } from "uuid"
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import type { RealtimeSubscription } from "@supabase/supabase-js"
 
 // Default time in milliseconds (60 minutes)
 const DEFAULT_TIME = 60 * 60 * 1000
@@ -61,7 +62,7 @@ function convertTableToSupabase(table: Table) {
     remaining_time: table.remainingTime,
     initial_time: table.initialTime,
     guest_count: table.guestCount,
-    // Fix: Ensure server_id is null when server is null or empty string
+    // Fix: Ensure server_id is null when server is null, undefined, or empty string
     server_id: table.server && table.server.trim() !== "" ? table.server : null,
     group_id: table.groupId && table.groupId.trim() !== "" ? table.groupId : null,
     has_notes: table.hasNotes,
@@ -109,6 +110,15 @@ export function useSupabaseData() {
   const [useLocalStorage, setUseLocalStorage] = useState(!isSupabaseConfigured())
   const [offlineMode, setOfflineMode] = useState(false)
   const [connectionTested, setConnectionTested] = useState(false)
+
+  // Use refs to track previous values to prevent unnecessary updates
+  const prevTablesRef = useRef<Table[]>(initialTables)
+  const prevLogsRef = useRef<LogEntry[]>([])
+  const prevServersRef = useRef<Server[]>(defaultServers)
+  const prevTemplatesRef = useRef<NoteTemplate[]>(defaultNoteTemplates)
+  const pendingUpdatesRef = useRef<Map<number, Partial<Table>>>(new Map())
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const subscriptionsRef = useRef<(() => void)[]>([])
 
   // Check if current user is admin
   useEffect(() => {
@@ -201,9 +211,14 @@ export function useSupabaseData() {
             updated_by: table.updated_by || null,
             updatedAt: table.updated_at || new Date().toISOString(),
           }))
-          setTables(convertedTables)
-          // Save to localStorage as backup
-          localStorage.setItem("tables", JSON.stringify(convertedTables))
+
+          // Only update if there are actual changes
+          if (JSON.stringify(convertedTables) !== JSON.stringify(prevTablesRef.current)) {
+            setTables(convertedTables)
+            prevTablesRef.current = convertedTables
+            // Save to localStorage as backup
+            localStorage.setItem("tables", JSON.stringify(convertedTables))
+          }
         } else {
           console.warn("Failed to load tables from Supabase, using localStorage", tablesError)
           loadTablesFromLocalStorage()
@@ -224,9 +239,14 @@ export function useSupabaseData() {
             timestamp: log.timestamp,
             details: log.details || "",
           }))
-          setLogs(convertedLogs)
-          // Save to localStorage as backup
-          localStorage.setItem("logs", JSON.stringify(convertedLogs))
+
+          // Only update if there are actual changes
+          if (JSON.stringify(convertedLogs) !== JSON.stringify(prevLogsRef.current)) {
+            setLogs(convertedLogs)
+            prevLogsRef.current = convertedLogs
+            // Save to localStorage as backup
+            localStorage.setItem("logs", JSON.stringify(convertedLogs))
+          }
         } else {
           console.warn("Failed to load logs from Supabase, using localStorage", logsError)
           loadLogsFromLocalStorage()
@@ -252,9 +272,13 @@ export function useSupabaseData() {
         // Load servers
         const { data: serversData, error: serversError } = await supabase.from(TABLE_NAMES.SERVERS).select("*")
         if (!serversError && serversData && serversData.length > 0) {
-          setServers(serversData)
-          // Save to localStorage as backup
-          localStorage.setItem("servers", JSON.stringify(serversData))
+          // Only update if there are actual changes
+          if (JSON.stringify(serversData) !== JSON.stringify(prevServersRef.current)) {
+            setServers(serversData)
+            prevServersRef.current = serversData
+            // Save to localStorage as backup
+            localStorage.setItem("servers", JSON.stringify(serversData))
+          }
         } else {
           console.warn("Failed to load servers from Supabase, using localStorage", serversError)
           loadServersFromLocalStorage()
@@ -263,9 +287,13 @@ export function useSupabaseData() {
         // Load note templates
         const { data: templatesData, error: templatesError } = await supabase.from(TABLE_NAMES.TEMPLATES).select("*")
         if (!templatesError && templatesData && templatesData.length > 0) {
-          setNoteTemplates(templatesData)
-          // Save to localStorage as backup
-          localStorage.setItem("noteTemplates", JSON.stringify(templatesData))
+          // Only update if there are actual changes
+          if (JSON.stringify(templatesData) !== JSON.stringify(prevTemplatesRef.current)) {
+            setNoteTemplates(templatesData)
+            prevTemplatesRef.current = templatesData
+            // Save to localStorage as backup
+            localStorage.setItem("noteTemplates", JSON.stringify(templatesData))
+          }
         } else {
           console.warn("Failed to load note templates from Supabase, using localStorage", templatesError)
           loadTemplatesFromLocalStorage()
@@ -292,63 +320,77 @@ export function useSupabaseData() {
   }, [useLocalStorage, connectionTested, testConnection])
 
   // Load data from localStorage
-  const loadFromLocalStorage = () => {
+  const loadFromLocalStorage = useCallback(() => {
     loadTablesFromLocalStorage()
     loadLogsFromLocalStorage()
     loadSettingsFromLocalStorage()
     loadServersFromLocalStorage()
     loadTemplatesFromLocalStorage()
     setLastSyncTime(new Date())
-  }
+  }, [])
 
   // Load tables from localStorage
-  const loadTablesFromLocalStorage = () => {
+  const loadTablesFromLocalStorage = useCallback(() => {
     try {
       const storedTables = localStorage.getItem("tables")
       if (storedTables) {
         const parsedTables = JSON.parse(storedTables)
         if (Array.isArray(parsedTables) && parsedTables.length > 0) {
-          setTables(parsedTables)
+          // Only update if there are actual changes
+          if (JSON.stringify(parsedTables) !== JSON.stringify(prevTablesRef.current)) {
+            setTables(parsedTables)
+            prevTablesRef.current = parsedTables
+          }
         } else {
           setTables(initialTables)
+          prevTablesRef.current = initialTables
           localStorage.setItem("tables", JSON.stringify(initialTables))
         }
       } else {
         setTables(initialTables)
+        prevTablesRef.current = initialTables
         localStorage.setItem("tables", JSON.stringify(initialTables))
       }
     } catch (e) {
       console.error("Error loading tables from localStorage:", e)
       setTables(initialTables)
+      prevTablesRef.current = initialTables
       localStorage.setItem("tables", JSON.stringify(initialTables))
     }
-  }
+  }, [])
 
   // Load logs from localStorage
-  const loadLogsFromLocalStorage = () => {
+  const loadLogsFromLocalStorage = useCallback(() => {
     try {
       const storedLogs = localStorage.getItem("logs")
       if (storedLogs) {
         const parsedLogs = JSON.parse(storedLogs)
         if (Array.isArray(parsedLogs)) {
-          setLogs(parsedLogs)
+          // Only update if there are actual changes
+          if (JSON.stringify(parsedLogs) !== JSON.stringify(prevLogsRef.current)) {
+            setLogs(parsedLogs)
+            prevLogsRef.current = parsedLogs
+          }
         } else {
           setLogs([])
+          prevLogsRef.current = []
           localStorage.setItem("logs", JSON.stringify([]))
         }
       } else {
         setLogs([])
+        prevLogsRef.current = []
         localStorage.setItem("logs", JSON.stringify([]))
       }
     } catch (e) {
       console.error("Error loading logs from localStorage:", e)
       setLogs([])
+      prevLogsRef.current = []
       localStorage.setItem("logs", JSON.stringify([]))
     }
-  }
+  }, [])
 
   // Load settings from localStorage
-  const loadSettingsFromLocalStorage = () => {
+  const loadSettingsFromLocalStorage = useCallback(() => {
     try {
       const storedDayStarted = localStorage.getItem("dayStarted")
       if (storedDayStarted !== null) {
@@ -372,122 +414,231 @@ export function useSupabaseData() {
       localStorage.setItem("dayStarted", "false")
       localStorage.setItem("groupCounter", "1")
     }
-  }
+  }, [])
 
   // Load servers from localStorage
-  const loadServersFromLocalStorage = () => {
+  const loadServersFromLocalStorage = useCallback(() => {
     try {
       const storedServers = localStorage.getItem("servers")
       if (storedServers) {
         const parsedServers = JSON.parse(storedServers)
         if (Array.isArray(parsedServers) && parsedServers.length > 0) {
-          setServers(parsedServers)
+          // Only update if there are actual changes
+          if (JSON.stringify(parsedServers) !== JSON.stringify(prevServersRef.current)) {
+            setServers(parsedServers)
+            prevServersRef.current = parsedServers
+          }
         } else {
           setServers(defaultServers)
+          prevServersRef.current = defaultServers
           localStorage.setItem("servers", JSON.stringify(defaultServers))
         }
       } else {
         setServers(defaultServers)
+        prevServersRef.current = defaultServers
         localStorage.setItem("servers", JSON.stringify(defaultServers))
       }
     } catch (e) {
       console.error("Error loading servers from localStorage:", e)
       setServers(defaultServers)
+      prevServersRef.current = defaultServers
       localStorage.setItem("servers", JSON.stringify(defaultServers))
     }
-  }
+  }, [])
 
   // Load note templates from localStorage
-  const loadTemplatesFromLocalStorage = () => {
+  const loadTemplatesFromLocalStorage = useCallback(() => {
     try {
       const storedTemplates = localStorage.getItem("noteTemplates")
       if (storedTemplates) {
         const parsedTemplates = JSON.parse(storedTemplates)
         if (Array.isArray(parsedTemplates) && parsedTemplates.length > 0) {
-          setNoteTemplates(parsedTemplates)
+          // Only update if there are actual changes
+          if (JSON.stringify(parsedTemplates) !== JSON.stringify(prevTemplatesRef.current)) {
+            setNoteTemplates(parsedTemplates)
+            prevTemplatesRef.current = parsedTemplates
+          }
         } else {
           setNoteTemplates(defaultNoteTemplates)
+          prevTemplatesRef.current = defaultNoteTemplates
           localStorage.setItem("noteTemplates", JSON.stringify(defaultNoteTemplates))
         }
       } else {
         setNoteTemplates(defaultNoteTemplates)
+        prevTemplatesRef.current = defaultNoteTemplates
         localStorage.setItem("noteTemplates", JSON.stringify(defaultNoteTemplates))
       }
     } catch (e) {
       console.error("Error loading note templates from localStorage:", e)
       setNoteTemplates(defaultNoteTemplates)
+      prevTemplatesRef.current = defaultNoteTemplates
       localStorage.setItem("noteTemplates", JSON.stringify(defaultNoteTemplates))
     }
-  }
+  }, [])
 
-  // Initialize and load data
+  // INITIAL FETCH ON MOUNT
   useEffect(() => {
     loadAllData()
 
-    // Set up real-time subscriptions if not using localStorage
-    if (!useLocalStorage && isSupabaseConfigured()) {
-      try {
+    // Clean up function
+    return () => {
+      // Clear any pending timeouts
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current)
+      }
+
+      // Clean up all subscriptions
+      subscriptionsRef.current.forEach((unsubscribe) => unsubscribe())
+      subscriptionsRef.current = []
+    }
+  }, [loadAllData])
+
+  // CLEAN REALTIME SUBSCRIPTIONS
+  useEffect(() => {
+    // Clean up existing subscriptions first
+    subscriptionsRef.current.forEach((unsubscribe) => unsubscribe())
+    subscriptionsRef.current = []
+
+    let tablesSub: RealtimeSubscription | null = null
+    let logsSub: RealtimeSubscription | null = null
+    let settingsSub: RealtimeSubscription | null = null
+    let serversSub: RealtimeSubscription | null = null
+
+    try {
+      if (!useLocalStorage && isSupabaseConfigured()) {
         const supabase = getSupabaseClient()
 
-        // Tables subscription
-        const tablesSubscription = supabase
+        tablesSub = supabase
           .channel("tables-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.TABLES }, (payload) => {
-            console.log("Tables update received:", payload)
-            loadAllData()
+          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.TABLES }, ({ new: newTbl }) => {
+            setTables((ts) => {
+              // Only update the specific table that changed
+              const updatedTables = ts.map((t) =>
+                t.id === newTbl.id
+                  ? {
+                      id: newTbl.id,
+                      name: newTbl.name,
+                      isActive: newTbl.is_active,
+                      startTime: newTbl.start_time,
+                      remainingTime: newTbl.remaining_time,
+                      initialTime: newTbl.initial_time,
+                      guestCount: newTbl.guest_count,
+                      server: newTbl.server_id,
+                      groupId: newTbl.group_id,
+                      hasNotes: newTbl.has_notes,
+                      noteId: newTbl.note_id || "",
+                      noteText: newTbl.note_text || "",
+                      updated_by_admin: newTbl.updated_by_admin || false,
+                      updated_by: newTbl.updated_by || null,
+                      updatedAt: newTbl.updated_at || new Date().toISOString(),
+                    }
+                  : t,
+              )
+
+              // Only update state if there's an actual change
+              if (JSON.stringify(updatedTables) !== JSON.stringify(ts)) {
+                prevTablesRef.current = updatedTables
+                return updatedTables
+              }
+              return ts
+            })
           })
           .subscribe()
 
-        // Logs subscription
-        const logsSubscription = supabase
+        logsSub = supabase
           .channel("logs-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.LOGS }, (payload) => {
-            console.log("Logs update received:", payload)
-            loadAllData()
-          })
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: TABLE_NAMES.LOGS },
+            ({ eventType, new: newLog }) => {
+              setLogs((ls) => {
+                let updatedLogs
+                if (eventType === "INSERT") {
+                  updatedLogs = [
+                    {
+                      id: newLog.id,
+                      tableId: newLog.table_id,
+                      tableName: newLog.table_name,
+                      action: newLog.action,
+                      timestamp: newLog.timestamp,
+                      details: newLog.details || "",
+                    },
+                    ...ls,
+                  ]
+                } else {
+                  updatedLogs = ls.map((l) =>
+                    l.id === newLog.id
+                      ? {
+                          id: newLog.id,
+                          tableId: newLog.table_id,
+                          tableName: newLog.table_name,
+                          action: newLog.action,
+                          timestamp: newLog.timestamp,
+                          details: newLog.details || "",
+                        }
+                      : l,
+                  )
+                }
+
+                // Only update state if there's an actual change
+                if (JSON.stringify(updatedLogs) !== JSON.stringify(ls)) {
+                  prevLogsRef.current = updatedLogs
+                  return updatedLogs
+                }
+                return ls
+              })
+            },
+          )
           .subscribe()
 
-        // Settings subscription
-        const settingsSubscription = supabase
+        settingsSub = supabase
           .channel("settings-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.SETTINGS }, (payload) => {
-            console.log("Settings update received:", payload)
-            loadAllData()
-          })
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: TABLE_NAMES.SETTINGS },
+            ({ new: newSettings }) => {
+              setDayStarted(newSettings.day_started || false)
+              setGroupCounter(newSettings.group_counter || 1)
+            },
+          )
           .subscribe()
 
-        // Servers subscription
-        const serversSubscription = supabase
+        serversSub = supabase
           .channel("servers-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.SERVERS }, (payload) => {
-            console.log("Servers update received:", payload)
-            loadAllData()
+          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.SERVERS }, ({ new: newSrv }) => {
+            setServers((ss) => {
+              const updatedServers = ss.map((s) => (s.id === newSrv.id ? newSrv : s))
+
+              // Only update state if there's an actual change
+              if (JSON.stringify(updatedServers) !== JSON.stringify(ss)) {
+                prevServersRef.current = updatedServers
+                return updatedServers
+              }
+              return ss
+            })
           })
           .subscribe()
 
-        // Note templates subscription
-        const templatesSubscription = supabase
-          .channel("templates-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.TEMPLATES }, (payload) => {
-            console.log("Note templates update received:", payload)
-            loadAllData()
-          })
-          .subscribe()
-
-        return () => {
-          tablesSubscription.unsubscribe()
-          logsSubscription.unsubscribe()
-          settingsSubscription.unsubscribe()
-          serversSubscription.unsubscribe()
-          templatesSubscription.unsubscribe()
-        }
-      } catch (err) {
-        console.error("Error setting up real-time subscriptions:", err)
-        setUseLocalStorage(true)
-        setOfflineMode(true)
+        // Store unsubscribe functions
+        if (tablesSub) subscriptionsRef.current.push(() => tablesSub?.unsubscribe())
+        if (logsSub) subscriptionsRef.current.push(() => logsSub?.unsubscribe())
+        if (settingsSub) subscriptionsRef.current.push(() => settingsSub?.unsubscribe())
+        if (serversSub) subscriptionsRef.current.push(() => serversSub?.unsubscribe())
       }
+    } catch (err) {
+      console.error("Realtime subscription error", err)
+      setUseLocalStorage(true)
+      setOfflineMode(true)
     }
-  }, [loadAllData, useLocalStorage, isSupabaseConfigured])
+
+    return () => {
+      // Clean up subscriptions
+      if (tablesSub) tablesSub.unsubscribe()
+      if (logsSub) logsSub.unsubscribe()
+      if (settingsSub) settingsSub.unsubscribe()
+      if (serversSub) serversSub.unsubscribe()
+    }
+  }, [useLocalStorage, isSupabaseConfigured])
 
   // Set up event listeners for real-time updates
   useEffect(() => {
@@ -544,28 +695,95 @@ export function useSupabaseData() {
     }
   }, [loadAllData, testConnection])
 
-  // Add a periodic sync function to ensure data consistency
+  // Add a periodic sync function to ensure data consistency, but with reduced frequency
   useEffect(() => {
-    // Set up a periodic sync every 30 seconds
+    // Set up a periodic sync every 60 seconds (reduced from 30)
     const syncInterval = setInterval(() => {
       if (!offlineMode && !useLocalStorage) {
         console.log("Performing periodic data sync")
         loadAllData()
       }
-    }, 30000)
+    }, 60000) // Increased to 60 seconds
 
     return () => clearInterval(syncInterval)
   }, [loadAllData, offlineMode, useLocalStorage])
 
-  // Update a single table
+  // Batch update function to reduce database calls
+  const batchUpdateTables = useCallback(async () => {
+    if (pendingUpdatesRef.current.size === 0) return
+
+    try {
+      const updatesToProcess = new Map(pendingUpdatesRef.current)
+      pendingUpdatesRef.current.clear()
+
+      // Create a new array with the updates applied
+      const updatedTables = tables.map((table) => {
+        const updates = updatesToProcess.get(table.id)
+        if (updates) {
+          return { ...table, ...updates }
+        }
+        return table
+      })
+
+      // Update localStorage
+      localStorage.setItem("tables", JSON.stringify(updatedTables))
+
+      // Update state
+      if (JSON.stringify(updatedTables) !== JSON.stringify(prevTablesRef.current)) {
+        setTables(updatedTables)
+        prevTablesRef.current = updatedTables
+      }
+
+      // If using localStorage only, we're done
+      if (useLocalStorage || offlineMode) {
+        return { success: true }
+      }
+
+      // Try to update in Supabase
+      try {
+        const supabase = getSupabaseClient()
+
+        // Convert tables to Supabase format
+        const supabaseTables = updatedTables
+          .filter((table) => updatesToProcess.has(table.id))
+          .map(convertTableToSupabase)
+
+        // Update in batches of 5 to reduce load
+        const batchSize = 5
+        for (let i = 0; i < supabaseTables.length; i += batchSize) {
+          const batch = supabaseTables.slice(i, i + batchSize)
+          await supabase.from(TABLE_NAMES.TABLES).upsert(batch)
+        }
+      } catch (err) {
+        console.error("Error updating tables in Supabase:", err)
+        setOfflineMode(true)
+      }
+
+      return { success: true }
+    } catch (err) {
+      console.error("Error in batch update:", err)
+      return { success: false, error: (err as Error).message }
+    }
+  }, [tables, useLocalStorage, offlineMode])
+
+  // Update a single table with batching
   const updateTable = useCallback(
     async (table: Table) => {
       try {
-        // Update in memory first for immediate UI
-        const updatedTables = tables.map((t) => (t.id === table.id ? table : t))
+        // Add to pending updates
+        pendingUpdatesRef.current.set(table.id, table)
 
-        // Use optimistic updates for better responsiveness
-        setTables(updatedTables)
+        // Update local state immediately for responsive UI
+        setTables((prevTables) => {
+          const updatedTables = prevTables.map((t) => (t.id === table.id ? table : t))
+
+          // Only update if there's a change
+          if (JSON.stringify(updatedTables) !== JSON.stringify(prevTables)) {
+            prevTablesRef.current = updatedTables
+            return updatedTables
+          }
+          return prevTables
+        })
 
         // Dispatch event for real-time updates across components
         window.dispatchEvent(
@@ -574,32 +792,14 @@ export function useSupabaseData() {
           }),
         )
 
-        // Update localStorage in the background
-        setTimeout(() => {
-          localStorage.setItem("tables", JSON.stringify(updatedTables))
-        }, 0)
-
-        // If using localStorage only, we're done
-        if (useLocalStorage || offlineMode) {
-          return { success: true }
+        // Schedule batch update
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current)
         }
 
-        // Try to update in Supabase asynchronously
-        try {
-          const supabase = getSupabaseClient()
-          supabase
-            .from(TABLE_NAMES.TABLES)
-            .upsert(convertTableToSupabase(table))
-            .then(({ error }) => {
-              if (error) {
-                console.error("Error updating table in Supabase:", error)
-                setOfflineMode(true)
-              }
-            })
-        } catch (err) {
-          console.error("Error updating table in Supabase:", err)
-          setOfflineMode(true)
-        }
+        updateTimeoutRef.current = setTimeout(() => {
+          batchUpdateTables()
+        }, 300) // Batch updates after 300ms of inactivity
 
         return { success: true }
       } catch (err) {
@@ -607,39 +807,49 @@ export function useSupabaseData() {
         return { success: false, error: (err as Error).message }
       }
     },
-    [tables, useLocalStorage, offlineMode],
+    [batchUpdateTables],
   )
 
   // Update multiple tables
   const updateTables = useCallback(
     async (updatedTables: Table[]) => {
       try {
-        // Always update localStorage
-        localStorage.setItem("tables", JSON.stringify(updatedTables))
-        setTables(updatedTables)
+        // Add all tables to pending updates
+        updatedTables.forEach((table) => {
+          pendingUpdatesRef.current.set(table.id, table)
+        })
 
-        // If using localStorage only, we're done
-        if (useLocalStorage || offlineMode) {
-          return { success: true }
-        }
+        // Update local state immediately
+        setTables((prevTables) => {
+          const newTables = [...prevTables]
 
-        // Try to update in Supabase
-        try {
-          const supabase = getSupabaseClient()
-          const { error } = await supabase.from(TABLE_NAMES.TABLES).upsert(updatedTables.map(convertTableToSupabase))
+          // Update only the tables that changed
+          updatedTables.forEach((updatedTable) => {
+            const index = newTables.findIndex((t) => t.id === updatedTable.id)
+            if (index !== -1) {
+              newTables[index] = updatedTable
+            }
+          })
 
-          if (error) {
-            console.error("Error updating tables in Supabase:", error)
-            setOfflineMode(true)
-            // We already updated localStorage, so just return success
-            return { success: true }
+          // Only update if there's a change
+          if (JSON.stringify(newTables) !== JSON.stringify(prevTables)) {
+            prevTablesRef.current = newTables
+            return newTables
           }
-        } catch (err) {
-          console.error("Error updating tables in Supabase:", err)
-          setOfflineMode(true)
-          // We already updated localStorage, so just return success
-          return { success: true }
+          return prevTables
+        })
+
+        // Update localStorage
+        localStorage.setItem("tables", JSON.stringify(prevTablesRef.current))
+
+        // Schedule batch update
+        if (updateTimeoutRef.current) {
+          clearTimeout(updateTimeoutRef.current)
         }
+
+        updateTimeoutRef.current = setTimeout(() => {
+          batchUpdateTables()
+        }, 300) // Batch updates after 300ms of inactivity
 
         return { success: true }
       } catch (err) {
@@ -647,7 +857,7 @@ export function useSupabaseData() {
         return { success: false, error: (err as Error).message }
       }
     },
-    [useLocalStorage, offlineMode],
+    [batchUpdateTables],
   )
 
   // Add a log entry
@@ -663,10 +873,18 @@ export function useSupabaseData() {
       }
 
       try {
-        // Always update localStorage
-        const updatedLogs = [newLog, ...logs]
-        localStorage.setItem("logs", JSON.stringify(updatedLogs))
-        setLogs(updatedLogs)
+        // Update local state immediately
+        setLogs((prevLogs) => {
+          const updatedLogs = [newLog, ...prevLogs]
+
+          // Only update if there's a change
+          if (JSON.stringify(updatedLogs) !== JSON.stringify(prevLogs)) {
+            prevLogsRef.current = updatedLogs
+            localStorage.setItem("logs", JSON.stringify(updatedLogs))
+            return updatedLogs
+          }
+          return prevLogs
+        })
 
         // If using localStorage only, we're done
         if (useLocalStorage || offlineMode) {
@@ -681,14 +899,10 @@ export function useSupabaseData() {
           if (error) {
             console.error("Error adding log entry to Supabase:", error)
             setOfflineMode(true)
-            // We already updated localStorage, so just return success
-            return { success: true }
           }
         } catch (err) {
           console.error("Error adding log entry to Supabase:", err)
           setOfflineMode(true)
-          // We already updated localStorage, so just return success
-          return { success: true }
         }
 
         return { success: true }
@@ -697,7 +911,7 @@ export function useSupabaseData() {
         return { success: false, error: (err as Error).message }
       }
     },
-    [logs, useLocalStorage, offlineMode],
+    [useLocalStorage, offlineMode],
   )
 
   // Update system settings
@@ -728,14 +942,10 @@ export function useSupabaseData() {
           if (error) {
             console.error("Error updating system settings in Supabase:", error)
             setOfflineMode(true)
-            // We already updated localStorage, so just return success
-            return { success: true }
           }
         } catch (err) {
           console.error("Error updating system settings in Supabase:", err)
           setOfflineMode(true)
-          // We already updated localStorage, so just return success
-          return { success: true }
         }
 
         return { success: true }
@@ -762,8 +972,12 @@ export function useSupabaseData() {
           return acc
         }, [] as Server[])
 
-        localStorage.setItem("servers", JSON.stringify(uniqueServers))
-        setServers(uniqueServers)
+        // Only update if there's a change
+        if (JSON.stringify(uniqueServers) !== JSON.stringify(prevServersRef.current)) {
+          localStorage.setItem("servers", JSON.stringify(uniqueServers))
+          setServers(uniqueServers)
+          prevServersRef.current = uniqueServers
+        }
 
         // If using localStorage only, we're done
         if (useLocalStorage || offlineMode) {
@@ -796,20 +1010,18 @@ export function useSupabaseData() {
             if (error) {
               console.error("Error updating servers in Supabase:", error)
               setOfflineMode(true)
-              return { success: true }
             }
           }
         } catch (err) {
           console.error("Error updating servers in Supabase:", err)
           setOfflineMode(true)
-          return { success: true }
         }
 
         return { success: true }
       } catch (error) {
         console.error("Error updating servers:", error)
         setError("Failed to update servers")
-        return false
+        return { success: false, error: (error as Error).message }
       } finally {
         setLoading(false)
       }
@@ -830,9 +1042,12 @@ export function useSupabaseData() {
           return acc
         }, [] as NoteTemplate[])
 
-        // Always update localStorage
-        localStorage.setItem("noteTemplates", JSON.stringify(uniqueTemplates))
-        setNoteTemplates(uniqueTemplates)
+        // Only update if there's a change
+        if (JSON.stringify(uniqueTemplates) !== JSON.stringify(prevTemplatesRef.current)) {
+          localStorage.setItem("noteTemplates", JSON.stringify(uniqueTemplates))
+          setNoteTemplates(uniqueTemplates)
+          prevTemplatesRef.current = uniqueTemplates
+        }
 
         // If using localStorage only, we're done
         if (useLocalStorage || offlineMode) {
@@ -867,13 +1082,11 @@ export function useSupabaseData() {
             if (error) {
               console.error("Error updating note templates in Supabase:", error)
               setOfflineMode(true)
-              return { success: true }
             }
           }
         } catch (err) {
           console.error("Error updating note templates in Supabase:", err)
           setOfflineMode(true)
-          return { success: true }
         }
 
         return { success: true }
@@ -890,6 +1103,7 @@ export function useSupabaseData() {
     try {
       setLoading(true)
       const supabase = getSupabaseClient()
+
       // Fetch all data from Supabase
       const [
         { data: tablesData, error: tablesError },
@@ -909,7 +1123,6 @@ export function useSupabaseData() {
       if (logsError) console.error("Error fetching logs:", logsError)
       if (serversError) console.error("Error fetching servers:", serversError)
       if (templatesError) console.error("Error fetching note templates:", templatesError)
-      if (settingsError) console.error("Error fetching settings:", settingsError)
 
       // Convert tables from snake_case to camelCase
       const fetchedTables =
@@ -950,11 +1163,27 @@ export function useSupabaseData() {
         groupCounter: settingsData?.group_counter || 1,
       }
 
-      // Update state with fetched data
-      setTables(fetchedTables)
-      setLogs(fetchedLogs)
-      setServers(fetchedServers)
-      setNoteTemplates(fetchedTemplates)
+      // Update state with fetched data only if there are changes
+      if (JSON.stringify(fetchedTables) !== JSON.stringify(prevTablesRef.current)) {
+        setTables(fetchedTables)
+        prevTablesRef.current = fetchedTables
+      }
+
+      if (JSON.stringify(fetchedLogs) !== JSON.stringify(prevLogsRef.current)) {
+        setLogs(fetchedLogs)
+        prevLogsRef.current = fetchedLogs
+      }
+
+      if (JSON.stringify(fetchedServers) !== JSON.stringify(prevServersRef.current)) {
+        setServers(fetchedServers)
+        prevServersRef.current = fetchedServers
+      }
+
+      if (JSON.stringify(fetchedTemplates) !== JSON.stringify(prevTemplatesRef.current)) {
+        setNoteTemplates(fetchedTemplates)
+        prevTemplatesRef.current = fetchedTemplates
+      }
+
       setDayStarted(settings.dayStarted)
       setGroupCounter(settings.groupCounter)
 
@@ -976,27 +1205,54 @@ export function useSupabaseData() {
     return loadAllData()
   }
 
-  return {
-    tables,
-    logs,
-    servers,
-    noteTemplates,
-    dayStarted,
-    groupCounter,
-    loading,
-    error,
-    lastSyncTime,
-    adminPresent,
-    isAdmin,
-    updateTable,
-    updateTables,
-    addLogEntry,
-    updateSystemSettings,
-    updateServers,
-    updateNoteTemplates,
-    syncData,
-    forceAdminSync,
-    useLocalStorage,
-    offlineMode,
-  }
+  // Memoize the return value to prevent unnecessary re-renders
+  const returnValue = useMemo(
+    () => ({
+      tables,
+      logs,
+      servers,
+      noteTemplates,
+      dayStarted,
+      groupCounter,
+      loading,
+      error,
+      lastSyncTime,
+      adminPresent,
+      isAdmin,
+      updateTable,
+      updateTables,
+      addLogEntry,
+      updateSystemSettings,
+      updateServers,
+      updateNoteTemplates,
+      syncData,
+      forceAdminSync,
+      useLocalStorage,
+      offlineMode,
+    }),
+    [
+      tables,
+      logs,
+      servers,
+      noteTemplates,
+      dayStarted,
+      groupCounter,
+      loading,
+      error,
+      lastSyncTime,
+      adminPresent,
+      isAdmin,
+      updateTable,
+      updateTables,
+      addLogEntry,
+      updateSystemSettings,
+      updateServers,
+      updateNoteTemplates,
+      syncData,
+      useLocalStorage,
+      offlineMode,
+    ],
+  )
+
+  return returnValue
 }
