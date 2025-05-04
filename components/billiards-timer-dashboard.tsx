@@ -12,7 +12,6 @@ import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { useAuth } from "@/contexts/auth-context"
 import { PullUpInsightsPanel } from "@/components/pull-up-insights-panel"
 import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
-import { MobileTableList } from "@/components/mobile/mobile-table-list"
 import { SpaceBackgroundAnimation } from "@/components/space-background-animation"
 import { Header } from "@/components/header"
 import { TableGrid } from "@/components/table-grid"
@@ -22,6 +21,12 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useTableStore } from "@/utils/table-state-manager"
 import { BigBangAnimation } from "@/components/animations/big-bang-animation"
 import { ExplosionAnimation } from "@/components/animations/explosion-animation"
+import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-table-list"
+import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav"
+import { OfflineDetector } from "@/components/mobile/offline-detector"
+import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container"
+import { AccessibilityControls } from "@/components/mobile/accessibility-controls"
+import { useMobileDetect } from "@/hooks/use-mobile"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -131,7 +136,7 @@ export function BilliardsTimerDashboard() {
     dayStartTime: null,
   })
   const { isAuthenticated, isAdmin, isServer, currentUser, logout, hasPermission } = useAuth()
-  const [isMobile, setIsMobile] = useState(false)
+  const isMobile = useMobileDetect()
   const [showLoginDialog, setShowLoginDialog] = useState(false)
   const [showUserManagementDialog, setShowUserManagementDialog] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
@@ -156,6 +161,14 @@ export function BilliardsTimerDashboard() {
   const [showBigBangAnimation, setShowBigBangAnimation] = useState(false)
   const [showExplosionAnimation, setShowExplosionAnimation] = useState(false)
   const [animationComplete, setAnimationComplete] = useState(true)
+
+  // Mobile-specific state
+  const [activeTab, setActiveTab] = useState("tables")
+  const [highContrastMode, setHighContrastMode] = useState(false)
+  const [largeTextMode, setLargeTextMode] = useState(false)
+  const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true)
+  const [showAddSessionDialog, setShowAddSessionDialog] = useState(false)
+  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false)
 
   // Add this state near the other state declarations
   const [showServerSelectionDialog, setShowServerSelectionDialog] = useState(false)
@@ -229,6 +242,48 @@ export function BilliardsTimerDashboard() {
   // Show notification helper
   const showNotification = (message: string, type: "success" | "error" | "info" = "info") => {
     setNotification({ message, type })
+
+    // Play sound notification if enabled
+    if (soundEffectsEnabled && type !== "info") {
+      try {
+        // Use a simple beep sound instead of loading external files
+        const context = new (window.AudioContext || (window as any).webkitAudioContext)()
+        if (context) {
+          const oscillator = context.createOscillator()
+          const gainNode = context.createGain()
+
+          oscillator.connect(gainNode)
+          gainNode.connect(context.destination)
+
+          // Set the sound type based on notification type
+          oscillator.type = type === "success" ? "sine" : "square"
+          oscillator.frequency.value = type === "success" ? 880 : 220 // A5 for success, A3 for error
+
+          gainNode.gain.value = 0.1 // Lower volume
+
+          oscillator.start()
+          setTimeout(
+            () => {
+              oscillator.stop()
+            },
+            type === "success" ? 200 : 400,
+          )
+        }
+      } catch (error) {
+        console.error("Failed to play notification sound:", error)
+        // Silently fail - no sound is better than a broken app
+      }
+    }
+
+    // Provide haptic feedback on mobile
+    if (isMobile && navigator.vibrate) {
+      if (type === "error") {
+        navigator.vibrate([100, 50, 100])
+      } else if (type === "success") {
+        navigator.vibrate(50)
+      }
+    }
+
     setTimeout(() => setNotification(null), 3000)
   }
 
@@ -242,18 +297,6 @@ export function BilliardsTimerDashboard() {
     window.addEventListener("resize", updateViewportHeight)
 
     return () => window.removeEventListener("resize", updateViewportHeight)
-  }, [])
-
-  // Detect mobile
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768)
-    }
-
-    handleResize()
-    window.addEventListener("resize", handleResize)
-
-    return () => window.removeEventListener("resize", handleResize)
   }, [])
 
   // Update current time every second
@@ -274,9 +317,6 @@ export function BilliardsTimerDashboard() {
 
     return () => clearInterval(timer)
   }, [])
-
-  // Add this after the other useEffect blocks
-  // Update remaining time for active tables
 
   // Add an event listener to handle table updates
   useEffect(() => {
@@ -708,7 +748,7 @@ export function BilliardsTimerDashboard() {
       await updateTable(updatedTable)
 
       // Add log entry
-      await addLogEntry(tableId, table.name, "Add Time", `Added ${minutes} minutes`)
+      await addLogEntry(tableId, "Add Time", `Added ${minutes} minutes`)
     },
     [tables, updateTable],
   )
@@ -734,13 +774,13 @@ export function BilliardsTimerDashboard() {
       await updateTable(updatedTable)
 
       // Add log entry
-      await addLogEntry(tableId, table.name, "Subtract Time", `Subtracted ${minutes} minutes`)
+      await addLogEntry(tableId, "Subtract Time", `Subtracted ${minutes} minutes`)
     },
     [tables, updateTable],
   )
 
   // Add time to table
-  const addTime = async (tableId: number, minutes: number) => {
+  const addTime = async (tableId: number, minutes = 15) => {
     if (!isAuthenticated || !hasPermission("canAddTime")) {
       showNotification("Please log in using the Admin button", "error")
       setLoginAttemptFailed(true)
@@ -1443,6 +1483,55 @@ export function BilliardsTimerDashboard() {
     showNotification("Logged out successfully", "info")
   }
 
+  // Handle tab change in mobile view
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab)
+
+    // If switching to settings tab, show settings dialog
+    if (tab === "settings") {
+      setShowSettingsDialog(true)
+      // Reset back to tables tab after showing dialog
+      setActiveTab("tables")
+    }
+
+    // If switching to logs tab, show logs dialog
+    if (tab === "logs") {
+      setShowLogsDialog(true)
+      // Reset back to tables tab after showing dialog
+      setActiveTab("tables")
+    }
+
+    // If switching to servers tab, show server selection dialog
+    if (tab === "servers") {
+      setShowServerSelectionDialog(true)
+      // Reset back to tables tab after showing dialog
+      setActiveTab("tables")
+    }
+  }
+
+  // Handle quick add session
+  const handleQuickAddSession = () => {
+    // Find the first available inactive table
+    const availableTable = tables.find((t) => !t.isActive)
+
+    if (availableTable) {
+      setSelectedTable(availableTable)
+    } else {
+      showNotification("No available tables found", "error")
+    }
+  }
+
+  // Handle refresh data
+  const handleRefreshData = async () => {
+    try {
+      await syncData()
+      showNotification("Data refreshed successfully", "success")
+    } catch (error) {
+      console.error("Error refreshing data:", error)
+      showNotification("Failed to refresh data", "error")
+    }
+  }
+
   // Calculate dynamic heights for layout components
   const headerHeight = 60 // Approximate height of header
   const footerHeight = 60 // Approximate height of footer
@@ -1484,10 +1573,37 @@ export function BilliardsTimerDashboard() {
     setShowTouchLogin(true)
   }
 
+  // Apply accessibility settings
+  const applyHighContrastMode = (enabled: boolean) => {
+    setHighContrastMode(enabled)
+    // Apply high contrast mode to the document
+    if (enabled) {
+      document.documentElement.classList.add("high-contrast-mode")
+    } else {
+      document.documentElement.classList.remove("high-contrast-mode")
+    }
+  }
+
+  const applyLargeTextMode = (enabled: boolean) => {
+    setLargeTextMode(enabled)
+    // Apply large text mode to the document
+    if (enabled) {
+      document.documentElement.classList.add("large-text-mode")
+    } else {
+      document.documentElement.classList.remove("large-text-mode")
+    }
+  }
+
+  const applySoundEffects = (enabled: boolean) => {
+    setSoundEffectsEnabled(enabled)
+  }
+
   return (
     <TooltipProvider>
       <div
-        className="container mx-auto p-2 min-h-screen max-h-screen flex flex-col space-theme font-mono cursor-spaceship overflow-hidden"
+        className={`container mx-auto p-2 min-h-screen max-h-screen flex flex-col space-theme font-mono cursor-spaceship overflow-hidden ${
+          highContrastMode ? "high-contrast-text" : ""
+        } ${largeTextMode ? "large-text" : ""}`}
         style={{
           height: "100vh",
           display: "flex",
@@ -1496,6 +1612,9 @@ export function BilliardsTimerDashboard() {
       >
         {/* Replace the 3D Space Background with our new animation */}
         <SpaceBackgroundAnimation intensity={1.5} />
+
+        {/* Offline detector */}
+        <OfflineDetector />
 
         {/* Notification */}
         {notification && (
@@ -1536,14 +1655,53 @@ export function BilliardsTimerDashboard() {
         {/* Main content area with full height */}
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Table Grid with full height */}
-          <div className={isMobile ? "overflow-y-auto flex-1" : "overflow-hidden h-full"}>
-            {isMobile ? (
-              <MobileTableList tables={tables} servers={serverUsers} logs={logs} onTableClick={openTableDialog} />
-            ) : (
-              <TableGrid tables={tables} servers={serverUsers} logs={logs} onTableClick={openTableDialog} />
-            )}
+          <div className={isMobile ? "overflow-y-auto flex-1 pb-16" : "overflow-hidden h-full"}>
+            <OrientationAwareContainer>
+              {isMobile ? (
+                <EnhancedMobileTableList
+                  tables={tables}
+                  servers={serverUsers}
+                  logs={logs}
+                  onTableClick={openTableDialog}
+                  onRefresh={handleRefreshData}
+                  onAddTime={addTime}
+                  onEndSession={confirmEndSession}
+                  noteTemplates={noteTemplates}
+                  onStartSession={startTableSession}
+                  onUpdateGuestCount={updateGuestCount}
+                  onAssignServer={assignServer}
+                  onGroupTables={groupTables}
+                  onUngroupTable={ungroupTable}
+                  onMoveTable={moveTable}
+                  onUpdateNotes={updateTableNotes}
+                  getServerName={getServerName}
+                  viewOnlyMode={viewOnlyMode}
+                />
+              ) : (
+                <TableGrid tables={tables} servers={serverUsers} logs={logs} onTableClick={openTableDialog} />
+              )}
+            </OrientationAwareContainer>
           </div>
         </div>
+
+        {/* Mobile Bottom Navigation */}
+        {isMobile && (
+          <MobileBottomNav
+            onTabChange={handleTabChange}
+            onAddSession={handleQuickAddSession}
+            activeTab={activeTab}
+            dayStarted={supabaseDayStarted}
+          />
+        )}
+
+        {/* Accessibility Controls */}
+        {isMobile && (
+          <AccessibilityControls
+            onToggleHighContrast={applyHighContrastMode}
+            onToggleLargeText={applyLargeTextMode}
+            onToggleSound={applySoundEffects}
+          />
+        )}
 
         {selectedTable && (
           <TableDialog

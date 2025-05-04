@@ -1,0 +1,259 @@
+/* Mobile Optimizations CSS */
+
+/* Larger touch targets */
+.mobile-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Increased spacing between interactive elements */
+.mobile-spacing > * {
+  margin: 8px 0;
+}
+
+/* Touch feedback animations */
+.touch-feedback {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.touch-feedback:active {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+/* Pull to refresh indicator */
+.pull-refresh-indicator {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #00ffff;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.pull-refresh-indicator.visible {
+  opacity: 1;
+}
+
+.pull-refresh-spinner {
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+/* Bottom navigation bar */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(0, 0, 30, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid rgba(0, 255, 255, 0.3);
+  z-index: 50;
+}
+
+.mobile-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  color: #ffffff;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mobile-bottom-nav-item.active {
+  opacity: 1;
+  color: #00ffff;
+}
+
+.mobile-bottom-nav-item:active {
+  transform: scale(0.9);
+}
+
+.mobile-bottom-nav-icon {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.mobile-bottom-nav-label {
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+/* Floating action button */
+.mobile-fab {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: #00ffff;
+  color: #000033;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 255, 255, 0.5);
+  z-index: 51;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mobile-fab:active {
+  transform: scale(0.95) translateY(2px);
+  box-shadow: 0 2px 8px rgba(0, 255, 255, 0.4);
+}
+
+/* Card swipe actions */
+.swipe-action-container {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.swipe-action-content {
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.swipe-action-left,
+.swipe-action-right {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 0;
+}
+
+.swipe-action-left {
+  left: 0;
+  background: linear-gradient(90deg, #ff3300, #ff6600);
+}
+
+.swipe-action-right {
+  right: 0;
+  background: linear-gradient(90deg, #00cc00, #00ff33);
+}
+
+/* Skeleton screens */
+.skeleton-loader {
+  background: linear-gradient(90deg, rgba(0, 30, 60, 0.8), rgba(0, 40, 80, 0.8), rgba(0, 30, 60, 0.8));
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Offline indicator */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background-color: rgba(255, 0, 0, 0.8);
+  color: white;
+  text-align: center;
+  font-size: 14px;
+  z-index: 1000;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+
+.offline-indicator.visible {
+  transform: translateY(0);
+}
+
+/* Collapsible sections */
+.collapsible-section {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.collapsible-content {
+  padding: 0 10px;
+}
+
+/* Landscape optimizations */
+@media (orientation: landscape) {
+  .mobile-bottom-nav {
+    height: 50px;
+  }
+
+  .landscape-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Accessibility improvements */
+.high-contrast-text {
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.large-text {
+  font-size: 120%;
+}
+
+/* Vibration feedback utility class */
+.vibrate-on-click {
+  /* No visual style - just a marker class for JS */
+}
+
+/* Swipe indicator */
+.swipe-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 15px;
+  background-color: rgba(255, 255, 255, 0.2);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.swipe-indicator.left {
+  left: 10px;
+}
+
+.swipe-indicator.right {
+  right: 10px;
+}
+
+.swipe-indicator.visible {
+  opacity: 1;
+}
