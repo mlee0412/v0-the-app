@@ -370,6 +370,162 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     return () => window.removeEventListener("session-ended", handleSessionEnd as EventListener)
   }, [localTable.id])
 
+  // Calculate remaining time - memoized
+  const calculateRemainingTime = useCallback(() => {
+    if (!localTable.isActive) return localTable.initialTime
+    if (!localTable.startTime) return localTable.remainingTime
+
+    const elapsed = Date.now() - localTable.startTime
+    // Remove Math.max to allow negative values for overtime
+    return localTable.initialTime - elapsed
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.remainingTime])
+
+  // Table status calculations - memoized
+  const tableStatus = useMemo(() => {
+    const isOvertime = localTable.isActive && calculateRemainingTime() < 0
+    const isWarningYellow =
+      localTable.isActive && calculateRemainingTime() <= 15 * 60 * 1000 && calculateRemainingTime() > 10 * 60 * 1000
+    const isWarningOrange =
+      localTable.isActive && calculateRemainingTime() <= 10 * 60 * 1000 && calculateRemainingTime() >= 0
+    const orangeIntensity = isWarningOrange ? 1 - calculateRemainingTime() / (10 * 60 * 1000) : 0
+
+    return { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity }
+  }, [localTable.isActive, calculateRemainingTime])
+
+  // Add the particle animation useEffect hook here, after tableStatus is defined
+  useEffect(() => {
+    if (!particlesRef.current) return
+
+    const canvas = particlesRef.current
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    // Set canvas dimensions
+    const resizeCanvas = () => {
+      if (!canvas || !cardRef.current) return
+
+      const rect = cardRef.current.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = rect.width * dpr
+      canvas.height = rect.height * dpr
+      canvas.style.width = `${rect.width}px`
+      canvas.style.height = `${rect.height}px`
+      ctx.scale(dpr, dpr)
+    }
+
+    // Initialize particles
+    const particles: Array<{
+      x: number
+      y: number
+      size: number
+      color: string
+      speed: number
+      opacity: number
+      direction: { x: number; y: number }
+    }> = []
+
+    const initParticles = () => {
+      particles.length = 0
+
+      // Number of particles based on table status
+      let particleCount = 15 // Default
+
+      if (localTable.isActive) {
+        if (tableStatus.isOvertime) {
+          particleCount = 30 // More particles for overtime
+        } else if (tableStatus.isWarningOrange || tableStatus.isWarningYellow) {
+          particleCount = 25 // More particles for warning states
+        } else {
+          particleCount = 20 // Standard active
+        }
+      }
+
+      // Create particles
+      for (let i = 0; i < particleCount; i++) {
+        let color
+
+        // Color based on table status
+        if (localTable.isActive) {
+          if (tableStatus.isOvertime) {
+            color = "#FF3300"
+          } else if (tableStatus.isWarningOrange) {
+            color = "#FF8800"
+          } else if (tableStatus.isWarningYellow) {
+            color = "#FFFF00"
+          } else {
+            color = "#00FF88"
+          }
+        } else {
+          color = "#00FFFF"
+        }
+
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: Math.random() * 2 + 0.5,
+          color,
+          speed: Math.random() * 0.5 + 0.1,
+          opacity: Math.random() * 0.5 + 0.2,
+          direction: {
+            x: (Math.random() - 0.5) * 0.5,
+            y: (Math.random() - 0.5) * 0.5,
+          },
+        })
+      }
+    }
+
+    // Animation function
+    const animate = () => {
+      if (!ctx || !canvas) return
+
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      // Update and draw particles
+      particles.forEach((particle) => {
+        // Update position
+        particle.x += particle.direction.x
+        particle.y += particle.direction.y
+
+        // Wrap around edges
+        if (particle.x < 0) particle.x = canvas.width
+        if (particle.x > canvas.width) particle.x = 0
+        if (particle.y < 0) particle.y = canvas.height
+        if (particle.y > canvas.height) particle.y = 0
+
+        // Draw particle
+        ctx.beginPath()
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
+        ctx.fillStyle = particle.color.replace("1)", `${particle.opacity})`)
+        ctx.shadowBlur = 5
+        ctx.shadowColor = particle.color
+        ctx.fill()
+        ctx.shadowBlur = 0
+      })
+
+      // Continue animation
+      particleAnimationRef.current = requestAnimationFrame(animate)
+    }
+
+    // Initialize
+    resizeCanvas()
+    initParticles()
+
+    // Start animation
+    particleAnimationRef.current = requestAnimationFrame(animate)
+
+    // Handle resize
+    window.addEventListener("resize", resizeCanvas)
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("resize", resizeCanvas)
+      if (particleAnimationRef.current) {
+        cancelAnimationFrame(particleAnimationRef.current)
+      }
+    }
+  }, [localTable.isActive, tableStatus])
+
   // Format start time - memoized to prevent recalculation
   const formatStartTime = useMemo(() => {
     return (timestamp: number | null) => {
@@ -393,6 +549,9 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   // Format elapsed time as HH:MM:SS - memoized
   const formatElapsedTime = useMemo(() => {
     return (ms: number) => {
+      // Handle invalid or zero milliseconds
+      if (!ms || ms <= 0) return "00:00"
+
       const totalSeconds = Math.floor(ms / 1000)
       const hours = Math.floor(totalSeconds / 3600)
       const minutes = Math.floor((totalSeconds % 3600) / 60)
@@ -401,20 +560,10 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       if (hours > 0) {
         return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
       } else {
-        return `${minutes}:${seconds.toString().padStart(2, "0")}`
+        return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
       }
     }
   }, [])
-
-  // Calculate remaining time - memoized
-  const calculateRemainingTime = useCallback(() => {
-    if (!localTable.isActive) return localTable.initialTime
-    if (!localTable.startTime) return localTable.remainingTime
-
-    const elapsed = Date.now() - localTable.startTime
-    // Remove Math.max to allow negative values for overtime
-    return localTable.initialTime - elapsed
-  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.remainingTime])
 
   // Format remaining time as MM:SS - memoized
   const formatRemainingTime = useMemo(() => {
@@ -425,18 +574,6 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     }
   }, [])
-
-  // Table status calculations - memoized
-  const tableStatus = useMemo(() => {
-    const isOvertime = localTable.isActive && calculateRemainingTime() < 0
-    const isWarningYellow =
-      localTable.isActive && calculateRemainingTime() <= 15 * 60 * 1000 && calculateRemainingTime() > 10 * 60 * 1000
-    const isWarningOrange =
-      localTable.isActive && calculateRemainingTime() <= 10 * 60 * 1000 && calculateRemainingTime() >= 0
-    const orangeIntensity = isWarningOrange ? 1 - calculateRemainingTime() / (10 * 60 * 1000) : 0
-
-    return { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity }
-  }, [localTable.isActive, calculateRemainingTime])
 
   // Get group color for indicators - memoized
   const getGroupColor = useCallback(() => {
@@ -618,6 +755,38 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime())
   const [remainingTime, setRemainingTime] = useState(calculateRemainingTime())
   const [displayedRemainingTime, setDisplayedRemainingTime] = useState(calculateRemainingTime())
+
+  // Add a timer update interval effect to make sure elapsed time updates regularly
+  useEffect(() => {
+    // Only run the timer if the table is active
+    if (!localTable.isActive || !localTable.startTime) return
+
+    // Update elapsed and remaining time every second
+    const timer = setInterval(() => {
+      if (localTable.startTime) {
+        // Calculate current elapsed time
+        const currentElapsedTime = Date.now() - localTable.startTime
+        setElapsedTime(currentElapsedTime)
+
+        // Also update remaining time to keep in sync
+        const newRemainingTime = calculateRemainingTime()
+        setRemainingTime(newRemainingTime)
+        setDisplayedRemainingTime(newRemainingTime)
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [localTable.isActive, localTable.startTime, calculateRemainingTime])
+
+  // Update initial elapsed time when component mounts or table changes
+  useEffect(() => {
+    if (localTable.isActive && localTable.startTime) {
+      const currentElapsedTime = Date.now() - localTable.startTime
+      setElapsedTime(currentElapsedTime)
+    } else {
+      setElapsedTime(0)
+    }
+  }, [localTable.isActive, localTable.startTime])
 
   // Use a simple click handler instead of the complicated touch handlers
   const handleClick = useCallback(
