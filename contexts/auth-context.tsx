@@ -1,13 +1,7 @@
 "use client"
 
-/**
- * @deprecated This context has been replaced by SupabaseAuthContext
- * Please use contexts/supabase-auth-context.tsx instead
- */
-
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { v4 as uuidv4 } from "uuid"
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import supabaseAuthService from "@/services/supabase-auth-service"
 
 // Define user roles and permissions
 export type UserRole = "admin" | "server" | "viewer"
@@ -28,7 +22,8 @@ interface Permission {
   canManageSettings: boolean
 }
 
-const permissions: Record<UserRole, Permission> = {
+// Define default permissions for each role
+const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   admin: {
     canStartSession: true,
     canEndSession: true,
@@ -80,19 +75,21 @@ const permissions: Record<UserRole, Permission> = {
 export interface User {
   id: string
   username: string
+  name: string
   role: UserRole
-  name?: string
+  permissions?: Permission
 }
 
-// Define context type
-interface AuthContextType {
+// Add users to the AuthContextType interface
+export interface AuthContextType {
   isAuthenticated: boolean
   isAdmin: boolean
   isServer: boolean
   currentUser: User | null
-  login: (username: string, password: string) => Promise<boolean>
+  login: (name: string, pinCode: string) => Promise<boolean>
   logout: () => void
-  hasPermission: (permission: keyof Permission) => boolean
+  hasPermission: (permission: string) => boolean
+  users: User[] // Add this line
 }
 
 // Create context
@@ -108,160 +105,103 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [isServer, setIsServer] = useState(false)
+  const [users, setUsers] = useState<User[]>([])
 
   // Load user from localStorage on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser")
-    if (storedUser) {
-      try {
+    try {
+      const storedUser = localStorage.getItem("currentUser")
+      if (storedUser) {
         const user = JSON.parse(storedUser)
-        setCurrentUser(user)
-        setIsAuthenticated(true)
-        setIsAdmin(user.role === "admin")
-        setIsServer(user.role === "server")
-      } catch (error) {
-        console.error("Error parsing stored user:", error)
-        localStorage.removeItem("currentUser")
+
+        // Validate the user object before setting state
+        if (user && typeof user === "object" && user.role) {
+          setCurrentUser({
+            id: user.id,
+            username: user.username || user.id,
+            name: user.name || "User",
+            role: user.role,
+            permissions: user.permissions || DEFAULT_PERMISSIONS[user.role],
+          })
+          setIsAuthenticated(true)
+          setIsAdmin(user.role === "admin" || user.name?.toLowerCase() === "administrator")
+          setIsServer(user.role === "server")
+        } else {
+          console.error("Invalid user object in localStorage:", user)
+          localStorage.removeItem("currentUser")
+        }
       }
+    } catch (error) {
+      console.error("Error parsing stored user:", error)
+      localStorage.removeItem("currentUser")
     }
   }, [])
 
-  // Login function
-  const login = async (username: string, password: string): Promise<boolean> => {
-    console.log("Login attempt:", { username, password })
-
-    // Hardcoded admin credentials for testing
-    if (username === "admin" && password === "2162") {
-      const adminUser: User = {
-        id: "admin-" + uuidv4().substring(0, 8),
-        username: "admin",
-        role: "admin",
-        name: "Administrator",
-      }
-
-      setCurrentUser(adminUser)
-      setIsAuthenticated(true)
-      setIsAdmin(true)
-      setIsServer(false)
-
-      // Store user in localStorage
-      localStorage.setItem("currentUser", JSON.stringify(adminUser))
-
-      // Broadcast admin presence
-      window.dispatchEvent(
-        new CustomEvent("supabase-admin-presence", {
-          detail: { present: true },
-        }),
-      )
-
-      console.log("Admin login successful")
-      return true
-    }
-
-    // Try to authenticate with Supabase if configured
-    if (isSupabaseConfigured()) {
+  // Fetch users when the component mounts
+  useEffect(() => {
+    const fetchUsers = async () => {
       try {
-        const supabase = getSupabaseClient()
-
-        // First try to sign in with email/password
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: `${username}@example.com`, // Use a dummy email format
-          password: password,
-        })
-
-        if (!authError && authData?.user) {
-          // Get user data from users table
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("*")
-            .eq("username", username)
-            .single()
-
-          if (!userError && userData) {
-            const user: User = {
-              id: userData.id || authData.user.id,
-              username: userData.username,
-              role: userData.role as UserRole,
-              name: userData.name,
-            }
-
-            setCurrentUser(user)
-            setIsAuthenticated(true)
-            setIsAdmin(user.role === "admin")
-            setIsServer(user.role === "server")
-
-            // Store user in localStorage
-            localStorage.setItem("currentUser", JSON.stringify(user))
-
-            // Broadcast admin presence if admin
-            if (user.role === "admin") {
-              window.dispatchEvent(
-                new CustomEvent("supabase-admin-presence", {
-                  detail: { present: true },
-                }),
-              )
-            }
-
-            console.log("Supabase login successful:", user)
-            return true
-          }
-        }
-
-        // If authentication fails, check if we should create a server user
-        if (username.toLowerCase() !== "admin") {
-          // Check if the server exists in the servers table
-          const { data: serverData, error: serverError } = await supabase
-            .from("servers")
-            .select("*")
-            .eq("name", username)
-            .single()
-
-          if (!serverError && serverData) {
-            // Create a server user
-            const serverUser: User = {
-              id: serverData.id,
-              username: serverData.name,
-              role: "server",
-              name: serverData.name,
-            }
-
-            setCurrentUser(serverUser)
-            setIsAuthenticated(true)
-            setIsAdmin(false)
-            setIsServer(true)
-
-            // Store user in localStorage
-            localStorage.setItem("currentUser", JSON.stringify(serverUser))
-
-            console.log("Server login successful:", serverUser)
-            return true
-          }
-        }
-      } catch (error) {
-        console.error("Supabase authentication error:", error)
+        const usersList = await supabaseAuthService.getUsers()
+        setUsers(
+          usersList.map((user) => ({
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            permissions: user.permissions || DEFAULT_PERMISSIONS[user.role],
+          })),
+        )
+      } catch (err) {
+        console.error("Error in fetchUsers:", err)
+        // Set default admin user as fallback
+        setUsers([
+          {
+            id: "admin",
+            username: "admin",
+            name: "Administrator",
+            role: "admin",
+            permissions: DEFAULT_PERMISSIONS.admin,
+          },
+        ])
       }
     }
 
-    // Fallback to hardcoded server users for testing
-    if (username.toLowerCase() !== "admin") {
-      // Create a server user with a generated ID
-      const serverUser: User = {
-        id: "server-" + uuidv4().substring(0, 8),
-        username: username,
-        role: "server",
-        name: username,
+    fetchUsers()
+  }, [])
+
+  // Login function
+  const login = async (name: string, pinCode: string): Promise<boolean> => {
+    console.log("Login attempt:", { name })
+
+    try {
+      // Use the supabaseAuthService for authentication
+      const user = await supabaseAuthService.authenticate(name, pinCode)
+
+      if (user) {
+        // Ensure admin role for administrator name
+        if (user.name?.toLowerCase() === "administrator") {
+          user.role = "admin"
+        }
+
+        // Ensure permissions are set
+        const userWithPermissions = {
+          ...user,
+          permissions: user.permissions || DEFAULT_PERMISSIONS[user.role],
+        }
+
+        setCurrentUser(userWithPermissions)
+        setIsAuthenticated(true)
+        setIsAdmin(user.role === "admin" || user.name?.toLowerCase() === "administrator")
+        setIsServer(user.role === "server")
+
+        // Store user in localStorage
+        localStorage.setItem("currentUser", JSON.stringify(userWithPermissions))
+
+        console.log("Login successful:", userWithPermissions)
+        return true
       }
-
-      setCurrentUser(serverUser)
-      setIsAuthenticated(true)
-      setIsAdmin(false)
-      setIsServer(true)
-
-      // Store user in localStorage
-      localStorage.setItem("currentUser", JSON.stringify(serverUser))
-
-      console.log("Fallback server login successful:", serverUser)
-      return true
+    } catch (error) {
+      console.error("Authentication error:", error)
     }
 
     console.log("Login failed")
@@ -270,15 +210,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Logout function
   const logout = () => {
-    // If admin, broadcast admin absence
-    if (currentUser?.role === "admin") {
-      window.dispatchEvent(
-        new CustomEvent("supabase-admin-presence", {
-          detail: { present: false },
-        }),
-      )
-    }
-
     // Clear user state
     setCurrentUser(null)
     setIsAuthenticated(false)
@@ -287,22 +218,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Remove from localStorage
     localStorage.removeItem("currentUser")
-
-    // Sign out from Supabase if configured
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseClient()
-        supabase.auth.signOut()
-      } catch (error) {
-        console.error("Error signing out from Supabase:", error)
-      }
-    }
   }
 
   // Check if user has a specific permission
-  const hasPermission = (permission: keyof Permission): boolean => {
+  const hasPermission = (permission: string): boolean => {
     if (!isAuthenticated || !currentUser) return false
-    return permissions[currentUser.role][permission]
+
+    // Special case for administrator name
+    if (currentUser.name?.toLowerCase() === "administrator" || currentUser.role === "admin") {
+      return true
+    }
+
+    // Check user's specific permissions if available
+    if (currentUser.permissions && permission in currentUser.permissions) {
+      return currentUser.permissions[permission as keyof Permission]
+    }
+
+    // Fall back to default permissions for role
+    return DEFAULT_PERMISSIONS[currentUser.role][permission as keyof Permission] || false
   }
 
   // Context value
@@ -314,6 +247,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     login,
     logout,
     hasPermission,
+    users,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

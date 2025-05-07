@@ -1,13 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontalIcon, PencilIcon, TrashIcon, ShieldIcon, UserIcon } from "lucide-react"
-import type { User } from "@/services/user-service"
-import supabaseAuthService from "@/services/supabase-auth-service"
-import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { MoreHorizontal, Pencil, Trash2, ShieldAlert, Shield } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import type { User } from "@/types/user"
+import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,8 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useToast } from "@/hooks/use-toast"
-import { Skeleton } from "@/components/ui/skeleton"
+import { deleteUser } from "@/actions/user-actions"
 
 interface UserListProps {
   users: User[]
@@ -30,25 +34,24 @@ interface UserListProps {
 
 export function UserList({ users, loading, onEditUser, onRefresh }: UserListProps) {
   const { toast } = useToast()
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDeleteUser = async () => {
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
     if (!userToDelete) return
 
     try {
-      setIsDeleting(true)
-      const { success, error } = await supabaseAuthService.deleteUser(userToDelete.id)
-
-      if (success) {
-        toast({
-          title: "User deleted",
-          description: `${userToDelete.name} has been deleted successfully.`,
-        })
-        onRefresh()
-      } else {
-        throw new Error(error || "Failed to delete user")
-      }
+      await deleteUser(userToDelete.id)
+      toast({
+        title: "User deleted",
+        description: `${userToDelete.name} has been removed.`,
+      })
+      onRefresh()
     } catch (error) {
       console.error("Error deleting user:", error)
       toast({
@@ -57,153 +60,149 @@ export function UserList({ users, loading, onEditUser, onRefresh }: UserListProp
         variant: "destructive",
       })
     } finally {
-      setIsDeleting(false)
+      setDeleteDialogOpen(false)
       setUserToDelete(null)
     }
   }
 
-  const getRoleBadge = (role: string) => {
+  const getRoleBadgeClass = (role: string) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-purple-500">Admin</Badge>
+        return "bg-purple-500 text-white"
       case "server":
-        return <Badge className="bg-blue-500">Server</Badge>
-      case "viewer":
-        return <Badge className="bg-gray-500">Viewer</Badge>
+        return "bg-blue-500 text-white"
       default:
-        return <Badge>{role}</Badge>
+        return "bg-gray-500 text-white"
+    }
+  }
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "admin":
+        return <ShieldAlert className="h-4 w-4 mr-1" />
+      case "server":
+        return <Shield className="h-4 w-4 mr-1" />
+      default:
+        return null
     }
   }
 
   if (loading) {
     return (
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Username</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={i}>
-                <TableCell>
-                  <Skeleton className="h-5 w-[150px]" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-[100px]" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-[80px]" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-[120px]" />
-                </TableCell>
-                <TableCell>
-                  <Skeleton className="h-5 w-[40px]" />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[250px]" />
+              <Skeleton className="h-4 w-[200px]" />
+            </div>
+            <Skeleton className="h-10 w-10 rounded-full" />
+          </div>
+        ))}
       </div>
     )
   }
 
   return (
-    <>
-      <div className="border rounded-lg border-gray-700 bg-gray-800/50">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-cyan-400">Name</TableHead>
-              <TableHead className="text-cyan-400">Username</TableHead>
-              <TableHead className="text-cyan-400">Role</TableHead>
-              <TableHead className="text-cyan-400">Created</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                  No users found. Add a new user to get started.
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map((user) => (
-                <TableRow key={user.id} className="border-gray-700">
-                  <TableCell className="font-medium flex items-center gap-2">
-                    {user.role === "admin" ? (
-                      <ShieldIcon className="h-4 w-4 text-purple-500" />
-                    ) : (
-                      <UserIcon className="h-4 w-4 text-gray-500" />
-                    )}
-                    {user.name}
-                  </TableCell>
-                  <TableCell>{user.username}</TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
-                          <MoreHorizontalIcon className="h-4 w-4" />
-                          <span className="sr-only">Actions</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700">
-                        <DropdownMenuItem
-                          onClick={() => onEditUser(user)}
-                          className="text-cyan-400 focus:text-cyan-400 focus:bg-gray-700"
-                        >
-                          <PencilIcon className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-400 focus:text-red-400 focus:bg-gray-700"
-                          onClick={() => setUserToDelete(user)}
-                        >
-                          <TrashIcon className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+    <div className="space-y-2">
+      <div className="grid grid-cols-4 gap-4 px-4 py-2 font-medium text-gray-400">
+        <div>Name</div>
+        <div>Username</div>
+        <div>Role</div>
+        <div>Created</div>
       </div>
 
-      <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+      <div className="space-y-2">
+        {users.map((user) => (
+          <div
+            key={user.id}
+            className="grid grid-cols-4 gap-4 items-center p-4 border border-gray-700 rounded-lg bg-gray-800 hover:bg-gray-750"
+          >
+            <div className="flex items-center space-x-2">
+              <div className="font-medium text-white">{user.name}</div>
+            </div>
+
+            <div className="text-gray-300">{user.username}</div>
+
+            <div>
+              <span
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeClass(
+                  user.role,
+                )}`}
+              >
+                {getRoleIcon(user.role)}
+                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="text-gray-400 text-sm">
+                {user.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"}
+              </span>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
+                  <DropdownMenuItem
+                    className="flex items-center cursor-pointer hover:bg-gray-700"
+                    onClick={() => onEditUser(user)}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-gray-700" />
+                  <DropdownMenuItem
+                    className="flex items-center cursor-pointer text-red-500 hover:bg-gray-700 hover:text-red-500"
+                    onClick={() => handleDeleteClick(user)}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        ))}
+
+        {users.length === 0 && (
+          <div className="p-8 text-center border border-dashed border-gray-700 rounded-lg">
+            <p className="text-gray-400">No users found</p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={onRefresh}>
+              Refresh
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="bg-gray-900 border-gray-700 text-white">
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-400">
-              This will permanently delete {userToDelete?.name}&apos;s account and remove all their data. This action
-              cannot be undone.
+              This will permanently delete {userToDelete?.name}'s account and cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-800 text-white border-gray-700 hover:bg-gray-700">
+            <AlertDialogCancel className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 text-white hover:bg-red-700"
-              onClick={handleDeleteUser}
-              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteConfirm()
+              }}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   )
 }

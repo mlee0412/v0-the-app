@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiards-timer-dashboard"
 import { v4 as uuidv4 } from "uuid"
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client"
+import { getSupabaseClient, isSupabaseConfigured, checkSupabaseConnection } from "@/lib/supabase/client"
 import type { RealtimeSubscription } from "@supabase/supabase-js"
 
 // Default time in milliseconds (60 minutes)
@@ -119,6 +119,9 @@ export function useSupabaseData() {
   const pendingUpdatesRef = useRef<Map<number, Partial<Table>>>(new Map())
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const subscriptionsRef = useRef<(() => void)[]>([])
+  const lastConnectionAttempt = useRef<number>(0)
+  const CONNECTION_RETRY_DELAY = 5000 // 5 seconds between connection attempts
+  const reconnectBackoffRef = useRef<number>(1000) // Start with 1 second, will increase exponentially
 
   // Check if current user is admin
   useEffect(() => {
@@ -131,8 +134,17 @@ export function useSupabaseData() {
     }
   }, [])
 
-  // Test Supabase connection on init
+  // Test Supabase connection with improved error handling and backoff
   const testConnection = useCallback(async () => {
+    const now = Date.now()
+
+    // Throttle connection attempts
+    if (now - lastConnectionAttempt.current < CONNECTION_RETRY_DELAY) {
+      return offlineMode ? false : !useLocalStorage
+    }
+
+    lastConnectionAttempt.current = now
+
     if (useLocalStorage || !isSupabaseConfigured()) {
       console.log("Using localStorage mode (Supabase not configured)")
       setOfflineMode(true)
@@ -142,34 +154,42 @@ export function useSupabaseData() {
     }
 
     try {
-      const supabase = getSupabaseClient()
-      const { error } = await supabase.from(TABLE_NAMES.SETTINGS).select("count")
+      const { connected } = await checkSupabaseConnection()
 
-      const isConnected = !error
-      console.log("Supabase connection test:", isConnected ? "Connected" : "Failed")
+      console.log("Supabase connection test:", connected ? "Connected" : "Failed")
 
-      setOfflineMode(!isConnected)
-      setUseLocalStorage(!isConnected)
-      setConnectionTested(true)
-
-      if (isConnected) {
+      if (connected) {
+        setOfflineMode(false)
+        setUseLocalStorage(false)
+        reconnectBackoffRef.current = 1000 // Reset backoff on successful connection
         window.dispatchEvent(new CustomEvent("supabase-connected"))
       } else {
+        // Only switch to offline mode if we're not already in it
+        if (!offlineMode) {
+          setOfflineMode(true)
+          setUseLocalStorage(true)
+          window.dispatchEvent(new CustomEvent("supabase-disconnected"))
+        }
+      }
+
+      setConnectionTested(true)
+      return connected
+    } catch (err) {
+      console.error("Error testing Supabase connection:", err)
+
+      // Only switch to offline mode if we're not already in it
+      if (!offlineMode) {
+        setOfflineMode(true)
+        setUseLocalStorage(true)
         window.dispatchEvent(new CustomEvent("supabase-disconnected"))
       }
 
-      return isConnected
-    } catch (err) {
-      console.error("Error testing Supabase connection:", err)
-      setOfflineMode(true)
-      setUseLocalStorage(true)
       setConnectionTested(true)
-      window.dispatchEvent(new CustomEvent("supabase-disconnected"))
       return false
     }
-  }, [useLocalStorage])
+  }, [useLocalStorage, offlineMode])
 
-  // Function to load all data
+  // Function to load all data with improved error handling
   const loadAllData = useCallback(async () => {
     try {
       console.log("Loading all data...")
@@ -190,11 +210,42 @@ export function useSupabaseData() {
       try {
         const supabase = getSupabaseClient()
 
-        // Load tables
-        const { data: tablesData, error: tablesError } = await supabase.from(TABLE_NAMES.TABLES).select("*")
-        if (!tablesError && tablesData && tablesData.length > 0) {
+        // Use Promise.allSettled to handle partial failures
+        const [tablesResult, logsResult, settingsResult, serversResult, templatesResult] = await Promise.allSettled([
+          // Load tables
+          supabase
+            .from(TABLE_NAMES.TABLES)
+            .select("*"),
+
+          // Load logs
+          supabase
+            .from(TABLE_NAMES.LOGS)
+            .select("*")
+            .order("timestamp", { ascending: false })
+            .limit(100), // Limit to 100 most recent logs for performance
+
+          // Load settings
+          supabase
+            .from(TABLE_NAMES.SETTINGS)
+            .select("*")
+            .eq("id", 1)
+            .single(),
+
+          // Load servers
+          supabase
+            .from(TABLE_NAMES.SERVERS)
+            .select("*"),
+
+          // Load templates
+          supabase
+            .from(TABLE_NAMES.TEMPLATES)
+            .select("*"),
+        ])
+
+        // Process tables data
+        if (tablesResult.status === "fulfilled" && !tablesResult.value.error && tablesResult.value.data?.length > 0) {
           // Convert from snake_case to camelCase
-          const convertedTables = tablesData.map((table: any) => ({
+          const convertedTables = tablesResult.value.data.map((table: any) => ({
             id: table.id,
             name: table.name,
             isActive: table.is_active,
@@ -220,18 +271,17 @@ export function useSupabaseData() {
             localStorage.setItem("tables", JSON.stringify(convertedTables))
           }
         } else {
-          console.warn("Failed to load tables from Supabase, using localStorage", tablesError)
+          console.warn(
+            "Failed to load tables from Supabase, using localStorage",
+            tablesResult.status === "rejected" ? tablesResult.reason : tablesResult.value.error,
+          )
           loadTablesFromLocalStorage()
         }
 
-        // Load logs
-        const { data: logsData, error: logsError } = await supabase
-          .from(TABLE_NAMES.LOGS)
-          .select("*")
-          .order("timestamp", { ascending: false })
-        if (!logsError && logsData) {
+        // Process logs data
+        if (logsResult.status === "fulfilled" && !logsResult.value.error) {
           // Convert from snake_case to camelCase
-          const convertedLogs = logsData.map((log: any) => ({
+          const convertedLogs = logsResult.value.data.map((log: any) => ({
             id: log.id,
             tableId: log.table_id,
             tableName: log.table_name,
@@ -248,54 +298,67 @@ export function useSupabaseData() {
             localStorage.setItem("logs", JSON.stringify(convertedLogs))
           }
         } else {
-          console.warn("Failed to load logs from Supabase, using localStorage", logsError)
+          console.warn(
+            "Failed to load logs from Supabase, using localStorage",
+            logsResult.status === "rejected" ? logsResult.reason : logsResult.value.error,
+          )
           loadLogsFromLocalStorage()
         }
 
-        // Load system settings
-        const { data: settingsData, error: settingsError } = await supabase
-          .from(TABLE_NAMES.SETTINGS)
-          .select("*")
-          .eq("id", 1)
-          .single()
-        if (!settingsError && settingsData) {
-          setDayStarted(settingsData.day_started || false)
-          setGroupCounter(settingsData.group_counter || 1)
+        // Process settings data
+        if (settingsResult.status === "fulfilled" && !settingsResult.value.error) {
+          setDayStarted(settingsResult.value.data.day_started || false)
+          setGroupCounter(settingsResult.value.data.group_counter || 1)
           // Save to localStorage as backup
-          localStorage.setItem("dayStarted", String(settingsData.day_started || false))
-          localStorage.setItem("groupCounter", String(settingsData.group_counter || 1))
+          localStorage.setItem("dayStarted", String(settingsResult.value.data.day_started || false))
+          localStorage.setItem("groupCounter", String(settingsResult.value.data.group_counter || 1))
         } else {
-          console.warn("Failed to load settings from Supabase, using localStorage", settingsError)
+          console.warn(
+            "Failed to load settings from Supabase, using localStorage",
+            settingsResult.status === "rejected" ? settingsResult.reason : settingsResult.value.error,
+          )
           loadSettingsFromLocalStorage()
         }
 
-        // Load servers
-        const { data: serversData, error: serversError } = await supabase.from(TABLE_NAMES.SERVERS).select("*")
-        if (!serversError && serversData && serversData.length > 0) {
+        // Process servers data
+        if (
+          serversResult.status === "fulfilled" &&
+          !serversResult.value.error &&
+          serversResult.value.data?.length > 0
+        ) {
           // Only update if there are actual changes
-          if (JSON.stringify(serversData) !== JSON.stringify(prevServersRef.current)) {
-            setServers(serversData)
-            prevServersRef.current = serversData
+          if (JSON.stringify(serversResult.value.data) !== JSON.stringify(prevServersRef.current)) {
+            setServers(serversResult.value.data)
+            prevServersRef.current = serversResult.value.data
             // Save to localStorage as backup
-            localStorage.setItem("servers", JSON.stringify(serversData))
+            localStorage.setItem("servers", JSON.stringify(serversResult.value.data))
           }
         } else {
-          console.warn("Failed to load servers from Supabase, using localStorage", serversError)
+          console.warn(
+            "Failed to load servers from Supabase, using localStorage",
+            serversResult.status === "rejected" ? serversResult.reason : serversResult.value.error,
+          )
           loadServersFromLocalStorage()
         }
 
-        // Load note templates
-        const { data: templatesData, error: templatesError } = await supabase.from(TABLE_NAMES.TEMPLATES).select("*")
-        if (!templatesError && templatesData && templatesData.length > 0) {
+        // Process templates data
+        if (
+          templatesResult.status === "fulfilled" &&
+          !templatesResult.value.error &&
+          templatesResult.value.data?.length > 0
+        ) {
           // Only update if there are actual changes
-          if (JSON.stringify(templatesData) !== JSON.stringify(prevTemplatesRef.current)) {
-            setNoteTemplates(templatesData)
-            prevTemplatesRef.current = templatesData
+          if (JSON.stringify(templatesResult.value.data) !== JSON.stringify(prevTemplatesRef.current)) {
+            setNoteTemplates(templatesResult.value.data)
+            prevTemplatesRef.current = templatesResult.value.data
             // Save to localStorage as backup
-            localStorage.setItem("noteTemplates", JSON.stringify(templatesData))
+            localStorage.setItem("noteTemplates", JSON.stringify(templatesResult.value.data))
           }
         } else {
-          console.warn("Failed to load note templates from Supabase, using localStorage", templatesError)
+          console.warn(
+            "Failed to load note templates from Supabase, using localStorage",
+            templatesResult.status === "rejected" ? templatesResult.reason : templatesResult.value.error,
+          )
           loadTemplatesFromLocalStorage()
         }
 
@@ -508,116 +571,158 @@ export function useSupabaseData() {
       if (!useLocalStorage && isSupabaseConfigured()) {
         const supabase = getSupabaseClient()
 
-        tablesSub = supabase
-          .channel("tables-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.TABLES }, ({ new: newTbl }) => {
-            setTables((ts) => {
-              // Only update the specific table that changed
-              const updatedTables = ts.map((t) =>
-                t.id === newTbl.id
-                  ? {
-                      id: newTbl.id,
-                      name: newTbl.name,
-                      isActive: newTbl.is_active,
-                      startTime: newTbl.start_time,
-                      remainingTime: newTbl.remaining_time,
-                      initialTime: newTbl.initial_time,
-                      guestCount: newTbl.guest_count,
-                      server: newTbl.server_id,
-                      groupId: newTbl.group_id,
-                      hasNotes: newTbl.has_notes,
-                      noteId: newTbl.note_id || "",
-                      noteText: newTbl.note_text || "",
-                      updated_by_admin: newTbl.updated_by_admin || false,
-                      updated_by: newTbl.updated_by || null,
-                      updatedAt: newTbl.updated_at || new Date().toISOString(),
-                    }
-                  : t,
-              )
-
-              // Only update state if there's an actual change
-              if (JSON.stringify(updatedTables) !== JSON.stringify(ts)) {
-                prevTablesRef.current = updatedTables
-                return updatedTables
-              }
-              return ts
-            })
-          })
-          .subscribe()
-
-        logsSub = supabase
-          .channel("logs-changes")
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: TABLE_NAMES.LOGS },
-            ({ eventType, new: newLog }) => {
-              setLogs((ls) => {
-                let updatedLogs
-                if (eventType === "INSERT") {
-                  updatedLogs = [
-                    {
-                      id: newLog.id,
-                      tableId: newLog.table_id,
-                      tableName: newLog.table_name,
-                      action: newLog.action,
-                      timestamp: newLog.timestamp,
-                      details: newLog.details || "",
-                    },
-                    ...ls,
-                  ]
-                } else {
-                  updatedLogs = ls.map((l) =>
-                    l.id === newLog.id
-                      ? {
-                          id: newLog.id,
-                          tableId: newLog.table_id,
-                          tableName: newLog.table_name,
-                          action: newLog.action,
-                          timestamp: newLog.timestamp,
-                          details: newLog.details || "",
-                        }
-                      : l,
-                  )
-                }
+        // Set up more resilient subscriptions with error handling
+        try {
+          tablesSub = supabase
+            .channel("tables-changes")
+            .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.TABLES }, ({ new: newTbl }) => {
+              setTables((ts) => {
+                // Only update the specific table that changed
+                const updatedTables = ts.map((t) =>
+                  t.id === newTbl.id
+                    ? {
+                        id: newTbl.id,
+                        name: newTbl.name,
+                        isActive: newTbl.is_active,
+                        startTime: newTbl.start_time,
+                        remainingTime: newTbl.remaining_time,
+                        initialTime: newTbl.initial_time,
+                        guestCount: newTbl.guest_count,
+                        server: newTbl.server_id,
+                        groupId: newTbl.group_id,
+                        hasNotes: newTbl.has_notes,
+                        noteId: newTbl.note_id || "",
+                        noteText: newTbl.note_text || "",
+                        updated_by_admin: newTbl.updated_by_admin || false,
+                        updated_by: newTbl.updated_by || null,
+                        updatedAt: newTbl.updated_at || new Date().toISOString(),
+                      }
+                    : t,
+                )
 
                 // Only update state if there's an actual change
-                if (JSON.stringify(updatedLogs) !== JSON.stringify(ls)) {
-                  prevLogsRef.current = updatedLogs
-                  return updatedLogs
+                if (JSON.stringify(updatedTables) !== JSON.stringify(ts)) {
+                  prevTablesRef.current = updatedTables
+                  return updatedTables
                 }
-                return ls
+                return ts
               })
-            },
-          )
-          .subscribe()
-
-        settingsSub = supabase
-          .channel("settings-changes")
-          .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: TABLE_NAMES.SETTINGS },
-            ({ new: newSettings }) => {
-              setDayStarted(newSettings.day_started || false)
-              setGroupCounter(newSettings.group_counter || 1)
-            },
-          )
-          .subscribe()
-
-        serversSub = supabase
-          .channel("servers-changes")
-          .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.SERVERS }, ({ new: newSrv }) => {
-            setServers((ss) => {
-              const updatedServers = ss.map((s) => (s.id === newSrv.id ? newSrv : s))
-
-              // Only update state if there's an actual change
-              if (JSON.stringify(updatedServers) !== JSON.stringify(ss)) {
-                prevServersRef.current = updatedServers
-                return updatedServers
-              }
-              return ss
             })
-          })
-          .subscribe()
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                console.log("Subscribed to tables changes")
+              } else if (status === "CHANNEL_ERROR") {
+                console.error("Error subscribing to tables changes")
+                // Don't immediately go offline, let the connection check handle it
+              }
+            })
+        } catch (err) {
+          console.error("Error setting up tables subscription:", err)
+        }
+
+        try {
+          logsSub = supabase
+            .channel("logs-changes")
+            .on(
+              "postgres_changes",
+              { event: "*", schema: "public", table: TABLE_NAMES.LOGS },
+              ({ eventType, new: newLog }) => {
+                setLogs((ls) => {
+                  let updatedLogs
+                  if (eventType === "INSERT") {
+                    updatedLogs = [
+                      {
+                        id: newLog.id,
+                        tableId: newLog.table_id,
+                        tableName: newLog.table_name,
+                        action: newLog.action,
+                        timestamp: newLog.timestamp,
+                        details: newLog.details || "",
+                      },
+                      ...ls,
+                    ]
+                  } else {
+                    updatedLogs = ls.map((l) =>
+                      l.id === newLog.id
+                        ? {
+                            id: newLog.id,
+                            tableId: newLog.table_id,
+                            tableName: newLog.table_name,
+                            action: newLog.action,
+                            timestamp: newLog.timestamp,
+                            details: newLog.details || "",
+                          }
+                        : l,
+                    )
+                  }
+
+                  // Only update state if there's an actual change
+                  if (JSON.stringify(updatedLogs) !== JSON.stringify(ls)) {
+                    prevLogsRef.current = updatedLogs
+                    return updatedLogs
+                  }
+                  return ls
+                })
+              },
+            )
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                console.log("Subscribed to logs changes")
+              } else if (status === "CHANNEL_ERROR") {
+                console.error("Error subscribing to logs changes")
+              }
+            })
+        } catch (err) {
+          console.error("Error setting up logs subscription:", err)
+        }
+
+        try {
+          settingsSub = supabase
+            .channel("settings-changes")
+            .on(
+              "postgres_changes",
+              { event: "*", schema: "public", table: TABLE_NAMES.SETTINGS },
+              ({ new: newSettings }) => {
+                setDayStarted(newSettings.day_started || false)
+                setGroupCounter(newSettings.group_counter || 1)
+              },
+            )
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                console.log("Subscribed to settings changes")
+              } else if (status === "CHANNEL_ERROR") {
+                console.error("Error subscribing to settings changes")
+              }
+            })
+        } catch (err) {
+          console.error("Error setting up settings subscription:", err)
+        }
+
+        try {
+          serversSub = supabase
+            .channel("servers-changes")
+            .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.SERVERS }, ({ new: newSrv }) => {
+              setServers((ss) => {
+                const updatedServers = ss.map((s) => (s.id === newSrv.id ? newSrv : s))
+
+                // Only update state if there's an actual change
+                if (JSON.stringify(updatedServers) !== JSON.stringify(ss)) {
+                  prevServersRef.current = updatedServers
+                  return updatedServers
+                }
+                return ss
+              })
+            })
+            .subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                console.log("Subscribed to servers changes")
+              } else if (status === "CHANNEL_ERROR") {
+                console.error("Error subscribing to servers changes")
+              }
+            })
+        } catch (err) {
+          console.error("Error setting up servers subscription:", err)
+        }
 
         // Store unsubscribe functions
         if (tablesSub) subscriptionsRef.current.push(() => tablesSub?.unsubscribe())
@@ -627,8 +732,7 @@ export function useSupabaseData() {
       }
     } catch (err) {
       console.error("Realtime subscription error", err)
-      setUseLocalStorage(true)
-      setOfflineMode(true)
+      // Don't immediately go offline, let the connection check handle it
     }
 
     return () => {
@@ -661,20 +765,37 @@ export function useSupabaseData() {
       setAdminPresent(present)
     }
 
-    // Handle online status changes
+    // Handle online status changes with debounce
+    let onlineStatusTimeout: NodeJS.Timeout | null = null
+
     const handleOnline = () => {
       console.log("Browser reports online status")
-      testConnection().then((isConnected) => {
-        if (isConnected) {
-          setOfflineMode(false)
-          setUseLocalStorage(false)
-          loadAllData()
-        }
-      })
+
+      // Clear any existing timeout
+      if (onlineStatusTimeout) {
+        clearTimeout(onlineStatusTimeout)
+      }
+
+      // Add a small delay to ensure network is stable
+      onlineStatusTimeout = setTimeout(() => {
+        testConnection().then((isConnected) => {
+          if (isConnected) {
+            setOfflineMode(false)
+            setUseLocalStorage(false)
+            loadAllData()
+          }
+        })
+      }, 2000)
     }
 
     const handleOffline = () => {
       console.log("Browser reports offline status")
+
+      // Clear any existing timeout
+      if (onlineStatusTimeout) {
+        clearTimeout(onlineStatusTimeout)
+      }
+
       setOfflineMode(true)
       setUseLocalStorage(true)
     }
@@ -692,6 +813,10 @@ export function useSupabaseData() {
       window.removeEventListener("supabase-admin-presence", handleAdminPresence)
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
+
+      if (onlineStatusTimeout) {
+        clearTimeout(onlineStatusTimeout)
+      }
     }
   }, [loadAllData, testConnection])
 

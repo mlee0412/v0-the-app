@@ -20,6 +20,15 @@ export function SupabaseUserManagement() {
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers()
+
+    // Subscribe to user updates
+    const unsubscribe = supabaseAuthService.subscribeToUsers((updatedUsers) => {
+      setUsers(updatedUsers as User[])
+    })
+
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   const fetchUsers = async () => {
@@ -28,7 +37,8 @@ export function SupabaseUserManagement() {
 
     try {
       const fetchedUsers = await supabaseAuthService.getUsers()
-      setUsers(fetchedUsers)
+      console.log("Fetched users:", fetchedUsers)
+      setUsers(fetchedUsers as User[])
     } catch (err: any) {
       console.error("Error fetching users:", err)
       setError(err)
@@ -48,6 +58,7 @@ export function SupabaseUserManagement() {
   }
 
   const handleEditUser = (user: User) => {
+    console.log("Editing user:", user)
     setIsAddingUser(false)
     setEditingUser(user)
   }
@@ -59,20 +70,22 @@ export function SupabaseUserManagement() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-cyan-400">User Management</h2>
-        <Button onClick={handleAddUser} className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black">
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add User
-        </Button>
+    <div className="p-2 space-y-4">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-cyan-400">User Management</h2>
+          <Button onClick={handleAddUser} className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black">
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+        </div>
+
+        <UserList users={users} loading={loading} onEditUser={handleEditUser} onRefresh={fetchUsers} />
+
+        {(isAddingUser || editingUser) && (
+          <UserForm user={editingUser} isOpen={isAddingUser || !!editingUser} onClose={handleFormClose} />
+        )}
       </div>
-
-      <UserList users={users} loading={loading} onEditUser={handleEditUser} onRefresh={fetchUsers} />
-
-      {(isAddingUser || editingUser) && (
-        <UserForm user={editingUser} isOpen={isAddingUser || !!editingUser} onClose={handleFormClose} />
-      )}
     </div>
   )
 }

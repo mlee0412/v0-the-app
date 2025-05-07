@@ -135,17 +135,19 @@ export function UserManagementDialog({ open, onClose }: UserManagementDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] bg-gray-900 text-white border-gray-700 max-h-[90vh] overflow-hidden">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] bg-gray-900 text-white border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="mb-4">
           <DialogTitle className="text-2xl text-cyan-400 flex items-center gap-2">
             <ShieldIcon className="h-6 w-6" />
             User Management
           </DialogTitle>
         </DialogHeader>
 
-        <SupabaseUserManagement />
+        <div className="overflow-y-auto flex-1">
+          <SupabaseUserManagement />
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4 shrink-0">
           <Button
             variant="outline"
             onClick={onClose}

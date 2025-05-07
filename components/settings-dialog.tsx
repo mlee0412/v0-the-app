@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { PlusIcon, Trash2Icon, SaveIcon, Users, FileText, LogOut, BookOpen } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -147,17 +147,22 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh]">
-        <DialogHeader className="pb-0">
-          <DialogTitle className="text-lg text-cyan-400 flex justify-between items-center">
+      <DialogContent
+        className="sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh] overflow-hidden flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
+        onEscapeKeyDown={(e) => e.preventDefault()} // Prevent closing on Escape key
+      >
+        {/* Remove the close button by adding a custom DialogHeader without it */}
+        <div className="px-6 pt-6 pb-0">
+          <h2 className="text-lg font-semibold text-cyan-400 flex justify-between items-center">
             <span>Settings</span>
             {currentUser && (
               <div className="px-2 py-0.5 rounded-lg bg-[#000033] border border-[#00FFFF] text-[#00FFFF] text-xs">
                 {currentUser.name || "User"}
               </div>
             )}
-          </DialogTitle>
-        </DialogHeader>
+          </h2>
+        </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
           <TabsList className="grid grid-cols-3 bg-gray-800 h-7">
@@ -173,9 +178,9 @@ export function SettingsDialog({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="servers" className="pt-2 pb-0 px-0">
+          <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-medium text-fuchsia-400">Server Management</h3>
                 <Button
                   variant="outline"
@@ -187,7 +192,7 @@ export function SettingsDialog({
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 gap-1 max-h-[200px]">
+              <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 mb-2">
                 {editedServers.map((server) => (
                   <div key={server.id} className="flex items-center gap-1 bg-gray-800 rounded p-1">
                     <Input
@@ -221,7 +226,7 @@ export function SettingsDialog({
                 ))}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 mb-2">
                 <Input
                   value={newServerName}
                   onChange={(e) => setNewServerName(e.target.value)}
@@ -241,7 +246,7 @@ export function SettingsDialog({
 
               {/* Admin controls in server tab */}
               {showAdminControls && (
-                <div className="pt-2 border-t border-gray-700 space-y-1">
+                <div className="pt-3 mt-1 border-t border-gray-700 space-y-2">
                   <h3 className="text-sm font-medium text-cyan-400">Admin Controls</h3>
                   <div className="grid grid-cols-2 gap-1">
                     <Button
@@ -268,25 +273,15 @@ export function SettingsDialog({
                       <LogOut className="h-3 w-3" />
                       <span>Logout</span>
                     </Button>
-                    {/* {isAdmin && ( // Removed
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowMenuDataUpload(true)}
-                        className="w-full justify-start border-[#00FFFF] text-[#00FFFF] hover:bg-[#000066] h-6 text-xs"
-                      >
-                        <FileUp className="mr-2 h-3 w-3" />
-                        Upload Menu & Sales Data
-                      </Button>
-                    )} */}
                   </div>
                 </div>
               )}
             </div>
           </TabsContent>
 
-          <TabsContent value="notes" className="pt-2 pb-0 px-0">
+          <TabsContent value="notes" className="pt-2 pb-0 px-0 overflow-visible">
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-2">
                 <h3 className="text-sm font-medium text-yellow-400">Note Templates</h3>
                 <Button
                   variant="outline"
@@ -298,7 +293,7 @@ export function SettingsDialog({
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 gap-1 max-h-[200px]">
+              <div className="grid grid-cols-1 gap-2 mb-2">
                 {editedTemplates.map((template) => (
                   <div key={template.id} className="flex items-center gap-1">
                     <Input
@@ -318,7 +313,7 @@ export function SettingsDialog({
                 ))}
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 mb-2">
                 <Input
                   value={newTemplateText}
                   onChange={(e) => setNewTemplateText(e.target.value)}
@@ -338,12 +333,12 @@ export function SettingsDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="manual" className="pt-2 pb-0 px-0">
+          <TabsContent value="manual" className="pt-2 pb-0 px-0 overflow-visible">
             <UserManual />
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="flex flex-row gap-1 pt-2">
+        <DialogFooter className="flex flex-row gap-1 pt-2 mt-auto shrink-0">
           <Button
             variant="outline"
             onClick={onClose}

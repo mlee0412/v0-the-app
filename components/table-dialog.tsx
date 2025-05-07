@@ -407,12 +407,24 @@ export default function TableDialog({
       setPendingTimeAction({ type: "add", minutes })
       setShowTimeConfirmation(true)
 
+      // Broadcast the time update immediately for local UI updates
+      window.dispatchEvent(
+        new CustomEvent("table-time-update", {
+          detail: {
+            tableId: table.id,
+            remainingTime: newRemainingTime,
+            initialTime: newInitialTime,
+            source: "dialog",
+          },
+        }),
+      )
+
       // Reset touch flag after a short delay
       setTimeout(() => {
         touchInProgressRef.current = false
       }, 100)
     },
-    [remainingTime, localTable.initialTime],
+    [remainingTime, localTable.initialTime, table.id],
   )
 
   // Handle subtract time with immediate local update
@@ -436,12 +448,24 @@ export default function TableDialog({
       setPendingTimeAction({ type: "subtract", minutes })
       setShowTimeConfirmation(true)
 
+      // Broadcast the time update immediately for local UI updates
+      window.dispatchEvent(
+        new CustomEvent("table-time-update", {
+          detail: {
+            tableId: table.id,
+            remainingTime: newRemainingTime,
+            initialTime: newInitialTime,
+            source: "dialog",
+          },
+        }),
+      )
+
       // Reset touch flag after a short delay
       setTimeout(() => {
         touchInProgressRef.current = false
       }, 100)
     },
-    [remainingTime, localTable.initialTime],
+    [remainingTime, localTable.initialTime, table.id],
   )
 
   // Execute time change with immediate local update
@@ -916,7 +940,7 @@ export default function TableDialog({
         >
           <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
           <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
-          <div className="text-[#00FFFF] text-xs">{localTable.isActive ? "Time Remaining" : "Time Allotted"}</div>
+          <div className="text-[#00FFFF] text-xs">{localTable.isActive ? "Time Allotted" : "Time Allotted"}</div>
         </div>
       </div>
     )
@@ -991,7 +1015,7 @@ export default function TableDialog({
                     <div className="text-[#00FFFF] text-3xl font-bold">{formatDisplayTime(displayedRemainingTime)}</div>
                     <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
                     <div className="text-[#00FFFF] text-xs">
-                      {localTable.isActive ? "Time Remaining" : "Time Allotted"}
+                      {localTable.isActive ? "Time Allotted" : "Time Allotted"}
                     </div>
                   </div>
                 </div>
@@ -1241,7 +1265,7 @@ export default function TableDialog({
                           </div>
                           <div className="text-[#00FFFF] text-xs mt-1">{initialTimeDisplay} min</div>
                           <div className="text-[#00FFFF] text-xs">
-                            {localTable.isActive ? "Time Remaining" : "Time Allotted"}
+                            {localTable.isActive ? "Time Allotted" : "Time Allotted"}
                           </div>
                         </div>
                       </div>

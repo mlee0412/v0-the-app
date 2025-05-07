@@ -234,6 +234,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
         animationFrameRef.current = requestAnimationFrame(() => {
           // Update local state
           setRemainingTime(event.detail.remainingTime)
+          setDisplayedRemainingTime(event.detail.remainingTime)
 
           // Update local table state
           setLocalTable((prev) => {
@@ -737,7 +738,10 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     return (ms: number) => {
       // For inactive tables, always show exactly 60:00 regardless of stored time
       if (!localTable.isActive) {
-        return "60:00"
+        // Use initialTime instead of hardcoded 60:00 to reflect user adjustments
+        const initialMinutes = Math.floor(localTable.initialTime / 60000)
+        const initialSeconds = Math.floor((localTable.initialTime % 60000) / 1000)
+        return `${initialMinutes.toString().padStart(2, "0")}:${initialSeconds.toString().padStart(2, "0")}`
       }
 
       // For active tables, show remaining time
@@ -749,7 +753,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       const sign = isNegative ? "-" : ""
       return `${sign}${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
     }
-  }, [localTable.isActive, calculateRemainingTime])
+  }, [localTable.isActive, localTable.initialTime, calculateRemainingTime])
 
   // State for time tracking
   const [elapsedTime, setElapsedTime] = useState(calculateElapsedTime())

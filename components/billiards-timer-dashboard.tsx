@@ -1536,15 +1536,10 @@ export function BilliardsTimerDashboard() {
 
   // Handle viewer login
   const handleViewerLogin = () => {
-    // Instead of showing the login dialog, just enter view-only mode
-    setViewOnlyMode(true)
-    showNotification("Entered view-only mode. You can view data but cannot make changes.", "info")
-  }
-
-  // Add a function to exit view-only mode
-  const exitViewOnlyMode = () => {
-    setViewOnlyMode(false)
-    showNotification("Exited view-only mode", "info")
+    // Show the TouchLogin dialog with empty username to allow selection
+    setLoginUsername("")
+    setLoginPassword("")
+    setShowTouchLogin(true)
   }
 
   // Handle admin login
@@ -1552,6 +1547,12 @@ export function BilliardsTimerDashboard() {
     setLoginUsername("admin")
     setLoginPassword("")
     setShowTouchLogin(true)
+  }
+
+  // Add a function to exit view-only mode
+  const exitViewOnlyMode = () => {
+    setViewOnlyMode(false)
+    showNotification("Exited view-only mode", "info")
   }
 
   // Apply accessibility settings
@@ -1578,6 +1579,18 @@ export function BilliardsTimerDashboard() {
   const applySoundEffects = (enabled: boolean) => {
     setSoundEffectsEnabled(enabled)
   }
+
+  // New single login handler
+  const handleLogin = () => {
+    setShowLoginDialog(true)
+  }
+
+  // Rename and update the props passed to the Header component
+  const handleStartDay = startDay
+  const handleEndDay = endDay
+  const handleShowSettings = () => setShowSettingsDialog(true)
+  const handleSync = syncData
+  const handleToggleFullScreen = toggleFullScreen
 
   return (
     <TooltipProvider>
@@ -1622,14 +1635,13 @@ export function BilliardsTimerDashboard() {
           isAdmin={isAdmin}
           dayStarted={supabaseDayStarted}
           hasPermission={hasPermission}
-          onStartDay={startDay}
-          onEndDay={endDay}
-          onShowSettings={() => setShowSettingsDialog(true)}
+          onStartDay={handleStartDay}
+          onEndDay={handleEndDay}
+          onShowSettings={handleShowSettings}
           onLogout={handleLogout}
-          onAdminLogin={handleAdminLogin}
-          onViewerLogin={handleViewerLogin}
-          onSync={syncData}
-          onToggleFullScreen={toggleFullScreen}
+          onLogin={handleLogin}
+          onSync={handleSync}
+          onToggleFullScreen={handleToggleFullScreen}
           tables={tables}
           logs={logs}
           servers={serverUsers}

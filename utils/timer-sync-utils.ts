@@ -36,7 +36,7 @@ export function calculateRemainingTime(
   pauseTime: string | null,
   accumulatedTime: number,
 ): number {
-  if (!startTime) return timerMinutes * 60 // Not started yet
+  if (!startTime) return timerMinutes * 60 // Not started yet, return initial time in seconds
 
   const totalSeconds = timerMinutes * 60
 

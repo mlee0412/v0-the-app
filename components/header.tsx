@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Settings, LogOut, RefreshCw, Maximize, Minimize, User, Shield, PlayCircle, StopCircle } from "lucide-react"
+import { Settings, LogOut, RefreshCw, Maximize, Minimize, User, PlayCircle, StopCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConnectionStatus } from "@/components/connection-status"
 import { AnimatedLogo } from "@/components/animated-logo"
@@ -17,8 +17,7 @@ interface HeaderProps {
   onEndDay: () => void
   onShowSettings: () => void
   onLogout: () => void
-  onAdminLogin: () => void
-  onViewerLogin: () => void
+  onLogin: () => void
   onSync: () => void
   onToggleFullScreen: () => void
   tables: Table[]
@@ -37,8 +36,7 @@ export function Header({
   onEndDay,
   onShowSettings,
   onLogout,
-  onAdminLogin,
-  onViewerLogin,
+  onLogin,
   onSync,
   onToggleFullScreen,
   tables,
@@ -129,7 +127,7 @@ export function Header({
           </div>
 
           {/* Digital clock */}
-          <div className="flex items-center">
+          <div className="flex items-center space-x-2">
             <div className="bg-black border border-cyan-500 rounded-md px-3 py-1 shadow-lg shadow-cyan-500/20">
               <span className="text-2xl font-mono text-cyan-400">{currentTimeString}</span>
             </div>
@@ -220,26 +218,15 @@ export function Header({
                 <LogOut className="h-4 w-4 text-red-400" />
               </Button>
             ) : (
-              <div className="flex space-x-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400 text-xs px-2"
-                  onClick={onViewerLogin}
-                >
-                  <User className="h-3 w-3 mr-1 text-gray-400" />
-                  <span>View</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-fuchsia-700 bg-black/60 hover:bg-fuchsia-950 hover:text-fuchsia-400 text-xs px-2"
-                  onClick={onAdminLogin}
-                >
-                  <Shield className="h-3 w-3 mr-1 text-fuchsia-400" />
-                  <span>Admin</span>
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400 text-xs px-2"
+                onClick={onLogin}
+              >
+                <User className="h-3 w-3 mr-1 text-gray-400" />
+                <span>Login</span>
+              </Button>
             )}
           </div>
         </div>

@@ -1,502 +1,470 @@
-import { createClient } from "@supabase/supabase-js"
-import type { UserRole } from "@/services/user-service"
+import { getSupabaseClient } from "@/lib/supabase/client"
+import { v4 as uuidv4 } from "uuid"
 
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+// Define user roles and default permissions
+export type UserRole = "admin" | "server" | "viewer"
 
-const supabase = createClient(supabaseUrl, supabaseKey)
+interface Permission {
+  canStartSession: boolean
+  canEndSession: boolean
+  canAddTime: boolean
+  canSubtractTime: boolean
+  canUpdateGuests: boolean
+  canAssignServer: boolean
+  canGroupTables: boolean
+  canUngroupTable: boolean
+  canMoveTable: boolean
+  canUpdateNotes: boolean
+  canViewLogs: boolean
+  canManageUsers: boolean
+  canManageSettings: boolean
+}
 
-// Define permissions directly in this file to avoid import issues
-export const DEFAULT_PERMISSIONS = {
+// Define default permissions for each role
+const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   admin: {
-    canViewTables: true,
-    canEditTables: true,
-    canStartDay: true,
-    canEndDay: true,
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: true,
+    canUpdateGuests: true,
+    canAssignServer: true,
+    canGroupTables: true,
+    canUngroupTable: true,
+    canMoveTable: true,
+    canUpdateNotes: true,
     canViewLogs: true,
-    canManageServers: true,
     canManageUsers: true,
-    canAccessSettings: true,
-    canExportData: true,
+    canManageSettings: true,
   },
   server: {
-    canViewTables: true,
-    canEditTables: true,
-    canStartDay: false,
-    canEndDay: false,
-    canViewLogs: true,
-    canManageServers: false,
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
+    canUpdateGuests: true,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: true,
+    canViewLogs: false,
     canManageUsers: false,
-    canAccessSettings: false,
-    canExportData: false,
+    canManageSettings: false,
   },
   viewer: {
-    canViewTables: true,
-    canEditTables: false,
-    canStartDay: false,
-    canEndDay: false,
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
     canViewLogs: false,
-    canManageServers: false,
     canManageUsers: false,
-    canAccessSettings: false,
-    canExportData: false,
+    canManageSettings: false,
   },
 }
 
-// Define User type directly in this file
+// Define user interface
 export interface User {
   id: string
   username: string
-  password: string
-  role: UserRole
   name: string
-  permissions: {
-    canViewTables: boolean
-    canEditTables: boolean
-    canStartDay: boolean
-    canEndDay: boolean
-    canViewLogs: boolean
-    canManageServers: boolean
-    canManageUsers: boolean
-    canAccessSettings: boolean
-    canExportData: boolean
-  }
+  role: UserRole
+  pin_code?: string
+  permissions?: Permission
+  created_at?: string
+  updated_at?: string
 }
-
-// Default admin user
-const DEFAULT_ADMIN: User = {
-  id: "admin",
-  username: "admin",
-  password: "2162", // Changed from admin123 to 2162
-  role: "admin",
-  name: "Administrator",
-  permissions: DEFAULT_PERMISSIONS.admin,
-}
-
-// Default users
-const DEFAULT_USERS: User[] = [
-  DEFAULT_ADMIN,
-  {
-    id: "server1",
-    username: "server1",
-    password: "server123",
-    role: "server",
-    name: "Server 1",
-    permissions: DEFAULT_PERMISSIONS.server,
-  },
-  {
-    id: "server2",
-    username: "server2",
-    password: "server123",
-    role: "server",
-    name: "Server 2",
-    permissions: DEFAULT_PERMISSIONS.server,
-  },
-  {
-    id: "viewer",
-    username: "viewer",
-    password: "viewer123",
-    role: "viewer",
-    name: "Viewer",
-    permissions: DEFAULT_PERMISSIONS.viewer,
-  },
-]
 
 class SupabaseAuthService {
-  private initialized = false
+  DEFAULT_PERMISSIONS = DEFAULT_PERMISSIONS
   private isBrowser = typeof window !== "undefined"
 
-  constructor() {
-    this.initialize()
-  }
-
-  private async initialize() {
-    if (!this.isBrowser) return
-
+  // Authenticate a user with username and PIN code
+  async authenticate(nameOrUsername: string, pinCode: string) {
     try {
-      // Check if users exist in local storage first
-      const storedUsers = localStorage.getItem("users")
-      if (!storedUsers) {
-        // No users exist, create default users in local storage
-        localStorage.setItem("users", JSON.stringify(DEFAULT_USERS))
-      }
+      const supabase = getSupabaseClient()
 
-      this.initialized = true
-    } catch (error) {
-      console.error("Error initializing auth service:", error)
-    }
-  }
-
-  async getUsers(): Promise<User[]> {
-    if (!this.isBrowser) return DEFAULT_USERS
-
-    try {
-      // Try to get from Supabase first
-      const { data, error } = await supabase.from("users").select("*")
-
-      if (error || !data || data.length === 0) {
-        // Fall back to localStorage
-        const storedUsers = localStorage.getItem("users")
-        if (storedUsers) {
-          return JSON.parse(storedUsers)
+      // Special case for Administrator with hardcoded PIN
+      if (
+        (nameOrUsername.toLowerCase() === "administrator" || nameOrUsername.toLowerCase() === "admin") &&
+        pinCode === "2162"
+      ) {
+        const adminUser = {
+          id: "admin-" + uuidv4().substring(0, 8),
+          username: "admin",
+          name: "Administrator",
+          role: "admin" as UserRole,
+          pin_code: "2162",
+          permissions: DEFAULT_PERMISSIONS.admin,
         }
-        return DEFAULT_USERS
+        return adminUser
       }
 
-      return data
-    } catch (error) {
-      console.error("Error getting users:", error)
-
-      // Fall back to localStorage
-      try {
-        const storedUsers = localStorage.getItem("users")
-        if (storedUsers) {
-          return JSON.parse(storedUsers)
-        }
-      } catch (e) {
-        console.error("Error reading from localStorage:", e)
-      }
-
-      return DEFAULT_USERS
-    }
-  }
-
-  async getUserById(userId: string): Promise<User | null> {
-    if (!this.isBrowser) {
-      // Return default admin for testing
-      if (userId === "admin") return DEFAULT_ADMIN
-      return null
-    }
-
-    try {
-      // Try to get from Supabase first
-      const { data, error } = await supabase.from("users").select("*").eq("id", userId).single()
+      // Try to find user in the users table
+      const { data: user, error } = await supabase
+        .from("users")
+        .select("*")
+        .or(`username.eq.${nameOrUsername},name.eq.${nameOrUsername}`)
+        .limit(1)
 
       if (error) {
-        // Fall back to localStorage
-        const users = await this.getUsers()
-        return users.find((u) => u.id === userId) || null
+        console.error("Error authenticating from users table:", error)
       }
 
-      return data
-    } catch (error) {
-      console.error("Error getting user by ID:", error)
+      // If user found in users table
+      if (user && user.length > 0) {
+        const foundUser = user[0]
 
-      // Fall back to localStorage
-      try {
-        const users = await this.getUsers()
-        return users.find((u) => u.id === userId) || null
-      } catch (e) {
-        console.error("Error reading from localStorage:", e)
-      }
+        // Check PIN code
+        if (foundUser.pin_code === pinCode) {
+          // Get permissions if they exist
+          const { data: permissions } = await supabase
+            .from("user_permissions")
+            .select("*")
+            .eq("user_id", foundUser.id)
+            .limit(1)
 
-      return null
-    }
-  }
-
-  async getUserByUsername(username: string): Promise<User | null> {
-    if (!this.isBrowser) {
-      // Return default admin for testing
-      if (username === "admin") return DEFAULT_ADMIN
-      return null
-    }
-
-    try {
-      // Try to get from Supabase first
-      const { data, error } = await supabase.from("users").select("*").eq("username", username).single()
-
-      if (error) {
-        // Fall back to localStorage
-        const users = await this.getUsers()
-        return users.find((u) => u.username === username) || null
-      }
-
-      return data
-    } catch (error) {
-      console.error("Error getting user by username:", error)
-
-      // Fall back to localStorage
-      try {
-        const users = await this.getUsers()
-        return users.find((u) => u.username === username) || null
-      } catch (e) {
-        console.error("Error reading from localStorage:", e)
-      }
-
-      return null
-    }
-  }
-
-  async getUsersByRole(role: UserRole): Promise<User[]> {
-    if (!this.isBrowser) {
-      // Return default users filtered by role for testing
-      return DEFAULT_USERS.filter((u) => u.role === role)
-    }
-
-    try {
-      // Try to get from Supabase first
-      const { data, error } = await supabase.from("users").select("*").eq("role", role)
-
-      if (error || !data || data.length === 0) {
-        // Fall back to localStorage
-        const users = await this.getUsers()
-        return users.filter((u) => u.role === role)
-      }
-
-      return data
-    } catch (error) {
-      console.error("Error getting users by role:", error)
-
-      // Fall back to localStorage
-      try {
-        const users = await this.getUsers()
-        return users.filter((u) => u.role === role)
-      } catch (e) {
-        console.error("Error reading from localStorage:", e)
-      }
-
-      return []
-    }
-  }
-
-  async addUser(user: User): Promise<void> {
-    if (!this.isBrowser) return
-
-    try {
-      // Try to add to Supabase first
-      const { error } = await supabase.from("users").insert(user)
-
-      if (error) {
-        // Fall back to localStorage
-        const users = await this.getUsers()
-        users.push(user)
-        localStorage.setItem("users", JSON.stringify(users))
-      }
-
-      // Broadcast user update
-      this.broadcastUserUpdate()
-    } catch (error) {
-      console.error("Error adding user:", error)
-
-      // Fall back to localStorage
-      try {
-        const users = await this.getUsers()
-        users.push(user)
-        localStorage.setItem("users", JSON.stringify(users))
-        this.broadcastUserUpdate()
-      } catch (e) {
-        console.error("Error writing to localStorage:", e)
-      }
-    }
-  }
-
-  async updateUser(user: User): Promise<void> {
-    if (!this.isBrowser) return
-
-    try {
-      // Try to update in Supabase first
-      const { error } = await supabase.from("users").update(user).eq("id", user.id)
-
-      if (error) {
-        // Fall back to localStorage
-        const users = await this.getUsers()
-        const index = users.findIndex((u) => u.id === user.id)
-        if (index !== -1) {
-          users[index] = user
-          localStorage.setItem("users", JSON.stringify(users))
-        }
-      }
-
-      // Broadcast user update
-      this.broadcastUserUpdate()
-
-      // If this is the current user, update the current user
-      const currentUser = await this.getCurrentUser()
-      if (currentUser && currentUser.id === user.id) {
-        await this.setCurrentUser(user.id)
-      }
-    } catch (error) {
-      console.error("Error updating user:", error)
-
-      // Fall back to localStorage
-      try {
-        const users = await this.getUsers()
-        const index = users.findIndex((u) => u.id === user.id)
-        if (index !== -1) {
-          users[index] = user
-          localStorage.setItem("users", JSON.stringify(users))
-          this.broadcastUserUpdate()
-
-          // If this is the current user, update the current user
-          const currentUser = await this.getCurrentUser()
-          if (currentUser && currentUser.id === user.id) {
-            await this.setCurrentUser(user.id)
+          return {
+            id: foundUser.id,
+            username: foundUser.username || foundUser.name.toLowerCase().replace(/\s+/g, ""),
+            name: foundUser.name,
+            role: foundUser.role,
+            pin_code: foundUser.pin_code,
+            permissions: permissions && permissions.length > 0 ? permissions[0] : DEFAULT_PERMISSIONS[foundUser.role],
+            created_at: foundUser.created_at,
+            updated_at: foundUser.updated_at,
           }
         }
-      } catch (e) {
-        console.error("Error writing to localStorage:", e)
       }
+
+      // If not found in users table, try billiards_users table
+      const { data: billiardUsers, error: billiardError } = await supabase
+        .from("billiards_users")
+        .select("*")
+        .or(`username.eq.${nameOrUsername},name.eq.${nameOrUsername}`)
+        .limit(1)
+
+      if (billiardError) {
+        console.error("Error authenticating from billiards_users table:", billiardError)
+      }
+
+      // If user found in billiards_users table
+      if (billiardUsers && billiardUsers.length > 0) {
+        const foundUser = billiardUsers[0]
+
+        // Check PIN code
+        if (foundUser.pin === pinCode) {
+          return {
+            id: foundUser.id,
+            username: foundUser.username || foundUser.name.toLowerCase().replace(/\s+/g, ""),
+            name: foundUser.name,
+            role: foundUser.role,
+            pin_code: foundUser.pin,
+            permissions: DEFAULT_PERMISSIONS[foundUser.role],
+            created_at: foundUser.created_at,
+            updated_at: foundUser.updated_at,
+          }
+        }
+      }
+
+      return null
+    } catch (error) {
+      console.error("Authentication error:", error)
+      return null
     }
   }
 
-  async deleteUser(userId: string): Promise<void> {
-    if (!this.isBrowser) return
-
+  // Get all users
+  async getUsers() {
     try {
-      // Try to delete from Supabase first
-      const { error } = await supabase.from("users").delete().eq("id", userId)
+      const supabase = getSupabaseClient()
+
+      // Get users from both tables
+      const { data: users, error } = await supabase.from("users").select("*")
+
+      const { data: billiardUsers, error: billiardError } = await supabase.from("billiards_users").select("*")
+
+      // Combine and deduplicate users by username
+      const allUsers = [
+        ...(users || []).map((user) => ({
+          id: user.id,
+          username: user.username || user.name.toLowerCase().replace(/\s+/g, ""),
+          name: user.name,
+          role: user.role,
+          pin_code: user.pin_code,
+          permissions: DEFAULT_PERMISSIONS[user.role],
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        })),
+        ...(billiardUsers || []).map((user) => ({
+          id: user.id,
+          username: user.username || user.name.toLowerCase().replace(/\s+/g, ""),
+          name: user.name,
+          role: user.role,
+          pin_code: user.pin,
+          permissions: DEFAULT_PERMISSIONS[user.role],
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+        })),
+      ]
+
+      // Deduplicate by username
+      const uniqueUsers = allUsers.reduce((acc, user) => {
+        if (!acc.some((u) => u.username === user.username)) {
+          acc.push(user)
+        }
+        return acc
+      }, [] as any[])
+
+      // Ensure Administrator is always available
+      if (!uniqueUsers.some((u) => u.username === "admin" || u.name.toLowerCase() === "administrator")) {
+        uniqueUsers.push({
+          id: "admin-" + uuidv4().substring(0, 8),
+          username: "admin",
+          name: "Administrator",
+          role: "admin",
+          pin_code: "2162",
+          permissions: DEFAULT_PERMISSIONS.admin,
+        })
+      }
+
+      return uniqueUsers
+    } catch (error) {
+      console.error("Error fetching users:", error)
+
+      // Return default admin user as fallback
+      return [
+        {
+          id: "admin-" + uuidv4().substring(0, 8),
+          username: "admin",
+          name: "Administrator",
+          role: "admin",
+          pin_code: "2162",
+          permissions: DEFAULT_PERMISSIONS.admin,
+        },
+      ]
+    }
+  }
+
+  // Add a new user
+  async addUser(userData: any) {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Determine which table to use (prefer users table)
+      const { data, error } = await supabase
+        .from("users")
+        .insert([
+          {
+            username: userData.username,
+            name: userData.name,
+            pin_code: userData.pin_code,
+            role: userData.role,
+          },
+        ])
+        .select()
 
       if (error) {
-        // Fall back to localStorage
-        const users = await this.getUsers()
-        const filteredUsers = users.filter((u) => u.id !== userId)
-        localStorage.setItem("users", JSON.stringify(filteredUsers))
+        // Try billiards_users table as fallback
+        const { data: billiardData, error: billiardError } = await supabase
+          .from("billiards_users")
+          .insert([
+            {
+              username: userData.username,
+              name: userData.name,
+              pin: userData.pin_code,
+              role: userData.role,
+            },
+          ])
+          .select()
+
+        if (billiardError) {
+          throw billiardError
+        }
+
+        // Broadcast user update
+        this.broadcastUserUpdate()
+
+        return billiardData?.[0]
       }
 
       // Broadcast user update
       this.broadcastUserUpdate()
 
-      // If this is the current user, log out
-      const currentUser = await this.getCurrentUser()
-      if (currentUser && currentUser.id === userId) {
-        await this.logout()
-      }
+      return data?.[0]
     } catch (error) {
-      console.error("Error deleting user:", error)
+      console.error("Error adding user:", error)
+      throw error
+    }
+  }
 
-      // Fall back to localStorage
-      try {
-        const users = await this.getUsers()
-        const filteredUsers = users.filter((u) => u.id !== userId)
-        localStorage.setItem("users", JSON.stringify(filteredUsers))
+  // Update an existing user
+  async updateUser(userId: string, userData: any) {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Try to update in users table first
+      const { data, error } = await supabase
+        .from("users")
+        .update({
+          username: userData.username,
+          name: userData.name,
+          pin_code: userData.pin_code,
+          role: userData.role,
+        })
+        .eq("id", userId)
+        .select()
+
+      if (error) {
+        // Try billiards_users table
+        const { data: billiardData, error: billiardError } = await supabase
+          .from("billiards_users")
+          .update({
+            username: userData.username,
+            name: userData.name,
+            pin: userData.pin_code,
+            role: userData.role,
+          })
+          .eq("id", userId)
+          .select()
+
+        if (billiardError) {
+          throw billiardError
+        }
+
+        // Broadcast user update
         this.broadcastUserUpdate()
 
-        // If this is the current user, log out
-        const currentUser = await this.getCurrentUser()
-        if (currentUser && currentUser.id === userId) {
-          await this.logout()
-        }
-      } catch (e) {
-        console.error("Error writing to localStorage:", e)
+        return billiardData?.[0]
       }
-    }
-  }
 
-  async authenticate(username: string, password: string): Promise<User | null> {
-    if (!this.isBrowser) {
-      // For testing in non-browser environments
-      if (username === "admin" && password === "2162") {
-        return DEFAULT_ADMIN
-      }
-      return null
-    }
+      // Broadcast user update
+      this.broadcastUserUpdate()
 
-    // Special case for admin with hardcoded credentials
-    if (username === "admin" && password === "2162") {
-      await this.setCurrentUser("admin")
-      this.broadcastUserLogin("admin", "admin", "admin")
-      return DEFAULT_ADMIN
-    }
-
-    try {
-      const user = await this.getUserByUsername(username)
-      if (user && user.password === password) {
-        // Store current user
-        await this.setCurrentUser(user.id)
-        this.broadcastUserLogin(user.id, user.username, user.role)
-        return user
-      }
-      return null
+      return data?.[0]
     } catch (error) {
-      console.error("Error authenticating user:", error)
-      return null
+      console.error("Error updating user:", error)
+      throw error
     }
   }
 
-  async setCurrentUser(userId: string): Promise<void> {
-    if (!this.isBrowser) return
-
+  // Delete a user
+  async deleteUser(userId: string) {
     try {
-      // Store in localStorage
-      localStorage.setItem("currentUser", JSON.stringify(await this.getUserById(userId)))
-      localStorage.setItem("currentUserId", userId)
+      const supabase = getSupabaseClient()
+
+      // Try to delete from both tables
+      await supabase.from("users").delete().eq("id", userId)
+      await supabase.from("billiards_users").delete().eq("id", userId)
+
+      // Broadcast user update
+      this.broadcastUserUpdate()
+
+      return true
     } catch (error) {
-      console.error("Error setting current user:", error)
+      console.error("Error deleting user:", error)
+      throw error
     }
   }
 
-  async getCurrentUser(): Promise<User | null> {
-    if (!this.isBrowser) return null
-
+  // Check if a user has a specific permission
+  async hasPermission(permission: string): Promise<boolean> {
     try {
-      // Try to get from localStorage first
+      const user = await this.getCurrentUser()
+      if (!user) return false
+
+      // Admin always has all permissions
+      if (user.role === "admin" || user.name?.toLowerCase() === "administrator") {
+        return true
+      }
+
+      // Check user's specific permissions
+      if (user.permissions && permission in user.permissions) {
+        return user.permissions[permission as keyof Permission]
+      }
+
+      // Fall back to default permissions for role
+      return DEFAULT_PERMISSIONS[user.role][permission as keyof Permission] || false
+    } catch (error) {
+      console.error("Error checking permission:", error)
+      return false
+    }
+  }
+
+  // Check if current user is authenticated
+  async isAuthenticated() {
+    try {
+      const user = localStorage.getItem("currentUser")
+      return !!user
+    } catch (error) {
+      console.error("Error checking authentication:", error)
+      return false
+    }
+  }
+
+  // Get the current user
+  async getCurrentUser() {
+    try {
       const userJson = localStorage.getItem("currentUser")
-      if (userJson) {
-        return JSON.parse(userJson)
-      }
+      if (!userJson) return null
 
-      // If not in localStorage, try to get by ID
-      const userId = localStorage.getItem("currentUserId")
-      if (!userId) return null
-
-      // Special case for admin
-      if (userId === "admin") {
-        // Check if admin exists in users
-        const adminUser = await this.getUserById("admin")
-        if (adminUser) return adminUser
-
-        // Return default admin if not found
-        return DEFAULT_ADMIN
-      }
-
-      return await this.getUserById(userId)
+      const user = JSON.parse(userJson)
+      return user
     } catch (error) {
       console.error("Error getting current user:", error)
       return null
     }
   }
 
-  async logout(): Promise<void> {
-    if (!this.isBrowser) return
+  // Check if current user is admin
+  async isAdmin() {
+    try {
+      const user = await this.getCurrentUser()
+      return user?.role === "admin" || user?.name?.toLowerCase() === "administrator"
+    } catch (error) {
+      console.error("Error checking admin status:", error)
+      return false
+    }
+  }
 
+  // Check if current user is server
+  async isServer() {
+    try {
+      const user = await this.getCurrentUser()
+      return user?.role === "server"
+    } catch (error) {
+      console.error("Error checking server status:", error)
+      return false
+    }
+  }
+
+  // Logout
+  async logout() {
     try {
       localStorage.removeItem("currentUser")
-      localStorage.removeItem("currentUserId")
     } catch (error) {
       console.error("Error logging out:", error)
     }
   }
 
-  async isAuthenticated(): Promise<boolean> {
-    return !!(await this.getCurrentUser())
-  }
-
-  async hasRole(role: UserRole): Promise<boolean> {
-    const user = await this.getCurrentUser()
-    return user?.role === role
-  }
-
-  async isAdmin(): Promise<boolean> {
-    return this.hasRole("admin")
-  }
-
-  async isServer(): Promise<boolean> {
-    return this.hasRole("server")
-  }
-
-  async hasPermission(permission: string): Promise<boolean> {
-    const user = await this.getCurrentUser()
-    if (!user) return false
-    return user.permissions[permission as keyof typeof user.permissions] || false
-  }
-
   // Subscribe to user changes
   subscribeToUsers(callback: (users: User[]) => void): () => void {
+    if (!this.isBrowser) {
+      return () => {} // No-op for server-side
+    }
+
     // Set up Supabase real-time subscription if available
     let subscription: { unsubscribe: () => void } | null = null
+    const supabase = getSupabaseClient()
 
     try {
+      // Try to subscribe to users table
       subscription = supabase
         .channel("users-changes")
         .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => {
@@ -526,17 +494,6 @@ class SupabaseAuthService {
   broadcastUserUpdate() {
     if (!this.isBrowser) return
     window.dispatchEvent(new CustomEvent("supabase-user-update"))
-  }
-
-  // Helper method to broadcast user login
-  broadcastUserLogin(userId: string, username: string, role: string) {
-    if (!this.isBrowser) return
-    const deviceId = Math.random().toString(36).substring(2, 15)
-    window.dispatchEvent(
-      new CustomEvent("supabase-user-login", {
-        detail: { user_id: userId, username, role, device_id: deviceId },
-      }),
-    )
   }
 }
 

@@ -1,119 +1,147 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { WifiOff } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { WifiOff, Wifi } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 export function OfflineDetector() {
-  const [isOffline, setIsOffline] = useState(false)
-  const [showBanner, setShowBanner] = useState(false)
-  const [pendingOperations, setPendingOperations] = useState<any[]>([])
+  const [isOnline, setIsOnline] = useState(true)
+  const [showBanner, setShowBanner] = useState(false) // Start with banner hidden
+  const [lastStatus, setLastStatus] = useState<boolean | null>(null) // Track last status to prevent duplicate notifications
+  const { isAuthenticated, isAdmin, currentUser } = useAuth()
+  const statusChangeTimeout = useRef<NodeJS.Timeout | null>(null)
+  const MIN_STATUS_CHANGE_INTERVAL = 10000 // 10 seconds minimum between status changes
 
-  // Check online status
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false)
+    // Set initial state
+    setIsOnline(navigator.onLine)
+    setLastStatus(navigator.onLine)
 
-      // If we have pending operations, show a notification
-      if (pendingOperations.length > 0) {
-        setShowBanner(true)
-        // Attempt to sync pending operations
-        syncPendingOperations()
+    // Only show banner initially if offline
+    setShowBanner(!navigator.onLine)
+
+    // Add event listeners with debouncing
+    const handleOnline = () => {
+      // Clear any existing timeout
+      if (statusChangeTimeout.current) {
+        clearTimeout(statusChangeTimeout.current)
       }
+
+      // Add a small delay to ensure network is stable
+      statusChangeTimeout.current = setTimeout(() => {
+        setIsOnline(true)
+
+        // Only show banner if status changed
+        if (lastStatus === false) {
+          setShowBanner(true)
+          setLastStatus(true)
+
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            setShowBanner(false)
+          }, 5000)
+        }
+      }, 2000) // 2 second delay to ensure network is stable
     }
 
     const handleOffline = () => {
-      setIsOffline(true)
-      setShowBanner(true)
+      // Clear any existing timeout
+      if (statusChangeTimeout.current) {
+        clearTimeout(statusChangeTimeout.current)
+      }
+
+      // Add a small delay to prevent false offline reports
+      statusChangeTimeout.current = setTimeout(() => {
+        setIsOnline(false)
+
+        // Only show banner if status changed
+        if (lastStatus !== false) {
+          setShowBanner(true)
+          setLastStatus(false)
+        }
+      }, 1000) // 1 second delay
     }
 
     window.addEventListener("online", handleOnline)
     window.addEventListener("offline", handleOffline)
 
-    // Initial check
-    setIsOffline(!navigator.onLine)
+    // Custom event listeners for Supabase connection status
+    const handleSupabaseConnected = () => {
+      if (!isOnline) return // Don't update if browser reports offline
 
+      setIsOnline(true)
+
+      // Only show banner if status changed
+      if (lastStatus === false) {
+        setShowBanner(true)
+        setLastStatus(true)
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+          setShowBanner(false)
+        }, 5000)
+      }
+    }
+
+    const handleSupabaseDisconnected = () => {
+      // Don't immediately go offline, wait for browser to confirm
+      if (!navigator.onLine) {
+        setIsOnline(false)
+
+        // Only show banner if status changed
+        if (lastStatus !== false) {
+          setShowBanner(true)
+          setLastStatus(false)
+        }
+      }
+    }
+
+    window.addEventListener("supabase-connected", handleSupabaseConnected)
+    window.addEventListener("supabase-disconnected", handleSupabaseDisconnected)
+
+    // Clean up
     return () => {
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
-    }
-  }, [pendingOperations.length])
+      window.removeEventListener("supabase-connected", handleSupabaseConnected)
+      window.removeEventListener("supabase-disconnected", handleSupabaseDisconnected)
 
-  // Listen for operations that need to be queued when offline
-  useEffect(() => {
-    const handleQueueOperation = (event: CustomEvent) => {
-      if (isOffline && event.detail) {
-        // Add operation to queue
-        setPendingOperations((prev) => [...prev, event.detail])
-
-        // Provide feedback that operation was queued
-        if (navigator.vibrate) {
-          navigator.vibrate([10, 30, 10])
-        }
+      if (statusChangeTimeout.current) {
+        clearTimeout(statusChangeTimeout.current)
       }
     }
+  }, [lastStatus])
 
-    window.addEventListener("queue-offline-operation", handleQueueOperation as EventListener)
+  // Don't auto-show banner on clicks anymore
+  // Instead, add a manual toggle function that can be called from a button
+  const toggleBanner = () => {
+    setShowBanner((prev) => !prev)
 
-    return () => {
-      window.removeEventListener("queue-offline-operation", handleQueueOperation as EventListener)
-    }
-  }, [isOffline])
-
-  // Sync pending operations when back online
-  const syncPendingOperations = async () => {
-    if (pendingOperations.length === 0 || isOffline) return
-
-    // Process each operation in order
-    const operations = [...pendingOperations]
-    setPendingOperations([])
-
-    for (const operation of operations) {
-      try {
-        // Execute the operation
-        if (operation.type === "addTime") {
-          // Example: await onAddTime(operation.tableId, operation.minutes)
-          console.log("Syncing operation:", operation)
-        } else if (operation.type === "endSession") {
-          // Example: await onEndSession(operation.tableId)
-          console.log("Syncing operation:", operation)
-        }
-        // Add more operation types as needed
-      } catch (error) {
-        console.error("Failed to sync operation:", operation, error)
-      }
-    }
-
-    // Hide banner after sync completes
-    setTimeout(() => {
-      setShowBanner(false)
-    }, 3000)
-  }
-
-  // Hide banner after a few seconds
-  useEffect(() => {
-    if (showBanner) {
-      const timer = setTimeout(() => {
+    // Auto-hide after 5 seconds if online
+    if (isOnline) {
+      setTimeout(() => {
         setShowBanner(false)
       }, 5000)
-
-      return () => clearTimeout(timer)
     }
-  }, [showBanner])
+  }
 
   if (!showBanner) return null
 
+  // Get user display name
+  const userDisplay = isAuthenticated && currentUser ? currentUser.name || currentUser.username : "Guest"
+
   return (
-    <div className={`offline-indicator ${showBanner ? "visible" : ""}`}>
-      <div className="flex items-center justify-center gap-2">
-        <WifiOff size={16} />
-        {isOffline ? (
-          <span>You're offline. Changes will be saved when you reconnect.</span>
-        ) : pendingOperations.length > 0 ? (
-          <span>Back online! Syncing {pendingOperations.length} pending changes...</span>
-        ) : (
-          <span>Connected</span>
-        )}
-      </div>
+    <div
+      className={`fixed top-0 left-0 right-0 z-50 p-2 text-center text-sm flex items-center justify-center transition-colors duration-300 ${
+        isOnline ? "bg-green-600 text-white" : "bg-red-600 text-white"
+      }`}
+      onClick={() => setShowBanner(false)} // Allow clicking to dismiss
+    >
+      {isOnline ? <Wifi className="h-4 w-4 mr-2" /> : <WifiOff className="h-4 w-4 mr-2" />}
+      <span>
+        {isOnline ? "Connected" : "Offline Mode"}
+        {isAuthenticated && <span> ({userDisplay})</span>}
+      </span>
     </div>
   )
 }
