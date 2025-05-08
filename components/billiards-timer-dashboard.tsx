@@ -25,9 +25,12 @@ import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-tab
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav"
 import { OfflineDetector } from "@/components/mobile/offline-detector"
 import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container"
-import { AccessibilityControls } from "@/components/mobile/accessibility-controls"
+// Remove this line
+// import { AccessibilityControls } from "@/components/mobile/accessibility-controls"
 import { useMobileDetect } from "@/hooks/use-mobile"
 import { IOSTouchFix } from "@/components/ios-touch-fix"
+import { MobileHeader } from "@/components/mobile/mobile-header"
+import { TableSessionLogs } from "@/components/mobile/table-session-logs"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -128,10 +131,10 @@ export function BilliardsTimerDashboard() {
     darkMode: true,
     soundEnabled: true,
     autoEndDay: false,
-    autoEndDayTime: "23:00",
+    autoEndDayTime: "06:00",
     businessHours: {
-      open: "12:00",
-      close: "02:00",
+      open: "14:300",
+      close: "06:00",
     },
     dayStarted: false,
     dayStartTime: null,
@@ -981,6 +984,14 @@ export function BilliardsTimerDashboard() {
         showNotification("Please log in using the Admin button", "error")
         setLoginAttemptFailed(true)
         return
+        return
+      }
+
+      // Normal case - apply all checks
+      if (!isAuthenticated || !hasPermission("canUpdateGuests")) {
+        showNotification("Please log in using the Admin button", "error")
+        setLoginAttemptFailed(true)
+        return
       }
 
       // Check if day has been started
@@ -1592,6 +1603,24 @@ export function BilliardsTimerDashboard() {
   const handleSync = syncData
   const handleToggleFullScreen = toggleFullScreen
 
+  // Mobile view
+  const handleTableClick = (table: Table) => {
+    setSelectedTable(table)
+  }
+
+  const handleAddSession = () => {
+    const availableTable = tables.find((t) => !t.isActive)
+    if (availableTable) {
+      setSelectedTable(availableTable)
+    } else {
+      showNotification("No available tables found", "error")
+    }
+  }
+
+  const handleEndSession = (tableId: number) => {
+    confirmEndSession(tableId)
+  }
+
   return (
     <TooltipProvider>
       <div
@@ -1653,51 +1682,63 @@ export function BilliardsTimerDashboard() {
           {/* Table Grid with full height */}
           <div className={isMobile ? "overflow-y-auto flex-1 pb-16" : "overflow-hidden h-full"}>
             <OrientationAwareContainer>
-              {isMobile ? (
-                <EnhancedMobileTableList
-                  tables={tables}
-                  servers={serverUsers}
-                  logs={logs}
-                  onTableClick={openTableDialog}
-                  onRefresh={handleRefreshData}
-                  onAddTime={addTime}
-                  onEndSession={confirmEndSession}
-                  noteTemplates={noteTemplates}
-                  onStartSession={startTableSession}
-                  onUpdateGuestCount={updateGuestCount}
-                  onAssignServer={assignServer}
-                  onGroupTables={groupTables}
-                  onUngroupTable={ungroupTable}
-                  onMoveTable={moveTable}
-                  onUpdateNotes={updateTableNotes}
-                  getServerName={getServerName}
-                  viewOnlyMode={viewOnlyMode}
-                />
-              ) : (
+              {/* Mobile view */}
+              {isMobile && (
+                <div className="flex flex-col h-screen">
+                  <MobileHeader />
+                  <main className="flex-1 overflow-hidden">
+                    {activeTab === "tables" && (
+                      <div className="h-full overflow-y-auto pb-16">
+                        <EnhancedMobileTableList
+                          tables={tables}
+                          servers={servers}
+                          logs={logs}
+                          onTableClick={handleTableClick}
+                          onAddTime={handleAddTime}
+                          onEndSession={handleEndSession}
+                          canEndSession={isAuthenticated && (isAdmin || hasPermission("canEndSession"))}
+                          canAddTime={isAuthenticated && (isAdmin || hasPermission("canAddTime"))}
+                        />
+                      </div>
+                    )}
+
+                    {activeTab === "logs" && (
+                      <div className="h-full overflow-y-auto pb-16 p-2">
+                        <TableSessionLogs logs={logs} />
+                      </div>
+                    )}
+                  </main>
+
+                  <MobileBottomNav
+                    onTabChange={setActiveTab}
+                    onAddSession={handleAddSession}
+                    activeTab={activeTab}
+                    dayStarted={supabaseDayStarted}
+                    isAdmin={isAdmin}
+                    onStartDay={handleStartDay}
+                    onEndDay={handleEndDay}
+                    onShowSettings={handleShowSettings}
+                    onLogout={handleLogout}
+                    onLogin={handleLogin}
+                    onToggleFullScreen={toggleFullScreen}
+                  />
+                </div>
+              )}
+              {!isMobile && (
                 <TableGrid tables={tables} servers={serverUsers} logs={logs} onTableClick={openTableDialog} />
               )}
             </OrientationAwareContainer>
           </div>
         </div>
 
-        {/* Mobile Bottom Navigation */}
-        {isMobile && (
-          <MobileBottomNav
-            onTabChange={handleTabChange}
-            onAddSession={handleQuickAddSession}
-            activeTab={activeTab}
-            dayStarted={supabaseDayStarted}
-          />
-        )}
-
         {/* Accessibility Controls */}
-        {isMobile && (
+        {/* {isMobile && (
           <AccessibilityControls
-            onToggleHighContrast={applyHighContrastMode}
-            onToggleLargeText={applyLargeTextMode}
-            onToggleSound={applySoundEffects}
+            onToggleHighContrast={setHighContrastMode}
+            onToggleLargeText={setLargeTextMode}
+            onToggleSound={setSoundEffectsEnabled}
           />
-        )}
+        )} */}
 
         {selectedTable && (
           <TableDialog

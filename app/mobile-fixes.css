@@ -1,0 +1,108 @@
+/* Mobile-specific fixes */
+
+/* Fix for iOS Safari 100vh issue */
+@supports (-webkit-touch-callout: none) {
+  .h-screen {
+    height: -webkit-fill-available;
+  }
+
+  .mobile-container {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Improve bottom navigation */
+.mobile-bottom-nav {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+  border-top: 1px solid rgba(0, 255, 255, 0.3);
+  padding: 8px 4px;
+  z-index: 50;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.mobile-bottom-nav::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.mobile-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  min-width: 60px;
+  color: #a0a0a0;
+  border: none;
+  background: transparent;
+  transition: color 0.2s;
+}
+
+.mobile-bottom-nav-item.active {
+  color: #00ffff;
+}
+
+.mobile-bottom-nav-icon {
+  margin-bottom: 2px;
+}
+
+.mobile-bottom-nav-label {
+  font-size: 10px;
+}
+
+/* Floating action button */
+.mobile-fab {
+  position: fixed;
+  bottom: 70px;
+  right: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #00ffff, #ff00ff);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 255, 255, 0.5);
+  border: none;
+  z-index: 100;
+  font-size: 24px;
+}
+
+/* Touch feedback */
+.touch-feedback {
+  transition: transform 0.1s;
+}
+
+.touch-feedback:active {
+  transform: scale(0.95);
+}
+
+/* Fix for swipeable table cards */
+.ios-touch-fix {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Fix for table card server info */
+.table-card .server-info {
+  z-index: 5;
+  position: relative;
+}
+
+/* Ensure action buttons don't overlap */
+.swipeable-action-left,
+.swipeable-action-right {
+  z-index: 10;
+}
+
+.swipeable-card-content {
+  z-index: 20;
+}

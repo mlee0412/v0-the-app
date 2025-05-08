@@ -123,11 +123,11 @@ export default function TableDialog({
     setLocalTable(table)
     currentGuestCountRef.current = table.guestCount
     currentServerRef.current = table.server
-    currentRemainingTimeRef.current = table.remainingTime
-    currentInitialTimeRef.current = table.initialTime
 
-    // Only update displayed values if we're not in the middle of a time change
+    // Only update time values if we're not in the middle of a time change
     if (!pendingTimeAction) {
+      currentRemainingTimeRef.current = table.remainingTime
+      currentInitialTimeRef.current = table.initialTime
       setDisplayedRemainingTime(table.remainingTime)
       setRemainingTime(table.remainingTime)
       setInitialTimeDisplay(Math.floor(table.initialTime / 60000))
@@ -170,43 +170,60 @@ export default function TableDialog({
       if (localTable.isActive && localTable.startTime) {
         const now = customEvent.detail.timestamp
         const newElapsedTime = now - localTable.startTime
-        const newRemainingTime = localTable.initialTime - newElapsedTime
 
-        // Use requestAnimationFrame to ensure updates happen outside render cycle
-        requestAnimationFrame(() => {
+        // Only update remaining time if we don't have a pending time action
+        if (!pendingTimeAction) {
+          const newRemainingTime = localTable.initialTime - newElapsedTime
+
+          // Use requestAnimationFrame to ensure updates happen outside render cycle
+          requestAnimationFrame(() => {
+            setElapsedTime(newElapsedTime)
+            setRemainingTime(newRemainingTime)
+            setDisplayedRemainingTime(newRemainingTime)
+            currentRemainingTimeRef.current = newRemainingTime
+          })
+        } else {
+          // Just update elapsed time, but keep the pending time changes
           setElapsedTime(newElapsedTime)
-          setRemainingTime(newRemainingTime)
-          setDisplayedRemainingTime(newRemainingTime)
-          currentRemainingTimeRef.current = newRemainingTime
-        })
+        }
       }
     }
 
     // Always add the event listener
-    window.addEventListener("global-time-tick", handleGlobalTimeTick)
+    window.addEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
 
     // Always perform initial calculations, but conditionally set values
     if (localTable.isActive && localTable.startTime) {
       const now = Date.now()
       const newElapsedTime = now - localTable.startTime
-      const newRemainingTime = localTable.initialTime - newElapsedTime
 
-      setElapsedTime(newElapsedTime)
-      setRemainingTime(newRemainingTime)
-      setDisplayedRemainingTime(newRemainingTime)
-      currentRemainingTimeRef.current = newRemainingTime
+      // Only update remaining time if we don't have a pending time action
+      if (!pendingTimeAction) {
+        const newRemainingTime = localTable.initialTime - newElapsedTime
+
+        setElapsedTime(newElapsedTime)
+        setRemainingTime(newRemainingTime)
+        setDisplayedRemainingTime(newRemainingTime)
+        currentRemainingTimeRef.current = newRemainingTime
+      } else {
+        // Just update elapsed time, but keep the pending time changes
+        setElapsedTime(newElapsedTime)
+      }
     } else {
       setElapsedTime(0)
-      setRemainingTime(localTable.initialTime)
-      setDisplayedRemainingTime(localTable.initialTime)
-      setInitialTimeDisplay(Math.floor(localTable.initialTime / 60000))
+      // Only reset these if we don't have pending changes
+      if (!pendingTimeAction) {
+        setRemainingTime(localTable.initialTime)
+        setDisplayedRemainingTime(localTable.initialTime)
+        setInitialTimeDisplay(Math.floor(localTable.initialTime / 60000))
+      }
     }
 
     // Always return the cleanup function
     return () => {
-      window.removeEventListener("global-time-tick", handleGlobalTimeTick)
+      window.removeEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
     }
-  }, [localTable.isActive, localTable.startTime, localTable.initialTime, calculateRemainingTime])
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime, pendingTimeAction])
 
   // Handle group table selection
   const toggleTableSelection = useCallback((tableId: number) => {
@@ -481,6 +498,7 @@ export default function TableDialog({
     const additionalMs = pendingTimeAction.minutes * 60 * 1000
     const newRemainingTime =
       pendingTimeAction.type === "add" ? remainingTime + additionalMs : remainingTime - additionalMs
+
     const newInitialTime =
       pendingTimeAction.type === "add"
         ? localTable.initialTime + additionalMs
@@ -530,26 +548,22 @@ export default function TableDialog({
 
   // Listen for time updates from the confirmation dialog
   useEffect(() => {
-    let previewRemainingTime = remainingTime
-    let previewInitialTime = initialTimeDisplay
-
     if (showTimeConfirmation && pendingTimeAction) {
       // Pre-calculate what the new time would be
-      previewRemainingTime =
-        pendingTimeAction.type === "add"
-          ? remainingTime + pendingTimeAction.minutes * 60 * 1000
-          : remainingTime - pendingTimeAction.minutes * 60 * 1000
+      const additionalMs = pendingTimeAction.minutes * 60 * 1000
+      const previewRemainingTime =
+        pendingTimeAction.type === "add" ? remainingTime + additionalMs : remainingTime - additionalMs
 
-      previewInitialTime =
+      const previewInitialTime =
         pendingTimeAction.type === "add"
-          ? Math.floor((localTable.initialTime + pendingTimeAction.minutes * 60 * 1000) / 60000)
-          : Math.floor(Math.max(0, localTable.initialTime - pendingTimeAction.minutes * 60 * 1000) / 60000)
+          ? Math.floor((localTable.initialTime + additionalMs) / 60000)
+          : Math.floor(Math.max(0, localTable.initialTime - additionalMs) / 60000)
+
+      // Show the preview time while confirmation is open
+      setDisplayedRemainingTime(previewRemainingTime)
+      setInitialTimeDisplay(previewInitialTime)
     }
-
-    // Show the preview time while confirmation is open
-    setDisplayedRemainingTime(previewRemainingTime)
-    setInitialTimeDisplay(previewInitialTime)
-  }, [showTimeConfirmation, pendingTimeAction, remainingTime, localTable.initialTime, initialTimeDisplay])
+  }, [showTimeConfirmation, pendingTimeAction, remainingTime, localTable.initialTime])
 
   // Handle guest count increment with immediate local update
   const handleIncrementGuests = useCallback(() => {

@@ -243,7 +243,7 @@ export function SwipeableTableCard({
       {/* Left action indicator (End Session) */}
       {table.isActive && canEndSession && (
         <div
-          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-0 ${
+          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-10 ${
             showLeftAction ? "opacity-100" : "opacity-70"
           }`}
         >
@@ -257,7 +257,7 @@ export function SwipeableTableCard({
       {/* Right action indicator (Add Time) */}
       {table.isActive && canAddTime && (
         <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-0 ${
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
             showRightAction ? "opacity-100" : "opacity-70"
           }`}
         >
@@ -270,7 +270,7 @@ export function SwipeableTableCard({
 
       {/* Table card with transform based on swipe */}
       <div
-        className="relative z-10 touch-action-none"
+        className="relative z-20 touch-action-none"
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? "none" : "transform 0.3s ease",

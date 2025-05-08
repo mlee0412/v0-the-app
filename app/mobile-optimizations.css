@@ -298,6 +298,73 @@
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     -webkit-touch-callout: none;
   }
+
+  /* Settings dialog improvements */
+  .dialog-content {
+    max-height: 80vh !important;
+    padding: 12px !important;
+  }
+
+  /* Ensure tabs don't overflow */
+  .tabs-list {
+    flex-wrap: wrap;
+  }
+
+  /* Ensure content doesn't overflow */
+  .dialog-content .overflow-y-auto {
+    max-height: 50vh !important;
+  }
+
+  /* Fix for settings dialog on small screens */
+  .dialog-content .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Improve spacing in mobile dialogs */
+  .dialog-content .space-y-4 {
+    margin-top: 0.5rem;
+  }
+
+  /* Make scrollable areas more accessible */
+  .dialog-content .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Fix for dialog buttons on small screens */
+  .dialog-footer-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Improve bottom nav display */
+  .mobile-bottom-nav {
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .mobile-bottom-nav::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+  }
+
+  .mobile-bottom-nav-item {
+    flex: 0 0 auto;
+    min-width: 60px;
+  }
+
+  /* Improve FAB positioning */
+  .mobile-fab {
+    bottom: 70px;
+    right: 16px;
+    z-index: 100;
+  }
+
+  /* Add plus icon styling */
+  .plus-icon {
+    font-size: 24px;
+    font-weight: bold;
+  }
 }
 
 /* Fix for iOS touch events */

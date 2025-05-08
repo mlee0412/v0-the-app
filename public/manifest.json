@@ -1,20 +1,16 @@
 {
-  "name": "Billiards Timer",
-  "short_name": "BilliardsTimer",
+  "name": "Space Billiards",
+  "short_name": "SpaceBilliards",
   "description": "Space-themed billiards timer application",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000033",
+  "orientation": "portrait",
   "theme_color": "#000033",
+  "background_color": "#000033",
   "icons": [
     {
       "src": "/images/space-billiard-logo.png",
       "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/images/space-billiard-logo.png",
-      "sizes": "512x512",
       "type": "image/png"
     }
   ]

@@ -9,6 +9,7 @@ import "./pull-up-panel.css"
 import "./touch-improvements.css"
 import "./mobile-optimizations.css"
 import "@/app/ios-touch-fixes.css"
+import "./mobile-fixes.css"
 
 import type { Metadata, Viewport } from "next"
 import { SupabaseInitializer } from "@/components/supabase-initializer"
@@ -19,6 +20,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover", // Add this for iOS devices
 }
 
 export const metadata: Metadata = {
@@ -29,6 +31,10 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
+    title: "Space Billiards",
+  },
+  formatDetection: {
+    telephone: false,
   },
     generator: 'v0.dev'
 }
