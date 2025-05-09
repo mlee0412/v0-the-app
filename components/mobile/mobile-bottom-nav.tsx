@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Home, List, Settings, LogOut, User, ActivityIcon as Function } from "lucide-react"
+import { Home, List, Settings, LogOut, User, ActivityIcon } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface MobileBottomNavProps {
@@ -85,7 +85,7 @@ export function MobileBottomNav({
           className={`mobile-bottom-nav-item ${activeTab === "functions" ? "active" : ""}`}
           onClick={() => handleTabClick("functions")}
         >
-          <Function className="mobile-bottom-nav-icon" size={20} />
+          <ActivityIcon className="mobile-bottom-nav-icon" size={20} />
           <span className="mobile-bottom-nav-label">FUNCTIONS</span>
         </button>
 

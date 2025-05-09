@@ -21,6 +21,7 @@ import "./cursor.css"
 import "./touch-improvements.css"
 import "./pwa.css"
 import "@/app/ios-touch-fixes.css"
+import { TouchTestCleanup } from "@/components/touch-test-cleanup"
 
 export default function ClientRootLayout({
   children,
@@ -73,6 +74,7 @@ export default function ClientRootLayout({
       <SpaceBackgroundAnimation intensity={1.5} />
       <IOSViewportFix />
       <DirectTouchHandler />
+      <TouchTestCleanup />
       <AuthProvider>{isClient ? <BilliardsTimerDashboard /> : <div>Loading...</div>}</AuthProvider>
       <Toaster />
     </ThemeProvider>

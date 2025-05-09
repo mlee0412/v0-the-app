@@ -18,7 +18,9 @@
 
 /* Enhanced space-themed bottom navigation */
 .mobile-bottom-nav {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  width: 100%;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -42,6 +44,7 @@
 }
 
 .mobile-bottom-nav-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -477,4 +480,19 @@
   .mobile-bottom-nav-label {
     font-size: 9px;
   }
+}
+
+/* Add this CSS to ensure the Touch Test button is hidden in all contexts */
+.touch-test-button,
+[data-testid="touch-test-button"],
+button[aria-label="Touch Test"],
+.mobile-bottom-nav-item.touch-test {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
