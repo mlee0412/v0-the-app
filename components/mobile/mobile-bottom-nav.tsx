@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Home, List, Settings, LogOut, User, Maximize, Minimize, PlayCircle, StopCircle } from "lucide-react"
+import { Home, List, Settings, LogOut, User, Maximize, Minimize } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface MobileBottomNavProps {
@@ -93,66 +93,50 @@ export function MobileBottomNav({
       )}
 
       {/* Bottom Navigation Bar */}
-      <nav className="mobile-bottom-nav safe-area-bottom">
+      <nav className="mobile-bottom-nav">
         <button
           className={`mobile-bottom-nav-item ${activeTab === "tables" ? "active" : ""}`}
           onClick={() => handleTabClick("tables")}
         >
-          <Home className="mobile-bottom-nav-icon" size={22} />
-          <span className="mobile-bottom-nav-label">Tables</span>
+          <Home className="mobile-bottom-nav-icon" size={20} />
+          <span className="mobile-bottom-nav-label">TABLES</span>
         </button>
 
         <button
           className={`mobile-bottom-nav-item ${activeTab === "logs" ? "active" : ""}`}
           onClick={() => handleTabClick("logs")}
         >
-          <List className="mobile-bottom-nav-icon" size={22} />
-          <span className="mobile-bottom-nav-label">Logs</span>
+          <List className="mobile-bottom-nav-icon" size={20} />
+          <span className="mobile-bottom-nav-label">LOGS</span>
         </button>
 
         <button className={`mobile-bottom-nav-item`} onClick={onShowSettings}>
-          <Settings className="mobile-bottom-nav-icon" size={22} />
-          <span className="mobile-bottom-nav-label">Settings</span>
+          <Settings className="mobile-bottom-nav-icon" size={20} />
+          <span className="mobile-bottom-nav-label">SETTINGS</span>
         </button>
 
         {isAuthenticated ? (
           <button className={`mobile-bottom-nav-item`} onClick={onLogout}>
-            <LogOut className="mobile-bottom-nav-icon" size={22} />
-            <span className="mobile-bottom-nav-label">Logout</span>
+            <LogOut className="mobile-bottom-nav-icon" size={20} />
+            <span className="mobile-bottom-nav-label">LOGOUT</span>
           </button>
         ) : (
           <button className={`mobile-bottom-nav-item`} onClick={onLogin}>
-            <User className="mobile-bottom-nav-icon" size={22} />
-            <span className="mobile-bottom-nav-label">Login</span>
-          </button>
-        )}
-
-        {isAuthenticated && isAdmin && (
-          <button className={`mobile-bottom-nav-item`} onClick={dayStarted ? onEndDay : onStartDay}>
-            {dayStarted ? (
-              <>
-                <StopCircle className="mobile-bottom-nav-icon text-red-500" size={22} />
-                <span className="mobile-bottom-nav-label text-red-500">End Day</span>
-              </>
-            ) : (
-              <>
-                <PlayCircle className="mobile-bottom-nav-icon text-green-500" size={22} />
-                <span className="mobile-bottom-nav-label text-green-500">Start Day</span>
-              </>
-            )}
+            <User className="mobile-bottom-nav-icon" size={20} />
+            <span className="mobile-bottom-nav-label">LOGIN</span>
           </button>
         )}
 
         <button className={`mobile-bottom-nav-item`} onClick={onToggleFullScreen}>
           {isFullScreen ? (
             <>
-              <Minimize className="mobile-bottom-nav-icon" size={22} />
-              <span className="mobile-bottom-nav-label">Exit Full</span>
+              <Minimize className="mobile-bottom-nav-icon" size={20} />
+              <span className="mobile-bottom-nav-label">EXIT</span>
             </>
           ) : (
             <>
-              <Maximize className="mobile-bottom-nav-icon" size={22} />
-              <span className="mobile-bottom-nav-label">Full</span>
+              <Maximize className="mobile-bottom-nav-icon" size={20} />
+              <span className="mobile-bottom-nav-label">FULL</span>
             </>
           )}
         </button>

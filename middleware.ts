@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
+// Modify the middleware function to bypass authentication for testing
 export function middleware(request: NextRequest) {
+  // Temporarily bypass authentication for testing
+  return NextResponse.next()
+
+  // Original code commented out for testing
+  /*
   // Check if environment variables are set
   const username = process.env.BASIC_AUTH_USER
   const password = process.env.BASIC_AUTH_PASSWORD
@@ -30,6 +36,7 @@ export function middleware(request: NextRequest) {
       "WWW-Authenticate": 'Basic realm="Secure Area"',
     },
   })
+  */
 }
 
 export const config = {

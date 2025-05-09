@@ -417,3 +417,64 @@
 .mobile-bottom-nav-item.active {
   animation: cosmic-pulse 3s infinite;
 }
+
+/* Add these new styles at the end of the file to improve bottom nav on iOS */
+
+/* Improved bottom navigation for iOS */
+@supports (-webkit-touch-callout: none) {
+  .mobile-bottom-nav {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    height: auto;
+  }
+
+  /* Add extra padding to the bottom of the content to prevent it from being hidden behind the nav */
+  .mobile-scroll-container {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Ensure the nav items are properly spaced */
+  .mobile-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Fix for iPhone notch models */
+@media (max-height: 812px) and (max-width: 375px) {
+  .mobile-bottom-nav {
+    padding: 6px 0;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-bottom-nav-item {
+    min-width: 50px;
+  }
+}
+
+/* Fix for iPhone Plus/Max models */
+@media (min-width: 414px) and (max-width: 428px) {
+  .mobile-bottom-nav-item {
+    min-width: 65px;
+    max-width: 85px;
+  }
+}
+
+/* Ensure content doesn't get hidden behind the nav */
+.table-card-container:last-child {
+  margin-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
+}
+
+/* Fix for the bottom nav on rotation */
+@media (orientation: landscape) {
+  .mobile-bottom-nav {
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+    min-height: 50px;
+  }
+
+  .mobile-bottom-nav-label {
+    font-size: 9px;
+  }
+}
