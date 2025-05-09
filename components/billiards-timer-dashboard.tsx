@@ -330,6 +330,37 @@ export function BilliardsTimerDashboard() {
     return () => clearInterval(timer)
   }, [])
 
+  // Add a new effect to periodically sync all active table timers
+  useEffect(() => {
+    if (!supabaseDayStarted) return
+
+    // Sync all active table timers every second
+    const syncInterval = setInterval(() => {
+      const activeTables = tables.filter((t) => t.isActive && t.startTime)
+
+      activeTables.forEach((table) => {
+        // Calculate current remaining time
+        const now = Date.now()
+        const elapsed = now - (table.startTime || now)
+        const currentRemainingTime = table.initialTime - elapsed
+
+        // Broadcast update to ensure all components stay in sync
+        window.dispatchEvent(
+          new CustomEvent("table-time-update", {
+            detail: {
+              tableId: table.id,
+              remainingTime: currentRemainingTime,
+              initialTime: table.initialTime,
+              source: "dashboard-sync",
+            },
+          }),
+        )
+      })
+    }, 1000)
+
+    return () => clearInterval(syncInterval)
+  }, [tables, supabaseDayStarted])
+
   // Add an event listener to handle table updates
   useEffect(() => {
     const handleTableUpdate = (event: CustomEvent) => {

@@ -55,6 +55,18 @@ export function TableTimer({ isActive, startTime, initialTime, remainingTime, ta
       // Only update if time has changed by at least 1 second to reduce rerenders
       if (Math.abs(current - displayTime) >= 1000) {
         setDisplayTime(current)
+
+        // Broadcast the update to ensure all components stay in sync
+        window.dispatchEvent(
+          new CustomEvent("table-time-update", {
+            detail: {
+              tableId,
+              remainingTime: current,
+              initialTime,
+              source: "timer-component",
+            },
+          }),
+        )
       }
 
       // Dispatch event for table updates every 10 seconds to reduce traffic
@@ -71,8 +83,8 @@ export function TableTimer({ isActive, startTime, initialTime, remainingTime, ta
     // Initial calculation
     calculateTime()
 
-    // Set up interval for active tables
-    intervalRef.current = setInterval(calculateTime, 1000)
+    // Set up interval for active tables - use a faster interval for more responsive UI
+    intervalRef.current = setInterval(calculateTime, 100)
 
     return () => {
       if (intervalRef.current) {

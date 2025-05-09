@@ -55,6 +55,183 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   const animationFrameRef = useRef<number | null>(null)
   const particleAnimationRef = useRef<number | null>(null)
 
+  // Calculate remaining time - memoized
+  const calculateRemainingTime = useCallback(() => {
+    if (!localTable.isActive) return localTable.initialTime
+    if (!localTable.startTime) return localTable.remainingTime
+
+    const elapsed = Date.now() - localTable.startTime
+    // Remove Math.max to allow negative values for overtime
+    return localTable.initialTime - elapsed
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.remainingTime])
+
+  // Table status calculations - memoized
+  const tableStatus = useMemo(() => {
+    const isOvertime = localTable.isActive && calculateRemainingTime() < 0
+    const isWarningYellow =
+      localTable.isActive && calculateRemainingTime() <= 15 * 60 * 1000 && calculateRemainingTime() > 10 * 60 * 1000
+    const isWarningOrange =
+      localTable.isActive && calculateRemainingTime() <= 10 * 60 * 1000 && calculateRemainingTime() >= 0
+    const orangeIntensity = isWarningOrange ? 1 - calculateRemainingTime() / (10 * 60 * 1000) : 0
+
+    return { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity }
+  }, [localTable.isActive, calculateRemainingTime])
+
+  // Get group color for indicators - memoized
+  const getGroupColor = useCallback(() => {
+    if (!localTable.groupId) return ""
+
+    // Extract group number if it follows the pattern "Group X"
+    const groupMatch = localTable.groupId.match(/Group (\d+)/)
+    if (groupMatch) {
+      const groupNumber = Number.parseInt(groupMatch[1], 10)
+
+      // Predefined distinct colors for different groups
+      const groupColors = [
+        "#FF0000", // Red
+        "#00FF00", // Green
+        "#0000FF", // Blue
+        "#FFFF00", // Yellow
+        "#FF00FF", // Magenta
+        "#00FFFF", // Cyan
+        "#FFA500", // Orange
+        "#800080", // Purple
+        "#008000", // Dark Green
+        "#FFC0CB", // Pink
+      ]
+
+      // Use modulo to cycle through colors if there are more groups than colors
+      return groupColors[(groupNumber - 1) % groupColors.length]
+    }
+
+    // Fallback to hash-based color if group name doesn't match pattern
+    const groupHash = localTable.groupId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+    const hue = groupHash % 360
+    return `hsl(${hue}, 100%, 50%)`
+  }, [localTable.groupId])
+
+  // Get border styles and animation based on group status - memoized
+  const getBorderStyles = useMemo(() => {
+    return () => {
+      const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
+
+      if (localTable.groupId) {
+        const color = getGroupColor()
+        return {
+          borderColor: color,
+          boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
+          animation: "borderPulse 2s infinite alternate",
+          borderWidth: "4px",
+          borderStyle: "double", // Double border for grouped tables
+        }
+      }
+
+      if (isOvertime) {
+        return {
+          borderColor: "#FF0000",
+          boxShadow: "0 0 30px #FF0000, inset 0 0 20px rgba(255, 0, 0, 0.8)",
+          animation: "borderPulse 0.8s infinite alternate",
+          borderWidth: "4px",
+          borderStyle: "solid",
+        }
+      }
+
+      if (isWarningOrange) {
+        // Interpolate between yellow and red based on intensity
+        const r = Math.floor(255)
+        const g = Math.floor(165 - orangeIntensity * 165)
+        const b = Math.floor(0)
+        const color = `rgb(${r}, ${g}, ${b})`
+
+        return {
+          borderColor: color,
+          boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
+          animation: warningAnimationEnabled ? "borderPulse 1.2s infinite alternate" : "none",
+          borderWidth: "3px",
+          borderStyle: "solid",
+        }
+      }
+
+      if (isWarningYellow) {
+        return {
+          borderColor: "#FFFF00",
+          boxShadow: "0 0 25px #FFFF00, inset 0 0 15px rgba(255, 255, 0, 0.8)",
+          animation: warningAnimationEnabled ? "borderPulse 1.5s infinite alternate" : "none",
+          borderWidth: "3px",
+          borderStyle: "solid",
+        }
+      }
+
+      if (localTable.isActive) {
+        return {
+          borderColor: "#00FF00",
+          boxShadow: "0 0 20px #00FF00, inset 0 0 10px rgba(0, 255, 0, 0.8)",
+          animation: "none",
+          borderWidth: "3px",
+          borderStyle: "solid",
+        }
+      }
+
+      return {
+        borderColor: "#00FFFF",
+        boxShadow: "0 0 20px #00FFFF, inset 0 0 10px rgba(0, 255, 255, 0.7)",
+        animation: "none",
+        borderWidth: "3px",
+        borderStyle: "solid",
+      }
+    }
+  }, [tableStatus, localTable.groupId, warningAnimationEnabled, getGroupColor])
+
+  // Get background styles based on table status - memoized
+  const getBackgroundStyles = useMemo(() => {
+    return () => {
+      const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
+
+      if (!localTable.isActive) {
+        return {
+          background: "linear-gradient(135deg, rgba(0, 20, 40, 0.95), rgba(0, 10, 30, 0.98))",
+          animation: "none",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      if (isOvertime) {
+        return {
+          background: "linear-gradient(135deg, rgba(100, 0, 0, 0.95), rgba(60, 0, 0, 0.98))",
+          animation: "pulseRed 1s infinite alternate",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      if (isWarningOrange) {
+        // Interpolate between yellow and red based on intensity
+        const r = Math.floor(80 + orangeIntensity * 20)
+        const g = Math.floor(40 + (1 - orangeIntensity) * 40)
+        const b = Math.floor(0)
+
+        return {
+          background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.95), rgba(${r - 20}, ${g - 10}, ${b}, 0.98))`,
+          animation: warningAnimationEnabled ? "pulseOrange 1.2s infinite alternate" : "none",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      if (isWarningYellow) {
+        return {
+          background: "linear-gradient(135deg, rgba(80, 80, 0, 0.95), rgba(50, 50, 0, 0.98))",
+          animation: warningAnimationEnabled ? "pulseYellow 1.5s infinite alternate" : "none",
+          backdropFilter: "blur(10px)",
+        }
+      }
+
+      return {
+        background: "linear-gradient(135deg, rgba(0, 60, 30, 0.95), rgba(0, 40, 20, 0.98))",
+        animation: "pulseGreen 3s infinite alternate",
+        backdropFilter: "blur(10px)",
+      }
+    }
+  }, [tableStatus, localTable.isActive, warningAnimationEnabled])
+
   // Throttled update function to reduce Supabase calls
   // Timer updates are real-time, other updates are periodic (1 min)
   const throttledUpdateTable = useRef(
@@ -252,6 +429,47 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
             return prev
           })
 
+          // Force recalculation of table status
+          const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = {
+            isOvertime: localTable.isActive && event.detail.remainingTime < 0,
+            isWarningYellow:
+              localTable.isActive &&
+              event.detail.remainingTime <= 15 * 60 * 1000 &&
+              event.detail.remainingTime > 10 * 60 * 1000,
+            isWarningOrange:
+              localTable.isActive && event.detail.remainingTime <= 10 * 60 * 1000 && event.detail.remainingTime >= 0,
+            orangeIntensity:
+              localTable.isActive && event.detail.remainingTime <= 10 * 60 * 1000 && event.detail.remainingTime >= 0
+                ? 1 - event.detail.remainingTime / (10 * 60 * 1000)
+                : 0,
+          }
+
+          // Force update of border and background styles
+          const borderStyles = getBorderStyles()
+          const backgroundStyles = getBackgroundStyles()
+
+          // Apply styles directly to elements if needed
+          if (cardRef.current) {
+            const borderElement = cardRef.current.querySelector(".border-container")
+            if (borderElement) {
+              Object.assign(borderElement.style, {
+                borderColor: borderStyles.borderColor,
+                boxShadow: borderStyles.boxShadow,
+                animation: borderStyles.animation,
+                borderWidth: borderStyles.borderWidth,
+                borderStyle: borderStyles.borderStyle,
+              })
+            }
+
+            const backgroundElement = cardRef.current.querySelector(".background-container")
+            if (backgroundElement) {
+              Object.assign(backgroundElement.style, {
+                background: backgroundStyles.background,
+                animation: backgroundStyles.animation,
+              })
+            }
+          }
+
           // Dispatch event for real-time updates if this event didn't come from this component
           if (event.detail.source !== "card") {
             // Throttle the actual database update
@@ -285,7 +503,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
         clearTimeout(updateTimeoutRef.current)
       }
     }
-  }, [localTable.id, throttledUpdateTable])
+  }, [localTable.id, localTable.isActive, throttledUpdateTable, getBorderStyles, getBackgroundStyles])
 
   // Listen for table-updated events
   useEffect(() => {
@@ -370,28 +588,6 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     window.addEventListener("session-ended", handleSessionEnd as EventListener)
     return () => window.removeEventListener("session-ended", handleSessionEnd as EventListener)
   }, [localTable.id])
-
-  // Calculate remaining time - memoized
-  const calculateRemainingTime = useCallback(() => {
-    if (!localTable.isActive) return localTable.initialTime
-    if (!localTable.startTime) return localTable.remainingTime
-
-    const elapsed = Date.now() - localTable.startTime
-    // Remove Math.max to allow negative values for overtime
-    return localTable.initialTime - elapsed
-  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.remainingTime])
-
-  // Table status calculations - memoized
-  const tableStatus = useMemo(() => {
-    const isOvertime = localTable.isActive && calculateRemainingTime() < 0
-    const isWarningYellow =
-      localTable.isActive && calculateRemainingTime() <= 15 * 60 * 1000 && calculateRemainingTime() > 10 * 60 * 1000
-    const isWarningOrange =
-      localTable.isActive && calculateRemainingTime() <= 10 * 60 * 1000 && calculateRemainingTime() >= 0
-    const orangeIntensity = isWarningOrange ? 1 - calculateRemainingTime() / (10 * 60 * 1000) : 0
-
-    return { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity }
-  }, [localTable.isActive, calculateRemainingTime])
 
   // Add the particle animation useEffect hook here, after tableStatus is defined
   useEffect(() => {
@@ -576,162 +772,31 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
     }
   }, [])
 
-  // Get group color for indicators - memoized
-  const getGroupColor = useCallback(() => {
-    if (!localTable.groupId) return ""
+  // Add a more frequent timer update for active tables
+  useEffect(() => {
+    if (!localTable.isActive || !localTable.startTime) return
 
-    // Extract group number if it follows the pattern "Group X"
-    const groupMatch = localTable.groupId.match(/Group (\d+)/)
-    if (groupMatch) {
-      const groupNumber = Number.parseInt(groupMatch[1], 10)
+    // Update timer display every 100ms for smoother countdown
+    const timerInterval = setInterval(() => {
+      const newRemainingTime = calculateRemainingTime()
+      setRemainingTime(newRemainingTime)
+      setDisplayedRemainingTime(newRemainingTime)
 
-      // Predefined distinct colors for different groups
-      const groupColors = [
-        "#FF0000", // Red
-        "#00FF00", // Green
-        "#0000FF", // Blue
-        "#FFFF00", // Yellow
-        "#FF00FF", // Magenta
-        "#00FFFF", // Cyan
-        "#FFA500", // Orange
-        "#800080", // Purple
-        "#008000", // Dark Green
-        "#FFC0CB", // Pink
-      ]
+      // Broadcast the update to ensure all components stay in sync
+      window.dispatchEvent(
+        new CustomEvent("table-time-update", {
+          detail: {
+            tableId: localTable.id,
+            remainingTime: newRemainingTime,
+            initialTime: localTable.initialTime,
+            source: "timer-tick",
+          },
+        }),
+      )
+    }, 100)
 
-      // Use modulo to cycle through colors if there are more groups than colors
-      return groupColors[(groupNumber - 1) % groupColors.length]
-    }
-
-    // Fallback to hash-based color if group name doesn't match pattern
-    const groupHash = localTable.groupId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    const hue = groupHash % 360
-    return `hsl(${hue}, 100%, 50%)`
-  }, [localTable.groupId])
-
-  // Get border styles and animation based on group status - memoized
-  const getBorderStyles = useMemo(() => {
-    return () => {
-      const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
-
-      if (localTable.groupId) {
-        const color = getGroupColor()
-        return {
-          borderColor: color,
-          boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
-          animation: "borderPulse 2s infinite alternate",
-          borderWidth: "4px",
-          borderStyle: "double", // Double border for grouped tables
-        }
-      }
-
-      if (isOvertime) {
-        return {
-          borderColor: "#FF0000",
-          boxShadow: "0 0 30px #FF0000, inset 0 0 20px rgba(255, 0, 0, 0.8)",
-          animation: "borderPulse 0.8s infinite alternate",
-          borderWidth: "4px",
-          borderStyle: "solid",
-        }
-      }
-
-      if (isWarningOrange) {
-        // Interpolate between yellow and red based on intensity
-        const r = Math.floor(255)
-        const g = Math.floor(165 - orangeIntensity * 165)
-        const b = Math.floor(0)
-        const color = `rgb(${r}, ${g}, ${b})`
-
-        return {
-          borderColor: color,
-          boxShadow: `0 0 25px ${color}, inset 0 0 15px ${color}`,
-          animation: warningAnimationEnabled ? "borderPulse 1.2s infinite alternate" : "none",
-          borderWidth: "3px",
-          borderStyle: "solid",
-        }
-      }
-
-      if (isWarningYellow) {
-        return {
-          borderColor: "#FFFF00",
-          boxShadow: "0 0 25px #FFFF00, inset 0 0 15px rgba(255, 255, 0, 0.8)",
-          animation: warningAnimationEnabled ? "borderPulse 1.5s infinite alternate" : "none",
-          borderWidth: "3px",
-          borderStyle: "solid",
-        }
-      }
-
-      if (localTable.isActive) {
-        return {
-          borderColor: "#00FF00",
-          boxShadow: "0 0 20px #00FF00, inset 0 0 10px rgba(0, 255, 0, 0.8)",
-          animation: "none",
-          borderWidth: "3px",
-          borderStyle: "solid",
-        }
-      }
-
-      return {
-        borderColor: "#00FFFF",
-        boxShadow: "0 0 20px #00FFFF, inset 0 0 10px rgba(0, 255, 255, 0.7)",
-        animation: "none",
-        borderWidth: "3px",
-        borderStyle: "solid",
-      }
-    }
-  }, [tableStatus, localTable.groupId, warningAnimationEnabled, getGroupColor])
-
-  // Get background styles based on table status - memoized
-  const getBackgroundStyles = useMemo(() => {
-    return () => {
-      const { isOvertime, isWarningYellow, isWarningOrange, orangeIntensity } = tableStatus
-
-      if (!localTable.isActive) {
-        return {
-          background: "linear-gradient(135deg, rgba(0, 20, 40, 0.95), rgba(0, 10, 30, 0.98))",
-          animation: "none",
-          backdropFilter: "blur(10px)",
-        }
-      }
-
-      if (isOvertime) {
-        return {
-          background: "linear-gradient(135deg, rgba(100, 0, 0, 0.95), rgba(60, 0, 0, 0.98))",
-          animation: "pulseRed 1s infinite alternate",
-          backdropFilter: "blur(10px)",
-        }
-      }
-
-      if (isWarningOrange) {
-        // Interpolate between yellow and red based on intensity
-        const r = Math.floor(80 + orangeIntensity * 20)
-        const g = Math.floor(40 + (1 - orangeIntensity) * 40)
-        const b = Math.floor(0)
-
-        return {
-          background: `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.95), rgba(${r - 20}, ${g - 10}, ${b}, 0.98))`,
-          animation: warningAnimationEnabled ? "pulseOrange 1.2s infinite alternate" : "none",
-          backdropFilter: "blur(10px)",
-        }
-      }
-
-      if (isWarningYellow) {
-        return {
-          background: "linear-gradient(135deg, rgba(80, 80, 0, 0.95), rgba(50, 50, 0, 0.98))",
-          animation: warningAnimationEnabled ? "pulseYellow 1.5s infinite alternate" : "none",
-          backdropFilter: "blur(10px)",
-        }
-      }
-
-      return {
-        background: "linear-gradient(135deg, rgba(0, 60, 30, 0.95), rgba(0, 40, 20, 0.98))",
-        animation: "pulseGreen 3s infinite alternate",
-        backdropFilter: "blur(10px)",
-      }
-    }
-  }, [tableStatus, localTable.isActive, warningAnimationEnabled])
-
-  // Format time  warningAnimationEnabled])
+    return () => clearInterval(timerInterval)
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.id, calculateRemainingTime])
 
   // Format time for display in table card - memoized
   const formatTime = useMemo(() => {
@@ -919,7 +984,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
 
         {/* Border container with glow effect */}
         <div
-          className="absolute inset-0 rounded-lg z-10"
+          className="absolute inset-0 rounded-lg z-10 border-container"
           style={{
             border: `${borderStyles.borderWidth} ${borderStyles.borderStyle} ${borderStyles.borderColor}`,
             boxShadow: borderStyles.boxShadow,
@@ -929,7 +994,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
         />
 
         <div
-          className="p-2 h-full flex flex-col relative overflow-hidden rounded-lg z-10"
+          className="p-2 h-full flex flex-col relative overflow-hidden rounded-lg z-10 background-container"
           style={{
             background: backgroundStyles.background,
             animation: backgroundStyles.animation,

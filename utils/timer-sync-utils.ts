@@ -66,7 +66,7 @@ export function calculateRemainingTime(
 
 // Throttled version of broadcastTimerUpdate to prevent too many updates
 let lastTimerUpdateTime = 0
-const TIMER_UPDATE_THROTTLE = 250 // Reduced from 500ms to 250ms for better responsiveness
+const TIMER_UPDATE_THROTTLE = 100 // Reduced from 500ms to 100ms for better responsiveness
 
 export function throttledBroadcastTimerUpdate(tableId: number, remainingTime: number, initialTime: number) {
   const now = Date.now()
@@ -192,4 +192,19 @@ export function calculateRemainingTimeOnTheFly(
 
   // Allow negative values for overtime
   return (totalSeconds - elapsedSeconds) * 1000
+}
+
+// Force update of table status indicators
+export function forceTableStatusUpdate(tableId: number, remainingTime: number, initialTime: number, isActive: boolean) {
+  window.dispatchEvent(
+    new CustomEvent("force-table-status-update", {
+      detail: {
+        tableId,
+        remainingTime,
+        initialTime,
+        isActive,
+        timestamp: Date.now(),
+      },
+    }),
+  )
 }
