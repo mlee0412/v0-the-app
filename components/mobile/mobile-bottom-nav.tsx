@@ -54,36 +54,6 @@ export function MobileBottomNav({
     onAddSession()
   }
 
-  // Effect to remove any touch test buttons that might be added dynamically
-  useEffect(() => {
-    const removeTouchTestButtons = () => {
-      if (typeof document !== "undefined") {
-        const nav = document.querySelector(".mobile-bottom-nav")
-        if (nav) {
-          // Remove any children after the 5th one
-          Array.from(nav.children).forEach((child, index) => {
-            if (index >= 5) {
-              child.remove()
-            }
-          })
-
-          // Also check for any elements with "Touch Test" text
-          Array.from(nav.children).forEach((child) => {
-            if (child.textContent?.includes("Touch Test")) {
-              child.remove()
-            }
-          })
-        }
-      }
-    }
-
-    // Run immediately and set up an interval
-    removeTouchTestButtons()
-    const interval = setInterval(removeTouchTestButtons, 500)
-
-    return () => clearInterval(interval)
-  }, [])
-
   return (
     <>
       {/* Floating Action Button */}
@@ -93,7 +63,7 @@ export function MobileBottomNav({
         </button>
       )}
 
-      {/* Bottom Navigation Bar - IMPORTANT: Only 5 items allowed */}
+      {/* Bottom Navigation Bar */}
       <nav className="mobile-bottom-nav">
         <button
           className={`mobile-bottom-nav-item ${activeTab === "tables" ? "active" : ""}`}
