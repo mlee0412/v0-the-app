@@ -93,12 +93,12 @@ export function MobileBottomNav({
       )}
 
       {/* Bottom Navigation Bar */}
-      <nav className="mobile-bottom-nav">
+      <nav className="mobile-bottom-nav safe-area-bottom">
         <button
           className={`mobile-bottom-nav-item ${activeTab === "tables" ? "active" : ""}`}
           onClick={() => handleTabClick("tables")}
         >
-          <Home className="mobile-bottom-nav-icon" size={24} />
+          <Home className="mobile-bottom-nav-icon" size={22} />
           <span className="mobile-bottom-nav-label">Tables</span>
         </button>
 
@@ -106,23 +106,23 @@ export function MobileBottomNav({
           className={`mobile-bottom-nav-item ${activeTab === "logs" ? "active" : ""}`}
           onClick={() => handleTabClick("logs")}
         >
-          <List className="mobile-bottom-nav-icon" size={24} />
+          <List className="mobile-bottom-nav-icon" size={22} />
           <span className="mobile-bottom-nav-label">Logs</span>
         </button>
 
         <button className={`mobile-bottom-nav-item`} onClick={onShowSettings}>
-          <Settings className="mobile-bottom-nav-icon" size={24} />
+          <Settings className="mobile-bottom-nav-icon" size={22} />
           <span className="mobile-bottom-nav-label">Settings</span>
         </button>
 
         {isAuthenticated ? (
           <button className={`mobile-bottom-nav-item`} onClick={onLogout}>
-            <LogOut className="mobile-bottom-nav-icon" size={24} />
+            <LogOut className="mobile-bottom-nav-icon" size={22} />
             <span className="mobile-bottom-nav-label">Logout</span>
           </button>
         ) : (
           <button className={`mobile-bottom-nav-item`} onClick={onLogin}>
-            <User className="mobile-bottom-nav-icon" size={24} />
+            <User className="mobile-bottom-nav-icon" size={22} />
             <span className="mobile-bottom-nav-label">Login</span>
           </button>
         )}
@@ -131,12 +131,12 @@ export function MobileBottomNav({
           <button className={`mobile-bottom-nav-item`} onClick={dayStarted ? onEndDay : onStartDay}>
             {dayStarted ? (
               <>
-                <StopCircle className="mobile-bottom-nav-icon text-red-500" size={24} />
+                <StopCircle className="mobile-bottom-nav-icon text-red-500" size={22} />
                 <span className="mobile-bottom-nav-label text-red-500">End Day</span>
               </>
             ) : (
               <>
-                <PlayCircle className="mobile-bottom-nav-icon text-green-500" size={24} />
+                <PlayCircle className="mobile-bottom-nav-icon text-green-500" size={22} />
                 <span className="mobile-bottom-nav-label text-green-500">Start Day</span>
               </>
             )}
@@ -146,13 +146,13 @@ export function MobileBottomNav({
         <button className={`mobile-bottom-nav-item`} onClick={onToggleFullScreen}>
           {isFullScreen ? (
             <>
-              <Minimize className="mobile-bottom-nav-icon" size={24} />
+              <Minimize className="mobile-bottom-nav-icon" size={22} />
               <span className="mobile-bottom-nav-label">Exit Full</span>
             </>
           ) : (
             <>
-              <Maximize className="mobile-bottom-nav-icon" size={24} />
-              <span className="mobile-bottom-nav-label">Full Screen</span>
+              <Maximize className="mobile-bottom-nav-icon" size={22} />
+              <span className="mobile-bottom-nav-label">Full</span>
             </>
           )}
         </button>

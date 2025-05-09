@@ -9,22 +9,32 @@
   .mobile-container {
     height: -webkit-fill-available;
   }
+
+  .mobile-scroll-container {
+    height: calc(var(--vh, 1vh) * 100 - 120px);
+    padding-bottom: 120px !important;
+  }
 }
 
-/* Improve bottom navigation */
+/* Enhanced space-themed bottom navigation */
 .mobile-bottom-nav {
   display: flex;
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: rgba(0, 0, 0, 0.9);
-  border-top: 1px solid rgba(0, 255, 255, 0.3);
-  padding: 8px 4px;
+  background: rgba(0, 10, 30, 0.85);
+  border-top: 1px solid rgba(0, 255, 255, 0.4);
+  padding: 10px 8px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   z-index: 50;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none; /* Firefox */
+  box-shadow: 0 -4px 20px rgba(0, 200, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  justify-content: space-around;
 }
 
 .mobile-bottom-nav::-webkit-scrollbar {
@@ -36,50 +46,95 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  min-width: 60px;
-  color: #a0a0a0;
+  padding: 6px 12px;
+  min-width: 70px;
+  color: rgba(160, 160, 200, 0.7);
   border: none;
   background: transparent;
-  transition: color 0.2s;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-bottom-nav-item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00ffff, #ff00ff);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+  opacity: 0;
 }
 
 .mobile-bottom-nav-item.active {
   color: #00ffff;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+}
+
+.mobile-bottom-nav-item.active::before {
+  width: 70%;
+  opacity: 1;
 }
 
 .mobile-bottom-nav-icon {
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 2px rgba(0, 200, 255, 0.3));
+  transition: all 0.3s ease;
+}
+
+.mobile-bottom-nav-item.active .mobile-bottom-nav-icon {
+  filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.7));
+  transform: scale(1.1);
 }
 
 .mobile-bottom-nav-label {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 /* Floating action button */
 .mobile-fab {
   position: fixed;
-  bottom: 70px;
-  right: 16px;
-  width: 56px;
-  height: 56px;
-  border-radius: 28px;
+  bottom: 80px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 30px;
   background: linear-gradient(135deg, #00ffff, #ff00ff);
   color: #000;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 255, 255, 0.5);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), 0 0 30px rgba(255, 0, 255, 0.3);
   border: none;
   z-index: 100;
-  font-size: 24px;
+  font-size: 28px;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mobile-fab:active {
+  transform: scale(0.9) rotate(5deg);
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 0 0 20px rgba(255, 0, 255, 0.4);
+}
+
+.plus-icon {
+  background: linear-gradient(135deg, #fff, #a0f0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
 }
 
 /* Touch feedback */
 .touch-feedback {
   position: relative;
   overflow: hidden;
-  transition: transform 0.1s;
+  transition: transform 0.2s;
 }
 
 .touch-feedback:active {
@@ -93,7 +148,7 @@
   left: 50%;
   width: 5px;
   height: 5px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 255, 255, 0.7);
   opacity: 0;
   border-radius: 100%;
   transform: scale(1) translate(-50%, -50%);
@@ -115,12 +170,31 @@
   }
 }
 
+/* Special styling for action buttons */
+.mobile-bottom-nav-item .text-red-500 {
+  color: #ff5555;
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+.mobile-bottom-nav-item .text-green-500 {
+  color: #55ff7f;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
 /* Improved iOS scrolling */
 .ios-touch-fix {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Add more bottom padding to the mobile scroll container to prevent content from being hidden */
+.mobile-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 120px !important; /* Increase padding to ensure content isn't hidden behind nav */
 }
 
 /* Ensure content is scrollable on iOS */
@@ -233,6 +307,11 @@
   --vh: 1vh;
 }
 
+/* Add this new class for safe area bottom padding */
+.safe-area-bottom {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
 /* Use the custom vh variable for height calculations */
 .min-h-screen {
   min-height: 100vh; /* Fallback */
@@ -308,4 +387,33 @@
   user-select: none;
   position: relative;
   z-index: 1;
+}
+
+/* Table card container needs more bottom margin on mobile */
+@media (max-width: 768px) {
+  .table-card-container {
+    margin-bottom: 16px;
+  }
+
+  /* Add extra padding at the bottom of the table list */
+  .mobile-scroll-container > div:last-child {
+    margin-bottom: 120px;
+  }
+}
+
+/* Add cosmic glow to active nav items */
+@keyframes cosmic-pulse {
+  0% {
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.6), 0 0 15px rgba(255, 0, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+  }
+}
+
+.mobile-bottom-nav-item.active {
+  animation: cosmic-pulse 3s infinite;
 }

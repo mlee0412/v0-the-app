@@ -451,13 +451,14 @@ export function EnhancedMobileTableList({
   return (
     <div
       ref={containerRef}
-      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto pb-20 mobile-scroll-container ios-momentum-scroll touch-safe-zone improved-scroll min-h-screen"
+      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto pb-32 mobile-scroll-container ios-momentum-scroll touch-safe-zone improved-scroll min-h-screen"
       style={{
         WebkitOverflowScrolling: "touch",
         overscrollBehavior: "contain",
         scrollBehavior: "smooth",
         touchAction: "pan-y",
         height: "calc(var(--vh, 1vh) * 100 - 120px)",
+        paddingBottom: "120px" /* Ensure enough padding at the bottom */,
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

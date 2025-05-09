@@ -16,6 +16,7 @@ interface SwipeableTableCardProps {
   onEndSession: (tableId: number) => void
   canEndSession: boolean
   canAddTime: boolean
+  className?: string
 }
 
 export function SwipeableTableCard({
@@ -27,6 +28,7 @@ export function SwipeableTableCard({
   onEndSession,
   canEndSession,
   canAddTime,
+  className = "",
 }: SwipeableTableCardProps) {
   const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
@@ -331,8 +333,9 @@ export function SwipeableTableCard({
 
   return (
     <div
+      className={`relative swipeable-card-container ${className}`}
+      style={{ touchAction: "pan-y" }}
       ref={containerRef}
-      className="relative overflow-hidden rounded-lg ios-touch-fix"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
