@@ -10,6 +10,8 @@ import { AuthProvider } from "@/contexts/auth-context"
 import { SpaceBackgroundAnimation } from "@/components/space-background-animation"
 import { IOSViewportFix } from "@/components/ios-viewport-fix"
 import { DirectTouchHandler } from "@/components/direct-touch-handler"
+import { PWAInit } from "@/components/pwa-init"
+import { OfflineDetector } from "@/components/offline-detector"
 import "./globals.css"
 import "./mobile.css"
 import "./animations.css"
@@ -17,6 +19,7 @@ import "./space-animations.css"
 import "./logo-effects.css"
 import "./cursor.css"
 import "./touch-improvements.css"
+import "./pwa.css"
 import "@/app/ios-touch-fixes.css"
 
 export default function ClientRootLayout({
@@ -60,6 +63,12 @@ export default function ClientRootLayout({
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      {/* Initialize PWA functionality */}
+      <PWAInit />
+
+      {/* Offline detector */}
+      <OfflineDetector />
+
       {/* Render the background animation outside of the auth provider */}
       <SpaceBackgroundAnimation intensity={1.5} />
       <IOSViewportFix />

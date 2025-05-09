@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Offline - Space Billiards</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background-color: #000033;
+      color: #ffffff;
+      text-align: center;
+      background-image: radial-gradient(circle at center, rgba(0, 30, 60, 0.5) 0%, rgba(0, 0, 30, 0.9) 100%);
+    }
+    
+    .container {
+      padding: 2rem;
+      max-width: 500px;
+    }
+    
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: #00ffff;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+    }
+    
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+    
+    .logo {
+      width: 150px;
+      height: 150px;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5));
+      animation: pulse 3s infinite;
+    }
+    
+    .retry-button {
+      background: linear-gradient(135deg, #00ffff, #0066ff);
+      color: #000033;
+      border: none;
+      padding: 0.8rem 2rem;
+      font-size: 1.2rem;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+      transition: all 0.3s ease;
+    }
+    
+    .retry-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.7);
+    }
+    
+    .stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.7; }
+      50% { opacity: 1; }
+      100% { opacity: 0.7; }
+    }
+    
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div class="stars" id="stars"></div>
+  
+  <div class="container">
+    <img src="/images/space-billiard-logo.png" alt="Space Billiards Logo" class="logo">
+    <h1>You're Offline</h1>
+    <p>It seems you've drifted into a cosmic void with no internet connection. Please reconnect to continue your space billiards journey.</p>
+    <button class="retry-button" onclick="window.location.reload()">Retry Connection</button>
+  </div>
+  
+  <script>
+    // Create starfield background
+    const starsContainer = document.getElementById('stars');
+    const starsCount = 100;
+    
+    for (let i = 0; i < starsCount; i++) {
+      const star = document.createElement('div');
+      star.className = 'star';
+      
+      // Random position
+      star.style.left = `${Math.random() * 100}%`;
+      star.style.top = `${Math.random() * 100}%`;
+      
+      // Random size
+      const size = Math.random() * 3;
+      star.style.width = `${size}px`;
+      star.style.height = `${size}px`;
+      
+      // Random opacity
+      star.style.opacity = Math.random();
+      
+      // Random animation
+      star.style.animation = `pulse ${3 + Math.random() * 5}s infinite`;
+      
+      starsContainer.appendChild(star);
+    }
+  </script>
+</body>
+</html>

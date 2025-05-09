@@ -1,7 +1,7 @@
 {
-  "name": "Space Billiards",
+  "name": "Space Billiards Timer",
   "short_name": "SpaceBilliards",
-  "description": "Space-themed billiards timer application",
+  "description": "Galactic-inspired billiards table management system",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -11,7 +11,48 @@
     {
       "src": "/images/space-billiard-logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/images/space-billiard-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/images/app-screenshot.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Space Billiards Dashboard"
+    },
+    {
+      "src": "/images/app-screenshot-mobile.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Space Billiards Mobile View"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Table",
+      "short_name": "Add",
+      "description": "Add a new billiards table",
+      "url": "/?action=add",
+      "icons": [{ "src": "/images/add-icon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Logs",
+      "short_name": "Logs",
+      "description": "View session logs",
+      "url": "/?action=logs",
+      "icons": [{ "src": "/images/logs-icon.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }
