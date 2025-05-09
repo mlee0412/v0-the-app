@@ -35,11 +35,14 @@ export function SwipeableTableCard({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const startXRef = useRef(0)
+  const startYRef = useRef(0)
   const currentXRef = useRef(0)
   const startTimeRef = useRef(0)
   const swipeThreshold = 80 // Minimum distance to trigger action
   const isSwipingRef = useRef(false)
   const touchStartedRef = useRef(false)
+  const isScrollingVerticallyRef = useRef(false)
+  const swipeDirectionDeterminedRef = useRef(false)
 
   // Reset swipe state
   const resetSwipe = useCallback(() => {
@@ -48,17 +51,22 @@ export function SwipeableTableCard({
     isSwipingRef.current = false
     setShowLeftAction(false)
     setShowRightAction(false)
+    isScrollingVerticallyRef.current = false
+    swipeDirectionDeterminedRef.current = false
   }, [])
 
   // Handle touch start
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     // Store the initial touch position
     startXRef.current = e.touches[0].clientX
+    startYRef.current = e.touches[0].clientY
     currentXRef.current = e.touches[0].clientX
     startTimeRef.current = Date.now()
     touchStartedRef.current = true
-    setIsSwiping(true)
-    isSwipingRef.current = true
+    setIsSwiping(false)
+    isSwipingRef.current = false
+    isScrollingVerticallyRef.current = false
+    swipeDirectionDeterminedRef.current = false
   }, [])
 
   // Handle touch move
@@ -67,24 +75,59 @@ export function SwipeableTableCard({
       if (!touchStartedRef.current) return
 
       // Update current position
-      currentXRef.current = e.touches[0].clientX
+      const currentX = e.touches[0].clientX
+      const currentY = e.touches[0].clientY
+      currentXRef.current = currentX
 
-      // Calculate swipe distance
-      const distance = currentXRef.current - startXRef.current
+      // Calculate horizontal and vertical distances
+      const deltaX = currentX - startXRef.current
+      const deltaY = currentY - startYRef.current
+      const absX = Math.abs(deltaX)
+      const absY = Math.abs(deltaY)
 
-      // Update swipe offset with some resistance for better feel
-      const resistance = 0.5
-      const newOffset = distance * resistance
+      // If we haven't determined the swipe direction yet, do it now
+      if (!swipeDirectionDeterminedRef.current) {
+        // If we've moved enough to determine direction
+        if (absX > 5 || absY > 5) {
+          // If moving more vertically than horizontally, mark as vertical scrolling
+          if (absY > absX) {
+            isScrollingVerticallyRef.current = true
+            // Don't prevent default - allow normal scrolling
+            e.stopPropagation() // Stop propagation but allow default behavior
+          } else {
+            // Horizontal swipe - prevent default to handle our custom swipe
+            isSwipingRef.current = true
+            setIsSwiping(true)
+            e.preventDefault() // Prevent default to handle our custom swipe
+          }
+          swipeDirectionDeterminedRef.current = true
+        }
+      }
 
-      // Only allow swiping if the table is active and the appropriate permission exists
-      if (table.isActive && canEndSession && distance < 0) {
-        // Left swipe (end session)
-        setSwipeOffset(newOffset)
-        setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
-      } else if (table.isActive && canAddTime && distance > 0) {
-        // Right swipe (add time)
-        setSwipeOffset(newOffset)
-        setShowRightAction(newOffset > swipeThreshold / 2)
+      // If we're scrolling vertically, don't handle the swipe
+      if (isScrollingVerticallyRef.current) {
+        return
+      }
+
+      // If we're swiping horizontally, handle the swipe
+      if (isSwipingRef.current) {
+        // Calculate swipe distance
+        const distance = deltaX
+
+        // Update swipe offset with some resistance for better feel
+        const resistance = 0.5
+        const newOffset = distance * resistance
+
+        // Only allow swiping if the table is active and the appropriate permission exists
+        if (table.isActive && canEndSession && distance < 0) {
+          // Left swipe (end session)
+          setSwipeOffset(newOffset)
+          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+        } else if (table.isActive && canAddTime && distance > 0) {
+          // Right swipe (add time)
+          setSwipeOffset(newOffset)
+          setShowRightAction(newOffset > swipeThreshold / 2)
+        }
       }
     },
     [table.isActive, canEndSession, canAddTime, swipeThreshold],
@@ -94,6 +137,12 @@ export function SwipeableTableCard({
   const handleTouchEnd = useCallback(() => {
     if (!touchStartedRef.current) return
     touchStartedRef.current = false
+
+    // If we were scrolling vertically, just reset and return
+    if (isScrollingVerticallyRef.current) {
+      resetSwipe()
+      return
+    }
 
     // Calculate swipe distance and duration
     const distance = currentXRef.current - startXRef.current
@@ -113,7 +162,7 @@ export function SwipeableTableCard({
     // Determine if swipe should trigger action
     const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
 
-    if (isSwipeComplete) {
+    if (isSwipeComplete && isSwipingRef.current) {
       if (distance < 0 && table.isActive && canEndSession) {
         // Complete left swipe - end session
         onEndSession(table.id)
@@ -154,10 +203,13 @@ export function SwipeableTableCard({
 
     const handleMouseDown = (e: MouseEvent) => {
       startXRef.current = e.clientX
+      startYRef.current = e.clientY
       currentXRef.current = e.clientX
       startTimeRef.current = Date.now()
-      setIsSwiping(true)
-      isSwipingRef.current = true
+      setIsSwiping(false)
+      isSwipingRef.current = false
+      isScrollingVerticallyRef.current = false
+      swipeDirectionDeterminedRef.current = false
 
       // Add temporary event listeners for mouse move and up
       document.addEventListener("mousemove", handleMouseMove)
@@ -165,24 +217,63 @@ export function SwipeableTableCard({
     }
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isSwipingRef.current) return
+      if (!touchStartedRef.current) return
 
-      currentXRef.current = e.clientX
-      const distance = currentXRef.current - startXRef.current
-      const resistance = 0.5
-      const newOffset = distance * resistance
+      const currentX = e.clientX
+      const currentY = e.clientY
+      currentXRef.current = currentX
 
-      if (table.isActive && canEndSession && distance < 0) {
-        setSwipeOffset(newOffset)
-        setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
-      } else if (table.isActive && canAddTime && distance > 0) {
-        setSwipeOffset(newOffset)
-        setShowRightAction(newOffset > swipeThreshold / 2)
+      // Calculate horizontal and vertical distances
+      const deltaX = currentX - startXRef.current
+      const deltaY = currentY - startYRef.current
+      const absX = Math.abs(deltaX)
+      const absY = Math.abs(deltaY)
+
+      // If we haven't determined the swipe direction yet, do it now
+      if (!swipeDirectionDeterminedRef.current) {
+        // If we've moved enough to determine direction
+        if (absX > 5 || absY > 5) {
+          // If moving more vertically than horizontally, mark as vertical scrolling
+          if (absY > absX) {
+            isScrollingVerticallyRef.current = true
+          } else {
+            // Horizontal swipe
+            isSwipingRef.current = true
+            setIsSwiping(true)
+          }
+          swipeDirectionDeterminedRef.current = true
+        }
+      }
+
+      // If we're scrolling vertically, don't handle the swipe
+      if (isScrollingVerticallyRef.current) {
+        return
+      }
+
+      // If we're swiping horizontally, handle the swipe
+      if (isSwipingRef.current) {
+        const distance = deltaX
+        const resistance = 0.5
+        const newOffset = distance * resistance
+
+        if (table.isActive && canEndSession && distance < 0) {
+          setSwipeOffset(newOffset)
+          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+        } else if (table.isActive && canAddTime && distance > 0) {
+          setSwipeOffset(newOffset)
+          setShowRightAction(newOffset > swipeThreshold / 2)
+        }
       }
     }
 
     const handleMouseUp = () => {
-      if (!isSwipingRef.current) return
+      if (!touchStartedRef.current) return
+
+      // If we were scrolling vertically, just reset and return
+      if (isScrollingVerticallyRef.current) {
+        resetSwipe()
+        return
+      }
 
       const distance = currentXRef.current - startXRef.current
       const duration = Date.now() - startTimeRef.current
@@ -198,7 +289,7 @@ export function SwipeableTableCard({
 
       const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
 
-      if (isSwipeComplete) {
+      if (isSwipeComplete && isSwipingRef.current) {
         if (distance < 0 && table.isActive && canEndSession) {
           onEndSession(table.id)
         } else if (distance > 0 && table.isActive && canAddTime) {

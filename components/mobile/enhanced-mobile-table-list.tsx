@@ -98,6 +98,38 @@ export function EnhancedMobileTableList({
     }
   }, [])
 
+  // Set up iOS-specific fixes
+  useEffect(() => {
+    // Check if we're on iOS
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+    if (isIOS) {
+      // Add iOS-specific class to body
+      document.body.classList.add("ios-device")
+
+      // Set viewport height variable
+      const setVh = () => {
+        const vh = window.innerHeight * 0.01
+        document.documentElement.style.setProperty("--vh", `${vh}px`)
+      }
+
+      // Set initial value
+      setVh()
+
+      // Update on resize and orientation change
+      window.addEventListener("resize", setVh)
+      window.addEventListener("orientationchange", setVh)
+
+      return () => {
+        document.body.classList.remove("ios-device")
+        window.removeEventListener("resize", setVh)
+        window.removeEventListener("orientationchange", setVh)
+      }
+    }
+  }, [])
+
   // Handle scroll events with improved detection
   useEffect(() => {
     const container = containerRef.current
@@ -419,11 +451,13 @@ export function EnhancedMobileTableList({
   return (
     <div
       ref={containerRef}
-      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto pb-20 mobile-scroll-container ios-touch-fix touch-safe-zone improved-scroll min-h-screen"
+      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto pb-20 mobile-scroll-container ios-momentum-scroll touch-safe-zone improved-scroll min-h-screen"
       style={{
         WebkitOverflowScrolling: "touch",
         overscrollBehavior: "contain",
         scrollBehavior: "smooth",
+        touchAction: "pan-y",
+        height: "calc(var(--vh, 1vh) * 100 - 120px)",
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -506,10 +540,7 @@ export function EnhancedMobileTableList({
               return (
                 <div key={table.id} className="mb-4 relative">
                   <div className="relative">
-                    <div
-                      className={`${canInteract ? "" : "opacity-70"} table-card-container no-text-select`}
-                      onClick={() => handleTableClick(table)}
-                    >
+                    <div className={`${canInteract ? "" : "opacity-70"} table-card-container no-text-select`}>
                       <SwipeableTableCard
                         table={table}
                         servers={servers}

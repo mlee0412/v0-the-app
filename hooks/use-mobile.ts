@@ -30,3 +30,6 @@ export function useMobileDetect() {
 
   return isMobile
 }
+
+// Add this export for backward compatibility
+export const useMobile = useMobileDetect

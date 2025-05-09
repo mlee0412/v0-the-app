@@ -22,7 +22,7 @@ import "@/app/ios-touch-fixes.css"
 export default function ClientRootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children?: React.ReactNode
 }>) {
   const [isClient, setIsClient] = useState(false)
 

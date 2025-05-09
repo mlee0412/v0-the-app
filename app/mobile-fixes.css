@@ -126,6 +126,7 @@
 /* Ensure content is scrollable on iOS */
 .mobile-scroll-container {
   height: calc(100vh - 120px); /* Adjust based on your header/footer height */
+  height: calc(var(--vh, 1vh) * 100 - 120px); /* iOS-specific height */
   overflow-y: auto;
   position: relative;
   z-index: 1;
@@ -133,31 +134,11 @@
 }
 
 /* Fix for iOS momentum scrolling */
-@supports (-webkit-touch-callout: none) {
-  .mobile-scroll-container {
-    /* iOS-specific fixes */
-    -webkit-overflow-scrolling: touch;
-    will-change: transform; /* Optimize for iOS */
-  }
-
-  body,
-  html {
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  #__next,
-  main {
-    height: 100%;
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .min-h-screen {
-    min-height: calc(var(--vh, 1vh) * 100);
-  }
+.ios-momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
 }
 
 /* Improved touch targets for mobile */
@@ -247,14 +228,6 @@
   box-shadow: 0 0 8px rgba(0, 255, 255, 0.8);
 }
 
-/* Fix for iOS body scrolling */
-body.ios-device {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
 /* Fix for iOS viewport height issues */
 :root {
   --vh: 1vh;
@@ -272,12 +245,9 @@ body.ios-device {
 }
 
 /* Fix for iOS scrolling issues */
-html,
-body {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+.ios-device {
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Enable scrolling in containers */
@@ -285,18 +255,6 @@ body {
 .overflow-auto {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-}
-
-/* Prevent pull-to-refresh on iOS */
-body {
-  overscroll-behavior-y: none;
-  touch-action: pan-x pan-y;
-}
-
-/* Fix for iOS momentum scrolling */
-.ios-momentum-scroll {
-  -webkit-overflow-scrolling: touch;
-  overflow-y: scroll;
 }
 
 /* Fix for iOS touch handling */
@@ -327,17 +285,6 @@ body {
   }
 }
 
-/* Add this script to your main component:
-  useEffect(() => {
-    const setVh = () => {
-      const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty('--vh', `${vh}px`);
-    };
-    setVh();
-    window.addEventListener('resize', setVh);
-    return () => window.removeEventListener('resize', setVh);
-  }, []); */
-
 /* Fix for table card server info */
 .table-card .server-info {
   z-index: 5;
@@ -352,4 +299,13 @@ body {
 
 .swipeable-card-content {
   z-index: 20;
+}
+
+/* Fix for swipeable cards */
+.table-card-container {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  z-index: 1;
 }

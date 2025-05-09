@@ -25,7 +25,8 @@ import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-tab
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav"
 import { OfflineDetector } from "@/components/mobile/offline-detector"
 import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container"
-import { useMobileDetect } from "@/hooks/use-mobile"
+// Fix the import to use the correct export name
+import { useMobile } from "@/hooks/use-mobile"
 import { IOSTouchFix } from "@/components/ios-touch-fix"
 import { MobileHeader } from "@/components/mobile/mobile-header"
 import { TableSessionLogs } from "@/components/mobile/table-session-logs"
@@ -138,7 +139,8 @@ export function BilliardsTimerDashboard() {
     dayStartTime: null,
   })
   const { isAuthenticated, isAdmin, isServer, currentUser, logout, hasPermission } = useAuth()
-  const isMobile = useMobileDetect()
+  // Use the correct hook name
+  const isMobile = useMobile()
   const [showLoginDialog, setShowLoginDialog] = useState(false)
   const [showUserManagementDialog, setShowUserManagementDialog] = useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = useState(false)
