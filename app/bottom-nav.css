@@ -1,203 +1,162 @@
-/* Space-themed bottom navigation styling */
-
-/* Cosmic glow animation for active items */
-@keyframes cosmic-glow {
-  0% {
-    text-shadow: 0 0 4px rgba(0, 255, 255, 0.5);
-  }
-  50% {
-    text-shadow: 0 0 8px rgba(0, 255, 255, 0.8), 0 0 12px rgba(255, 0, 255, 0.4);
-  }
-  100% {
-    text-shadow: 0 0 4px rgba(0, 255, 255, 0.5);
-  }
-}
-
-/* Subtle icon pulse animation */
-@keyframes icon-pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.08);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* Enhanced bottom nav styling */
+/* Mobile Bottom Navigation */
 .mobile-bottom-nav {
-  background: linear-gradient(to bottom, rgba(0, 10, 30, 0.5) 0%, rgba(0, 20, 40, 0.85) 50%, rgba(0, 30, 60, 0.95) 100%);
-  border-top: 1px solid rgba(0, 200, 255, 0.4);
-  box-shadow: 0 -4px 20px rgba(0, 100, 255, 0.2), 0 -2px 10px rgba(0, 200, 255, 0.1);
-  /* Improved alignment and spacing for iOS */
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: 8px 0;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  height: auto;
-  min-height: 60px;
-  /* Enhanced corner styling */
-  border-radius: 16px 16px 0 0;
-  overflow: hidden;
-  position: relative;
-}
-
-/* Add a subtle glow to the top edge */
-.mobile-bottom-nav::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    rgba(0, 200, 255, 0),
-    rgba(0, 200, 255, 0.8),
-    rgba(0, 200, 255, 0.8),
-    rgba(0, 200, 255, 0)
-  );
-  box-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
-}
-
-/* Active item styling */
-.mobile-bottom-nav-item.active .mobile-bottom-nav-icon {
-  animation: icon-pulse 2s infinite ease-in-out;
-  filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.7));
-}
-
-.mobile-bottom-nav-item.active .mobile-bottom-nav-label {
-  animation: cosmic-glow 2s infinite ease-in-out;
-  font-weight: 600;
-}
-
-/* Add a subtle hover effect */
-.mobile-bottom-nav-item:active {
-  background: rgba(0, 200, 255, 0.1);
-  border-radius: 8px;
-}
-
-/* Special styling for action buttons */
-.mobile-bottom-nav-item .text-red-500 {
-  color: #ff5555;
-  text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
-}
-
-.mobile-bottom-nav-item .text-green-500 {
-  color: #55ff7f;
-  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
-}
-
-/* Floating action button enhancements */
-.mobile-fab {
-  background: linear-gradient(135deg, #00ffff, #ff00ff);
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), 0 0 30px rgba(255, 0, 255, 0.3), inset 0 0 10px rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 30px;
   position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  transform: translateZ(0);
-}
-
-.mobile-fab::before {
-  content: "";
-  position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  border-radius: 30px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.3), transparent);
-  opacity: 0.7;
-  z-index: -1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(0, 255, 255, 0.2);
+  box-shadow: 0 -4px 20px rgba(0, 200, 255, 0.15);
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  height: 60px;
 }
 
-.plus-icon {
-  font-size: 32px;
-  font-weight: bold;
-  background: linear-gradient(135deg, #fff, #a0f0ff);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+/* Hide any items beyond the 5th one */
+.mobile-bottom-nav > *:nth-child(n + 6) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
-/* Improved nav item styling for iOS */
 .mobile-bottom-nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  min-width: 60px;
-  max-width: 80px;
-  height: 100%;
-  padding: 6px 2px;
-  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 8px 0;
+  transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
 }
 
-/* Add subtle glow effect on hover */
-.mobile-bottom-nav-item::after {
+.mobile-bottom-nav-item::before {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: radial-gradient(circle at center, rgba(0, 200, 255, 0.2) 0%, transparent 70%);
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0, 255, 255, 0), rgba(0, 255, 255, 0.8), rgba(0, 255, 255, 0));
+  transform: translateY(-100%);
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: all 0.3s ease;
 }
 
-.mobile-bottom-nav-item:hover::after {
+.mobile-bottom-nav-item.active {
+  color: rgb(0, 255, 255);
+}
+
+.mobile-bottom-nav-item.active::before {
+  transform: translateY(0);
   opacity: 1;
 }
 
-/* Ensure icons are centered */
 .mobile-bottom-nav-icon {
-  margin: 0 auto 4px;
-  display: block;
+  margin-bottom: 2px;
 }
 
-/* Ensure text labels are properly aligned */
 .mobile-bottom-nav-label {
   font-size: 10px;
-  text-align: center;
-  width: 100%;
-  display: block;
-  white-space: nowrap;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+/* Floating Action Button */
+.mobile-fab {
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.9), rgba(0, 100, 255, 0.9));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 200, 255, 0.4);
+  z-index: 1000;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.mobile-fab:active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 10px rgba(0, 200, 255, 0.3);
+}
+
+.plus-icon {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+/* Touch feedback for mobile */
+.touch-feedback {
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
-  margin-top: 2px;
 }
 
-/* Fix for iPhone notch models */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .mobile-bottom-nav {
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+.touch-feedback::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.7);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1) translate(-50%, -50%);
+  transform-origin: 50% 50%;
+}
+
+.touch-feedback:active::after {
+  opacity: 1;
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1) translate(-50%, -50%);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(20) translate(-50%, -50%);
+    opacity: 0;
   }
 }
 
-/* Fix for iPhone SE and smaller devices */
-@media (max-width: 375px) {
-  .mobile-bottom-nav-item {
-    min-width: 50px;
-    padding: 6px 0;
-  }
-
-  .mobile-bottom-nav-label {
-    font-size: 9px;
-  }
+/* Hide any elements with "Touch Test" text */ \
+button:has(span:contains("Touch Test")),
+.button:has(span:contains("Touch Test")),
+[role="button"]:has(span:contains("Touch Test")),
+.mobile-bottom-nav-item:has(span:contains("Touch Test")),
+button:contains("Touch Test"),
+.button:contains("Touch Test"),
+[role="button"]:contains("Touch Test"),
+.mobile-bottom-nav-item:contains("Touch Test"),
+.mobile-bottom-nav > *:nth-child(6),
+.mobile-bottom-nav > *:last-child:nth-child(n+6) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
 }

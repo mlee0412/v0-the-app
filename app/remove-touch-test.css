@@ -1,0 +1,70 @@
+/* Hide any elements with "Touch Test" text */
+button,
+a,
+div,
+span,
+p,
+label,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  \
+  &:contains("Touch Test") {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+}
+
+/* Hide any elements with class or ID containing "touch" and "test" */
+[class*="touch"][class*="test"],
+[id*="touch"][id*="test"],
+[data-testid*="touch"][data-testid*="test"],
+[aria-label*="Touch"][aria-label*="Test"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Ensure mobile-bottom-nav has exactly 5 children */
+.mobile-bottom-nav {
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+}
+
+/* Hide any children beyond the 5th */
+.mobile-bottom-nav > *:nth-child(n + 6) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
