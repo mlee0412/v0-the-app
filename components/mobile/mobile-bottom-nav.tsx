@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Home, List, Settings, LogOut, User, Maximize, Minimize } from "lucide-react"
+import { Home, List, Settings, LogOut, User, ActivityIcon as Function } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 
 interface MobileBottomNavProps {
@@ -15,7 +15,6 @@ interface MobileBottomNavProps {
   onShowSettings: () => void
   onLogout: () => void
   onLogin: () => void
-  onToggleFullScreen: () => void
 }
 
 export function MobileBottomNav({
@@ -29,37 +28,9 @@ export function MobileBottomNav({
   onShowSettings,
   onLogout,
   onLogin,
-  onToggleFullScreen,
 }: MobileBottomNavProps) {
   const { isAuthenticated, hasPermission } = useAuth()
   const [showFab, setShowFab] = useState(false)
-  const [isFullScreen, setIsFullScreen] = useState(false)
-
-  // Check if fullscreen is active
-  useEffect(() => {
-    const handleFullScreenChange = () => {
-      setIsFullScreen(
-        !!(
-          document.fullscreenElement ||
-          (document as any).webkitFullscreenElement ||
-          (document as any).mozFullscreenElement ||
-          (document as any).msFullscreenElement
-        ),
-      )
-    }
-
-    document.addEventListener("fullscreenchange", handleFullScreenChange)
-    document.addEventListener("webkitfullscreenchange", handleFullScreenChange)
-    document.addEventListener("mozfullscreenchange", handleFullScreenChange)
-    document.addEventListener("MSFullscreenChange", handleFullScreenChange)
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullScreenChange)
-      document.removeEventListener("webkitfullscreenchange", handleFullScreenChange)
-      document.removeEventListener("mozfullscreenchange", handleFullScreenChange)
-      document.removeEventListener("MSFullscreenChange", handleFullScreenChange)
-    }
-  }, [])
 
   // Determine if we should show the FAB based on permissions and active tab
   useEffect(() => {
@@ -110,6 +81,14 @@ export function MobileBottomNav({
           <span className="mobile-bottom-nav-label">LOGS</span>
         </button>
 
+        <button
+          className={`mobile-bottom-nav-item ${activeTab === "functions" ? "active" : ""}`}
+          onClick={() => handleTabClick("functions")}
+        >
+          <Function className="mobile-bottom-nav-icon" size={20} />
+          <span className="mobile-bottom-nav-label">FUNCTIONS</span>
+        </button>
+
         <button className={`mobile-bottom-nav-item`} onClick={onShowSettings}>
           <Settings className="mobile-bottom-nav-icon" size={20} />
           <span className="mobile-bottom-nav-label">SETTINGS</span>
@@ -126,20 +105,6 @@ export function MobileBottomNav({
             <span className="mobile-bottom-nav-label">LOGIN</span>
           </button>
         )}
-
-        <button className={`mobile-bottom-nav-item`} onClick={onToggleFullScreen}>
-          {isFullScreen ? (
-            <>
-              <Minimize className="mobile-bottom-nav-icon" size={20} />
-              <span className="mobile-bottom-nav-label">EXIT</span>
-            </>
-          ) : (
-            <>
-              <Maximize className="mobile-bottom-nav-icon" size={20} />
-              <span className="mobile-bottom-nav-label">FULL</span>
-            </>
-          )}
-        </button>
       </nav>
     </>
   )

@@ -167,7 +167,7 @@ export function BilliardsTimerDashboard() {
   const [animationComplete, setAnimationComplete] = useState(true)
 
   // Mobile-specific state
-  const [activeTab, setActiveTab] = useState("tables")
+  const [activeTab, setActiveTab] = useState<"tables" | "logs" | "settings" | "servers" | "functions">("tables")
   const [highContrastMode, setHighContrastMode] = useState(false)
   const [largeTextMode, setLargeTextMode] = useState(false)
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true)
@@ -1854,10 +1854,20 @@ export function BilliardsTimerDashboard() {
                         <TableSessionLogs logs={logs} />
                       </div>
                     )}
+                    {activeTab === "functions" && (
+                      <div className="w-full p-4">
+                        <h2 className="text-2xl font-bold text-cyan-400 mb-4 text-center">Functions</h2>
+                        <div className="bg-slate-800/50 rounded-lg p-6 border border-cyan-500/30 shadow-lg">
+                          <p className="text-center text-cyan-300">
+                            Functions panel coming soon. This area will contain additional features and utilities.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </main>
 
                   <MobileBottomNav
-                    onTabChange={setActiveTab}
+                    onTabChange={handleTabChange}
                     onAddSession={handleAddSession}
                     activeTab={activeTab}
                     dayStarted={supabaseDayStarted}
@@ -1867,7 +1877,6 @@ export function BilliardsTimerDashboard() {
                     onShowSettings={handleShowSettings}
                     onLogout={handleLogout}
                     onLogin={handleLogin}
-                    onToggleFullScreen={toggleFullScreen}
                   />
                 </div>
               )}
