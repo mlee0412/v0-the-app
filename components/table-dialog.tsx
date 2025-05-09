@@ -999,9 +999,9 @@ export default function TableDialog({
   if (shouldRenderDialog) {
     return (
       <TooltipProvider>
-        <Dialog open={dialogOpen} onOpenChange={() => handleDialogClose()}>
+        <Dialog className="table-dialog" open={dialogOpen} onOpenChange={() => handleDialogClose()}>
           <DialogContent
-            className="max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
+            className="dialog-content max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
             style={{
               boxShadow: "0 0 20px rgba(0, 255, 255, 0.5)",
               border: "2px solid #00FFFF",
@@ -1659,8 +1659,7 @@ export default function TableDialog({
                           }
                           onClick={() => handleNoteSelection(note.id)}
                         >
-                          {note.text.substring(0, 15)}
-                          {note.text.length > 15 ? "..." : ""}
+                          {note.text.length > 15 ? note.text.substring(0, 15) + "..." : note.text}
                         </Button>
                       ))}
                     </div>
@@ -1722,13 +1721,13 @@ export default function TableDialog({
                 boxShadow: "0 0 20px rgba(0, 255, 255, 0.5)",
               }}
             >
-              <DialogHeader>
+              <DialogHeader className="dialog-header">
                 <DialogTitle className="text-lg text-[#00FFFF] flex items-center justify-between">
                   <span>Confirm Time Change</span>
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="py-6">
+              <div className="dialog-body py-6">
                 <div className="flex flex-col items-center justify-center space-y-4">
                   <div className="text-center text-xl">
                     {pendingTimeAction.type === "add" ? (
@@ -1746,7 +1745,7 @@ export default function TableDialog({
                 </div>
               </div>
 
-              <DialogFooter className="flex justify-between pt-2">
+              <DialogFooter className="dialog-footer">
                 <Button
                   variant="outline"
                   onClick={() => setShowTimeConfirmation(false)}

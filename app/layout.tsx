@@ -10,6 +10,7 @@ import "./touch-improvements.css"
 import "./mobile-optimizations.css"
 import "@/app/ios-touch-fixes.css"
 import "./mobile-fixes.css"
+import "./dialog-fixes.css"
 
 import type { Metadata, Viewport } from "next"
 import { SupabaseInitializer } from "@/components/supabase-initializer"

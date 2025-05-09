@@ -195,7 +195,7 @@ export function BilliardsTimerDashboard() {
     loading,
     error,
     updateTable,
-    updateTables,
+    updateTables: updateSupabaseTables,
     addLogEntry: addSupabaseLogEntry,
     updateSystemSettings,
     updateServers,
@@ -499,6 +499,7 @@ export function BilliardsTimerDashboard() {
     }
 
     const startTime = Date.now()
+    const updatedAt = new Date().toISOString()
 
     // If table is in a group, start all tables in the group
     if (table.groupId) {
@@ -511,7 +512,7 @@ export function BilliardsTimerDashboard() {
             isActive: true,
             startTime: startTime,
             remainingTime: t.initialTime, // Reset remaining time to initial time
-            updatedAt: new Date().toISOString(),
+            updatedAt: updatedAt,
           }
 
           // Dispatch event for real-time updates
@@ -534,7 +535,7 @@ export function BilliardsTimerDashboard() {
 
       // Update Supabase with a slight delay to avoid race conditions
       setTimeout(() => {
-        updateTables(updatedTables)
+        updateSupabaseTables(updatedTables)
       }, 100)
 
       await addLogEntry(
@@ -550,7 +551,7 @@ export function BilliardsTimerDashboard() {
         isActive: true,
         startTime: startTime,
         remainingTime: table.initialTime, // Reset remaining time to initial time
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedAt,
       }
 
       // Update local state immediately
@@ -614,6 +615,7 @@ export function BilliardsTimerDashboard() {
     if (!table) return
 
     const DEFAULT_TIME = 60 * 60 * 1000 // 60 minutes in milliseconds
+    const updatedAt = new Date().toISOString()
 
     // If table is in a group, end all tables in the group
     if (table.groupId) {
@@ -642,7 +644,7 @@ export function BilliardsTimerDashboard() {
             hasNotes: false,
             noteId: "",
             noteText: "",
-            updatedAt: new Date().toISOString(),
+            updatedAt: updatedAt,
           }
 
           // Dispatch event for real-time updates
@@ -674,7 +676,7 @@ export function BilliardsTimerDashboard() {
 
       // Update Supabase with a slight delay to avoid race conditions
       setTimeout(() => {
-        updateTables(updatedTables)
+        updateSupabaseTables(updatedTables)
       }, 100)
 
       showNotification(`Ended group session for ${groupId}`, "info")
@@ -699,7 +701,7 @@ export function BilliardsTimerDashboard() {
         hasNotes: false,
         noteId: "",
         noteText: "",
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedAt,
       }
 
       // Update local state immediately
@@ -751,12 +753,14 @@ export function BilliardsTimerDashboard() {
       // Calculate new remaining time
       const additionalMs = minutes * 60 * 1000
       const newRemainingTime = table.remainingTime + additionalMs
+      const updatedAt = new Date().toISOString()
 
       // Update the table
       const updatedTable = {
         ...table,
         remainingTime: newRemainingTime,
         initialTime: table.initialTime + additionalMs, // Also update initial time
+        updatedAt: updatedAt,
       }
 
       // Update the table in the database
@@ -777,12 +781,14 @@ export function BilliardsTimerDashboard() {
       // Calculate new remaining time (don't go below zero)
       const subtractMs = minutes * 60 * 1000
       const newRemainingTime = Math.max(0, table.remainingTime - subtractMs)
+      const updatedAt = new Date().toISOString()
 
       // Update the table
       const updatedTable = {
         ...table,
         remainingTime: newRemainingTime,
         initialTime: Math.max(0, table.initialTime - subtractMs), // Also update initial time, don't go below zero
+        updatedAt: updatedAt,
       }
 
       // Update the table in the database
@@ -806,6 +812,7 @@ export function BilliardsTimerDashboard() {
     if (!table) return
 
     const additionalTime = minutes * 60 * 1000
+    const updatedAt = new Date().toISOString()
 
     // If table is in a group, add time to all tables in the group
     if (table.groupId) {
@@ -817,26 +824,36 @@ export function BilliardsTimerDashboard() {
           const newRemainingTime =
             t.isActive && t.startTime ? Math.max(0, newInitialTime - (Date.now() - t.startTime)) : newInitialTime
 
+          const updatedTable = {
+            ...t,
+            initialTime: newInitialTime,
+            remainingTime: newRemainingTime,
+            updatedAt: updatedAt,
+          }
+
           // Dispatch event for real-time updates
           window.dispatchEvent(
             new CustomEvent("table-updated", {
               detail: {
                 tableId: t.id,
-                table: {
-                  ...t,
-                  initialTime: newInitialTime,
-                  remainingTime: newRemainingTime,
-                },
+                table: updatedTable,
               },
             }),
           )
 
-          return {
-            ...t,
-            initialTime: newInitialTime,
-            remainingTime: newRemainingTime,
-            updatedAt: new Date().toISOString(),
-          }
+          // Also dispatch a specific time update event
+          window.dispatchEvent(
+            new CustomEvent("table-time-update", {
+              detail: {
+                tableId: t.id,
+                remainingTime: newRemainingTime,
+                initialTime: newInitialTime,
+                source: "add-time",
+              },
+            }),
+          )
+
+          return updatedTable
         }
         return t
       })
@@ -846,7 +863,7 @@ export function BilliardsTimerDashboard() {
 
       // Update Supabase with a slight delay to avoid race conditions
       setTimeout(() => {
-        updateTables(updatedTables)
+        updateSupabaseTables(updatedTables)
       }, 100)
 
       showNotification(`Added ${minutes} minutes to ${table.groupId}`, "success")
@@ -863,7 +880,7 @@ export function BilliardsTimerDashboard() {
         ...table,
         initialTime: newInitialTime,
         remainingTime: newRemainingTime,
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedAt,
       }
 
       // Update tables state
@@ -875,6 +892,18 @@ export function BilliardsTimerDashboard() {
           detail: {
             tableId: tableId,
             table: updatedTable,
+          },
+        }),
+      )
+
+      // Also dispatch a specific time update event
+      window.dispatchEvent(
+        new CustomEvent("table-time-update", {
+          detail: {
+            tableId: tableId,
+            remainingTime: newRemainingTime,
+            initialTime: newInitialTime,
+            source: "add-time",
           },
         }),
       )
@@ -901,6 +930,7 @@ export function BilliardsTimerDashboard() {
     if (!table) return
 
     const subtractedTime = minutes * 60 * 1000
+    const updatedAt = new Date().toISOString()
 
     // If table is in a group, subtract time from all tables in the group
     if (table.groupId) {
@@ -930,7 +960,7 @@ export function BilliardsTimerDashboard() {
             ...t,
             initialTime: newInitialTime,
             remainingTime: newRemainingTime,
-            updatedAt: new Date().toISOString(),
+            updatedAt: updatedAt,
           }
         }
         return t
@@ -941,7 +971,7 @@ export function BilliardsTimerDashboard() {
 
       // Update Supabase with a slight delay to avoid race conditions
       setTimeout(() => {
-        updateTables(updatedTables)
+        updateSupabaseTables(updatedTables)
       }, 100)
 
       showNotification(`Subtracted ${minutes} minutes from ${table.groupId}`, "info")
@@ -958,7 +988,7 @@ export function BilliardsTimerDashboard() {
         ...table,
         initialTime: newInitialTime,
         remainingTime: newRemainingTime,
-        updatedAt: new Date().toISOString(),
+        updatedAt: updatedAt,
       }
 
       // Update tables state
@@ -1007,14 +1037,6 @@ export function BilliardsTimerDashboard() {
         setTimeout(() => {
           updateTable(updatedTable)
         }, 300)
-        return
-      }
-
-      // Normal case - apply all checks
-      if (!isAuthenticated || !hasPermission("canUpdateGuests")) {
-        showNotification("Please log in using the Admin button", "error")
-        setLoginAttemptFailed(true)
-        return
         return
       }
 
@@ -1168,7 +1190,7 @@ export function BilliardsTimerDashboard() {
       if (tableIds.includes(table.id)) {
         // If we have an active table in the group, sync all tables to that one
         if (activeTables.length > 0) {
-          return {
+          const updatedTable = {
             ...table,
             groupId: groupName,
             isActive: groupIsActive,
@@ -1177,19 +1199,61 @@ export function BilliardsTimerDashboard() {
             remainingTime: groupRemainingTime,
             updatedAt: new Date().toISOString(),
           }
+
+          // Dispatch event for real-time updates
+          window.dispatchEvent(
+            new CustomEvent("table-updated", {
+              detail: {
+                tableId: table.id,
+                table: updatedTable,
+              },
+            }),
+          )
+
+          // Also dispatch a specific time update event if active
+          if (groupIsActive) {
+            window.dispatchEvent(
+              new CustomEvent("table-time-update", {
+                detail: {
+                  tableId: table.id,
+                  remainingTime: groupRemainingTime,
+                  initialTime: groupInitialTime,
+                  source: "group-tables",
+                },
+              }),
+            )
+          }
+
+          return updatedTable
         } else {
           // Otherwise just set the group ID
-          return {
+          const updatedTable = {
             ...table,
             groupId: groupName,
             updatedAt: new Date().toISOString(),
           }
+
+          // Dispatch event for real-time updates
+          window.dispatchEvent(
+            new CustomEvent("table-updated", {
+              detail: {
+                tableId: table.id,
+                table: updatedTable,
+              },
+            }),
+          )
+
+          return updatedTable
         }
       }
       return table
     })
 
-    await updateTables(updatedTables)
+    // Update local state
+    setTables(updatedTables)
+
+    // Update Supabase
+    await updateSupabaseTables(updatedTables)
     showNotification(`Created ${groupName} with ${tableIds.length} tables`, "success")
   }
 
@@ -1261,7 +1325,49 @@ export function BilliardsTimerDashboard() {
       updatedAt: new Date().toISOString(),
     }
 
-    // Update both tables
+    // Update both tables in local state
+    setTables(
+      tables.map((t) => {
+        if (t.id === sourceId) return updatedSourceTable
+        if (t.id === targetId) return updatedTargetTable
+        return t
+      }),
+    )
+
+    // Dispatch events for real-time updates
+    window.dispatchEvent(
+      new CustomEvent("table-updated", {
+        detail: {
+          tableId: targetId,
+          table: updatedTargetTable,
+        },
+      }),
+    )
+
+    window.dispatchEvent(
+      new CustomEvent("table-updated", {
+        detail: {
+          tableId: sourceId,
+          table: updatedSourceTable,
+        },
+      }),
+    )
+
+    // Also dispatch specific time update events
+    if (updatedTargetTable.isActive) {
+      window.dispatchEvent(
+        new CustomEvent("table-time-update", {
+          detail: {
+            tableId: targetId,
+            remainingTime: updatedTargetTable.remainingTime,
+            initialTime: updatedTargetTable.initialTime,
+            source: "move-table",
+          },
+        }),
+      )
+    }
+
+    // Update both tables in Supabase
     await updateTable(updatedTargetTable)
     await updateTable(updatedSourceTable)
 
@@ -1441,7 +1547,7 @@ export function BilliardsTimerDashboard() {
     }))
 
     // Update tables in Supabase
-    await updateTables(resetTables)
+    await updateSupabaseTables(resetTables)
     await updateSystemSettings(true, 1)
 
     // Also update the local state
@@ -1485,7 +1591,7 @@ export function BilliardsTimerDashboard() {
     }))
 
     // Update tables in Supabase
-    await updateTables(resetTables)
+    await updateSupabaseTables(resetTables)
     await updateSystemSettings(false, 1)
 
     // Also update the local state
@@ -1688,25 +1794,27 @@ export function BilliardsTimerDashboard() {
           </div>
         )}
 
-        {/* Header with logo and buttons */}
-        <Header
-          currentTime={currentTime}
-          isAuthenticated={isAuthenticated}
-          isAdmin={isAdmin}
-          dayStarted={supabaseDayStarted}
-          hasPermission={hasPermission}
-          onStartDay={handleStartDay}
-          onEndDay={handleEndDay}
-          onShowSettings={handleShowSettings}
-          onLogout={handleLogout}
-          onLogin={handleLogin}
-          onSync={handleSync}
-          onToggleFullScreen={handleToggleFullScreen}
-          tables={tables}
-          logs={logs}
-          servers={serverUsers}
-          animationComplete={animationComplete}
-        />
+        {/* Only show the Header component on desktop */}
+        {!isMobile && (
+          <Header
+            currentTime={currentTime}
+            isAuthenticated={isAuthenticated}
+            isAdmin={isAdmin}
+            dayStarted={supabaseDayStarted}
+            hasPermission={hasPermission}
+            onStartDay={handleStartDay}
+            onEndDay={handleEndDay}
+            onShowSettings={handleShowSettings}
+            onLogout={handleLogout}
+            onLogin={handleLogin}
+            onSync={handleSync}
+            onToggleFullScreen={handleToggleFullScreen}
+            tables={tables}
+            logs={logs}
+            servers={serverUsers}
+            animationComplete={animationComplete}
+          />
+        )}
 
         {/* Main content area with full height */}
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -1716,7 +1824,7 @@ export function BilliardsTimerDashboard() {
               {/* Mobile view */}
               {isMobile && (
                 <div className="flex flex-col h-screen">
-                  <MobileHeader />
+                  <MobileHeader currentTime={currentTime} />
                   <main className="flex-1 overflow-hidden">
                     {activeTab === "tables" && (
                       <div className="h-full overflow-y-auto pb-16">
@@ -1725,10 +1833,19 @@ export function BilliardsTimerDashboard() {
                           servers={servers}
                           logs={logs}
                           onTableClick={handleTableClick}
-                          onAddTime={handleAddTime}
+                          onAddTime={addTime}
                           onEndSession={handleEndSession}
-                          canEndSession={isAuthenticated && (isAdmin || hasPermission("canEndSession"))}
-                          canAddTime={isAuthenticated && (isAdmin || hasPermission("canAddTime"))}
+                          onRefresh={handleRefreshData}
+                          noteTemplates={noteTemplates}
+                          onStartSession={startTableSession}
+                          onUpdateGuestCount={updateGuestCount}
+                          onAssignServer={assignServer}
+                          onGroupTables={groupTables}
+                          onUngroupTable={ungroupTable}
+                          onMoveTable={moveTable}
+                          onUpdateNotes={updateTableNotes}
+                          getServerName={getServerName}
+                          viewOnlyMode={viewOnlyMode}
                         />
                       </div>
                     )}
@@ -1762,15 +1879,7 @@ export function BilliardsTimerDashboard() {
           </div>
         </div>
 
-        {/* Accessibility Controls */}
-        {/* {isMobile && (
-          <AccessibilityControls
-            onToggleHighContrast={setHighContrastMode}
-            onToggleLargeText={setLargeTextMode}
-            onToggleSound={setSoundEffectsEnabled}
-          />
-        )} */}
-
+        {/* Rest of the components remain the same */}
         {selectedTable && (
           <TableDialog
             table={selectedTable}

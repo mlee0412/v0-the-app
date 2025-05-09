@@ -1,4 +1,10 @@
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
 export interface Database {
   public: {
@@ -8,7 +14,7 @@ export interface Database {
           id: string
           username: string
           name: string
-          role: "admin" | "server" | "viewer"
+          role: string
           created_at: string
           updated_at: string
         }
@@ -16,7 +22,7 @@ export interface Database {
           id: string
           username: string
           name: string
-          role: "admin" | "server" | "viewer"
+          role: string
           created_at?: string
           updated_at?: string
         }
@@ -24,7 +30,7 @@ export interface Database {
           id?: string
           username?: string
           name?: string
-          role?: "admin" | "server" | "viewer"
+          role?: string
           created_at?: string
           updated_at?: string
         }
@@ -261,6 +267,9 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
       [_ in never]: never
     }
   }

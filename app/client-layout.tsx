@@ -28,6 +28,15 @@ export default function ClientRootLayout({
     setIsClient(true)
   }, [])
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const element = document.documentElement
+      if (element.requestFullscreen) {
+        element.requestFullscreen()
+      }
+    }
+  }, [])
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
       <DirectTouchHandler />

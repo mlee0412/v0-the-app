@@ -1,0 +1,61 @@
+/* Dialog size constraints for desktop */
+@media (min-width: 768px) {
+  /* Limit maximum height of all dialogs */
+  .dialog-content {
+    max-height: 80vh !important;
+    max-height: 600px !important; /* Approximately 10 inches at standard DPI */
+    overflow-y: auto;
+  }
+
+  /* Ensure dialog content is scrollable */
+  .dialog-body {
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  /* Keep header and footer fixed */
+  .dialog-header,
+  .dialog-footer {
+    position: sticky;
+    background-color: rgba(0, 0, 30, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+  }
+
+  .dialog-header {
+    top: 0;
+    padding-top: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+  }
+
+  .dialog-footer {
+    bottom: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 1rem;
+    border-top: 1px solid rgba(0, 255, 255, 0.2);
+  }
+
+  /* Adjust spacing in dialogs */
+  .dialog-content .space-y-4 {
+    margin-top: 0.5rem;
+  }
+}
+
+/* Ensure table dialog fits properly */
+.table-dialog .dialog-content {
+  width: 95%;
+  max-width: 550px;
+}
+
+/* Ensure settings dialog fits properly */
+.settings-dialog .dialog-content {
+  width: 95%;
+  max-width: 600px;
+}
+
+/* Ensure user management dialog fits properly */
+.user-management-dialog .dialog-content {
+  width: 95%;
+  max-width: 650px;
+}

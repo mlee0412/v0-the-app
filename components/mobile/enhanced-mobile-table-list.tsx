@@ -240,7 +240,12 @@ export function EnhancedMobileTableList({
 
       try {
         setIsLoading(true)
-        await onRefresh()
+        // Make sure onRefresh is a function before calling it
+        if (typeof onRefresh === "function") {
+          await onRefresh()
+        } else {
+          console.error("onRefresh is not a function")
+        }
       } catch (error) {
         console.error("Refresh failed:", error)
       } finally {
@@ -390,10 +395,31 @@ export function EnhancedMobileTableList({
       ))
   }
 
+  // Handle manual refresh button click
+  const handleManualRefresh = useCallback(async () => {
+    if (typeof onRefresh !== "function") {
+      console.error("onRefresh is not a function")
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      // Provide haptic feedback
+      if (navigator.vibrate) {
+        navigator.vibrate(10)
+      }
+      await onRefresh()
+    } catch (error) {
+      console.error("Manual refresh failed:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [onRefresh])
+
   return (
     <div
       ref={containerRef}
-      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto h-full pb-20 mobile-scroll-container ios-touch-fix touch-safe-zone improved-scroll"
+      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto pb-20 mobile-scroll-container ios-touch-fix touch-safe-zone improved-scroll min-h-screen"
       style={{
         WebkitOverflowScrolling: "touch",
         overscrollBehavior: "contain",
@@ -460,13 +486,7 @@ export function EnhancedMobileTableList({
 
           <Button
             className="px-3 py-1 rounded-full text-xs bg-[#000033] text-[#FFFF00] border border-[#FFFF00] touch-feedback"
-            onClick={() => {
-              // Provide haptic feedback
-              if (navigator.vibrate) {
-                navigator.vibrate(10)
-              }
-              onRefresh()
-            }}
+            onClick={handleManualRefresh}
           >
             <RefreshCw size={12} className={isLoading ? "animate-spin mr-1" : "mr-1"} />
             Refresh

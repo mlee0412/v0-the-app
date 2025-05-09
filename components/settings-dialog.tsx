@@ -146,9 +146,9 @@ export function SettingsDialog({
   const isAdmin = currentUser?.email === "admin@example.com"
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog className="settings-dialog" open={open} onOpenChange={onClose}>
       <DialogContent
-        className="sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh] overflow-hidden flex flex-col"
+        className="dialog-content sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh] overflow-hidden flex flex-col"
         onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
         onEscapeKeyDown={(e) => e.preventDefault()} // Prevent closing on Escape key
       >
@@ -178,167 +178,169 @@ export function SettingsDialog({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium text-fuchsia-400">Server Management</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetToPredefinedServers}
-                  className="border-fuchsia-400 text-fuchsia-400 hover:bg-fuchsia-900/20 h-6 text-xs"
-                >
-                  Reset
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 mb-2">
-                {editedServers.map((server) => (
-                  <div key={server.id} className="flex items-center gap-1 bg-gray-800 rounded p-1">
-                    <Input
-                      value={server.name}
-                      onChange={(e) => updateServerName(server.id, e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white h-6 text-xs flex-1"
-                    />
-                    <Button
-                      variant={server.enabled ? "default" : "outline"}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        toggleServerEnabled(server.id)
-                      }}
-                      className={`h-5 px-1 text-[9px] touch-manipulation active:scale-95 transition-all duration-75 ${
-                        server.enabled
-                          ? "bg-green-600 hover:bg-green-700 text-white"
-                          : "border-red-400 text-red-400 hover:bg-red-900/20"
-                      }`}
-                    >
-                      {server.enabled ? "On" : "Off"}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeServer(server.id)}
-                      className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
-                    >
-                      <Trash2Icon className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1 mb-2">
-                <Input
-                  value={newServerName}
-                  onChange={(e) => setNewServerName(e.target.value)}
-                  placeholder="New server name"
-                  className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={addServer}
-                  disabled={!newServerName.trim()}
-                  className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
-                >
-                  <PlusIcon className="h-3 w-3" />
-                </Button>
-              </div>
-
-              {/* Admin controls in server tab */}
-              {showAdminControls && (
-                <div className="pt-3 mt-1 border-t border-gray-700 space-y-2">
-                  <h3 className="text-sm font-medium text-cyan-400">Admin Controls</h3>
-                  <div className="grid grid-cols-2 gap-1">
-                    <Button
-                      onClick={() => {
-                        onClose() // Close settings dialog first
-                        onShowUserManagement() // Then show user management
-                      }}
-                      className="bg-[#000033] hover:bg-[#000066] text-[#FF00FF] border border-[#FF00FF] flex items-center gap-1 h-6 text-xs"
-                    >
-                      <Users className="h-3 w-3" />
-                      <span>User Management</span>
-                    </Button>
-                    <Button
-                      onClick={onShowLogs}
-                      className="bg-[#000033] hover:bg-[#000066] text-[#00FFFF] border border-[#00FFFF] flex items-center gap-1 h-6 text-xs"
-                    >
-                      <FileText className="h-3 w-3" />
-                      <span>View Logs</span>
-                    </Button>
-                    <Button
-                      onClick={onLogout}
-                      className="bg-[#000033] hover:bg-[#000066] text-[#FF0000] border border-[#FF0000] flex items-center gap-1 col-span-2 h-6 text-xs"
-                    >
-                      <LogOut className="h-3 w-3" />
-                      <span>Logout</span>
-                    </Button>
-                  </div>
+          <div className="dialog-body">
+            <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-fuchsia-400">Server Management</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetToPredefinedServers}
+                    className="border-fuchsia-400 text-fuchsia-400 hover:bg-fuchsia-900/20 h-6 text-xs"
+                  >
+                    Reset
+                  </Button>
                 </div>
-              )}
-            </div>
-          </TabsContent>
 
-          <TabsContent value="notes" className="pt-2 pb-0 px-0 overflow-visible">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-sm font-medium text-yellow-400">Note Templates</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={resetToPredefinedTemplates}
-                  className="border-yellow-400 text-yellow-400 hover:bg-yellow-900/20 h-6 text-xs"
-                >
-                  Reset
-                </Button>
-              </div>
+                <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 mb-2">
+                  {editedServers.map((server) => (
+                    <div key={server.id} className="flex items-center gap-1 bg-gray-800 rounded p-1">
+                      <Input
+                        value={server.name}
+                        onChange={(e) => updateServerName(server.id, e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white h-6 text-xs flex-1"
+                      />
+                      <Button
+                        variant={server.enabled ? "default" : "outline"}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          toggleServerEnabled(server.id)
+                        }}
+                        className={`h-5 px-1 text-[9px] touch-manipulation active:scale-95 transition-all duration-75 ${
+                          server.enabled
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "border-red-400 text-red-400 hover:bg-red-900/20"
+                        }`}
+                      >
+                        {server.enabled ? "On" : "Off"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeServer(server.id)}
+                        className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
+                      >
+                        <Trash2Icon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
 
-              <div className="grid grid-cols-1 gap-2 mb-2">
-                {editedTemplates.map((template) => (
-                  <div key={template.id} className="flex items-center gap-1">
-                    <Input
-                      value={template.text}
-                      onChange={(e) => updateTemplateText(template.id, e.target.value)}
-                      className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeTemplate(template.id)}
-                      className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
-                    >
-                      <Trash2Icon className="h-3 w-3" />
-                    </Button>
+                <div className="flex items-center gap-1 mb-2">
+                  <Input
+                    value={newServerName}
+                    onChange={(e) => setNewServerName(e.target.value)}
+                    placeholder="New server name"
+                    className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={addServer}
+                    disabled={!newServerName.trim()}
+                    className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+
+                {/* Admin controls in server tab */}
+                {showAdminControls && (
+                  <div className="pt-3 mt-1 border-t border-gray-700 space-y-2">
+                    <h3 className="text-sm font-medium text-cyan-400">Admin Controls</h3>
+                    <div className="grid grid-cols-2 gap-1">
+                      <Button
+                        onClick={() => {
+                          onClose() // Close settings dialog first
+                          onShowUserManagement() // Then show user management
+                        }}
+                        className="bg-[#000033] hover:bg-[#000066] text-[#FF00FF] border border-[#FF00FF] flex items-center gap-1 h-6 text-xs"
+                      >
+                        <Users className="h-3 w-3" />
+                        <span>User Management</span>
+                      </Button>
+                      <Button
+                        onClick={onShowLogs}
+                        className="bg-[#000033] hover:bg-[#000066] text-[#00FFFF] border border-[#00FFFF] flex items-center gap-1 h-6 text-xs"
+                      >
+                        <FileText className="h-3 w-3" />
+                        <span>View Logs</span>
+                      </Button>
+                      <Button
+                        onClick={onLogout}
+                        className="bg-[#000033] hover:bg-[#000066] text-[#FF0000] border border-[#FF0000] flex items-center gap-1 col-span-2 h-6 text-xs"
+                      >
+                        <LogOut className="h-3 w-3" />
+                        <span>Logout</span>
+                      </Button>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
+            </TabsContent>
 
-              <div className="flex items-center gap-1 mb-2">
-                <Input
-                  value={newTemplateText}
-                  onChange={(e) => setNewTemplateText(e.target.value)}
-                  placeholder="New note template"
-                  className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
-                />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={addTemplate}
-                  disabled={!newTemplateText.trim()}
-                  className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
-                >
-                  <PlusIcon className="h-3 w-3" />
-                </Button>
+            <TabsContent value="notes" className="pt-2 pb-0 px-0 overflow-visible">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-yellow-400">Note Templates</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetToPredefinedTemplates}
+                    className="border-yellow-400 text-yellow-400 hover:bg-yellow-900/20 h-6 text-xs"
+                  >
+                    Reset
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 mb-2">
+                  {editedTemplates.map((template) => (
+                    <div key={template.id} className="flex items-center gap-1">
+                      <Input
+                        value={template.text}
+                        onChange={(e) => updateTemplateText(template.id, e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeTemplate(template.id)}
+                        className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
+                      >
+                        <Trash2Icon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1 mb-2">
+                  <Input
+                    value={newTemplateText}
+                    onChange={(e) => setNewTemplateText(e.target.value)}
+                    placeholder="New note template"
+                    className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={addTemplate}
+                    disabled={!newTemplateText.trim()}
+                    className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          <TabsContent value="manual" className="pt-2 pb-0 px-0 overflow-visible">
-            <UserManual />
-          </TabsContent>
+            <TabsContent value="manual" className="pt-2 pb-0 px-0 overflow-visible">
+              <UserManual />
+            </TabsContent>
+          </div>
         </Tabs>
 
-        <DialogFooter className="flex flex-row gap-1 pt-2 mt-auto shrink-0">
+        <DialogFooter className="dialog-footer flex flex-row gap-1 pt-2 mt-auto shrink-0">
           <Button
             variant="outline"
             onClick={onClose}

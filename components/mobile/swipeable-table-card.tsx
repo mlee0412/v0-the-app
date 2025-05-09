@@ -232,6 +232,12 @@ export function SwipeableTableCard({
     swipeThreshold,
   ])
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onClick()
+  }
+
   return (
     <div
       ref={containerRef}
@@ -275,6 +281,7 @@ export function SwipeableTableCard({
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? "none" : "transform 0.3s ease",
         }}
+        onClick={handleClick}
       >
         <TableCard table={table} servers={servers} logs={logs} onClick={onClick} />
       </div>

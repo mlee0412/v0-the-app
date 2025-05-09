@@ -517,9 +517,13 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
         animationFrameRef.current = requestAnimationFrame(() => {
           const updatedTable = event.detail.table
 
-          // Update remaining time if it's changed
+          // Immediately update the local state with the new table data
+          setLocalTable(updatedTable)
+
+          // Update remaining time and elapsed time
           if (updatedTable.remainingTime !== localTable.remainingTime) {
             setRemainingTime(updatedTable.remainingTime)
+            setDisplayedRemainingTime(updatedTable.remainingTime)
           }
 
           // Update elapsed time if start time changed
@@ -527,15 +531,22 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
             setElapsedTime(updatedTable.startTime ? Date.now() - updatedTable.startTime : 0)
           }
 
-          // Update local table state
-          setLocalTable((prev) => {
-            // Only update if there's a meaningful change
-            if (JSON.stringify(updatedTable) !== JSON.stringify(prev)) {
-              prevTableRef.current = updatedTable
-              return updatedTable
-            }
-            return prev
-          })
+          // Force a broadcast of the time update to ensure all components stay in sync
+          if (updatedTable.isActive) {
+            window.dispatchEvent(
+              new CustomEvent("table-time-update", {
+                detail: {
+                  tableId: updatedTable.id,
+                  remainingTime: updatedTable.remainingTime,
+                  initialTime: updatedTable.initialTime,
+                  source: "table-updated-event",
+                },
+              }),
+            )
+          }
+
+          // Update previous table reference
+          prevTableRef.current = updatedTable
         })
       }
     }
@@ -551,7 +562,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
         clearTimeout(updateTimeoutRef.current)
       }
     }
-  }, [localTable.id, localTable.remainingTime, localTable.startTime])
+  }, [localTable.id, localTable.remainingTime, localTable.startTime, localTable.isActive])
 
   // Add this effect to properly handle session end events
   useEffect(() => {
