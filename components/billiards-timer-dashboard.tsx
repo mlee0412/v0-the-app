@@ -12,7 +12,7 @@ import { useSupabaseData } from "@/hooks/use-supabase-data"
 import { useAuth } from "@/contexts/auth-context"
 import { PullUpInsightsPanel } from "@/components/pull-up-insights-panel"
 import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
-import { SpaceBackgroundAnimation } from "@/components/space-background-animation"
+// Remove SpaceBackgroundAnimation import since it's now in client-layout
 import { Header } from "@/components/header"
 import { TableGrid } from "@/components/table-grid"
 import { ConfirmDialog } from "@/components/confirm-dialog"
@@ -25,8 +25,6 @@ import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-tab
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav"
 import { OfflineDetector } from "@/components/mobile/offline-detector"
 import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container"
-// Remove this line
-// import { AccessibilityControls } from "@/components/mobile/accessibility-controls"
 import { useMobileDetect } from "@/hooks/use-mobile"
 import { IOSTouchFix } from "@/components/ios-touch-fix"
 import { MobileHeader } from "@/components/mobile/mobile-header"
@@ -1773,8 +1771,7 @@ export function BilliardsTimerDashboard() {
         {/* Add the iOS touch fix component */}
         <IOSTouchFix />
 
-        {/* Replace the 3D Space Background with our new animation */}
-        <SpaceBackgroundAnimation intensity={1.5} />
+        {/* Remove SpaceBackgroundAnimation since it's now in client-layout */}
 
         {/* Offline detector */}
         <OfflineDetector />

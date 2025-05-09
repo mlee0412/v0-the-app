@@ -54,6 +54,7 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const particleAnimationRef = useRef<number | null>(null)
+  const elapsedTimeIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Calculate remaining time - memoized
   const calculateRemainingTime = useCallback(() => {
@@ -839,24 +840,36 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
   // Add a timer update interval effect to make sure elapsed time updates regularly
   useEffect(() => {
     // Only run the timer if the table is active
-    if (!localTable.isActive || !localTable.startTime) return
+    if (!localTable.isActive || !localTable.startTime) {
+      // Clear any existing interval
+      if (elapsedTimeIntervalRef.current) {
+        clearInterval(elapsedTimeIntervalRef.current)
+        elapsedTimeIntervalRef.current = null
+      }
+      return
+    }
 
-    // Update elapsed and remaining time every second
-    const timer = setInterval(() => {
+    // Update elapsed time every 1 second for real-time display
+    const updateElapsedTime = () => {
       if (localTable.startTime) {
-        // Calculate current elapsed time
         const currentElapsedTime = Date.now() - localTable.startTime
         setElapsedTime(currentElapsedTime)
-
-        // Also update remaining time to keep in sync
-        const newRemainingTime = calculateRemainingTime()
-        setRemainingTime(newRemainingTime)
-        setDisplayedRemainingTime(newRemainingTime)
       }
-    }, 1000)
+    }
 
-    return () => clearInterval(timer)
-  }, [localTable.isActive, localTable.startTime, calculateRemainingTime])
+    // Initial update
+    updateElapsedTime()
+
+    // Set up interval for regular updates
+    elapsedTimeIntervalRef.current = setInterval(updateElapsedTime, 1000)
+
+    return () => {
+      if (elapsedTimeIntervalRef.current) {
+        clearInterval(elapsedTimeIntervalRef.current)
+        elapsedTimeIntervalRef.current = null
+      }
+    }
+  }, [localTable.isActive, localTable.startTime])
 
   // Update initial elapsed time when component mounts or table changes
   useEffect(() => {

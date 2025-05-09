@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useAuth } from "@/contexts/auth-context"
 
 interface SpaceBackgroundAnimationProps {
   intensity?: number
@@ -14,7 +13,6 @@ export function SpaceBackgroundAnimation({ intensity = 1 }: SpaceBackgroundAnima
   const projectRef = useRef<any>(null)
   const sheetRef = useRef<any>(null)
   const objectsRef = useRef<any[]>([])
-  const { isAuthenticated } = useAuth()
 
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return
