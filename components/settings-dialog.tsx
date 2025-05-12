@@ -12,7 +12,6 @@ import {
   Loader2,
   Settings,
   AlertTriangle,
-  Bell,
 } from "lucide-react"
 import {
   Dialog,
@@ -26,7 +25,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserManual } from "@/components/user-manual"
-import { NotificationSettings } from "@/components/notification-settings"
 import type { Server, NoteTemplate } from "@/components/billiards-timer-dashboard"
 import { useAuth } from "@/contexts/auth-context"
 import { getUsers } from "@/actions/user-actions"
@@ -219,16 +217,12 @@ export function SettingsDialog({
           </div>
 
           <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full flex flex-col h-full">
-            <TabsList className="grid grid-cols-5 bg-gray-800 h-7">
+            <TabsList className="grid grid-cols-4 bg-gray-800 h-7">
               <TabsTrigger value="servers" className="data-[state=active]:bg-gray-700 h-7 text-xs">
                 Servers
               </TabsTrigger>
               <TabsTrigger value="notes" className="data-[state=active]:bg-gray-700 h-7 text-xs">
                 Notes
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-                <Bell className="h-3 w-3 mr-1" />
-                Notifications
               </TabsTrigger>
               <TabsTrigger value="manual" className="data-[state=active]:bg-gray-700 h-7 text-xs">
                 <BookOpen className="h-3 w-3 mr-1" />
@@ -391,13 +385,6 @@ export function SettingsDialog({
                 </div>
               </TabsContent>
 
-              <TabsContent value="notifications" className="pt-4 pb-0 px-4 overflow-auto flex-1">
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium text-cyan-400 mb-3">Notification Settings</h3>
-                  <NotificationSettings />
-                </div>
-              </TabsContent>
-
               <TabsContent value="manual" className="pt-2 pb-0 px-0 overflow-auto flex-1">
                 <UserManual />
               </TabsContent>
@@ -459,7 +446,7 @@ export function SettingsDialog({
               >
                 Cancel
               </Button>
-              {(selectedTab === "servers" || selectedTab === "notes") && (
+              {selectedTab !== "manual" && selectedTab !== "admin" && (
                 <Button
                   onClick={saveChanges}
                   className="bg-lime-600 hover:bg-lime-700 flex items-center gap-1 h-7 text-xs"

@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { usePathname } from "next/navigation"
 import { AuthProvider } from "@/contexts/auth-context"
 import AuthGuard from "@/components/auth/auth-guard"
@@ -8,11 +9,10 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { SupabaseInitializer } from "@/components/supabase-initializer"
 import { Toaster } from "@/components/ui/toaster"
 import { PwaInit } from "@/components/pwa-init"
+// Import from the wrapper instead
 import { IosTouchFix } from "@/components/ios-touch-fix-wrapper"
 import { IosViewportFix } from "@/components/ios-viewport-fix"
 import { OfflineDetector } from "@/components/offline-detector"
-import { ServiceWorkerRegistration } from "@/components/service-worker-registration"
-import { MockPushService } from "@/components/mock-push-service"
 
 // Define route access rules
 const routeAccessRules: Record<string, string[]> = {
@@ -56,8 +56,6 @@ export default function ClientLayout({
             <IosTouchFix />
             <IosViewportFix />
             <OfflineDetector />
-            <ServiceWorkerRegistration />
-            <MockPushService />
             {children}
             <Toaster />
           </AuthGuard>
