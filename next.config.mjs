@@ -17,6 +17,20 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Add proper headers for service worker
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/javascript',
+          },
+        ],
+      },
+    ]
+  },
 };
 
 export default nextConfig;
