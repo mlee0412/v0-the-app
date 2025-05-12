@@ -6,91 +6,41 @@ let supabaseClient: ReturnType<typeof createClient> | null = null
 let lastConnectionAttempt = 0
 const CONNECTION_RETRY_DELAY = 5000 // 5 seconds between connection attempts
 
-// Update the getSupabaseClient function to handle missing environment variables better:
-
-// Replace the getSupabaseClient function with this improved version:
+// Update the getSupabaseClient function to handle missing environment variables better
 export const getSupabaseClient = () => {
   const now = Date.now()
 
-  // Get environment variables with validation
-  const getSupabaseUrl = () => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    if (!url) {
-      console.warn("NEXT_PUBLIC_SUPABASE_URL is not defined")
-    }
-    return url || ""
-  }
-
-  const getSupabaseAnonKey = () => {
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!key) {
-      console.warn("NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined")
-    }
-    return key || ""
-  }
-
   // Always create a new client in a server context to avoid sharing between requests
   if (typeof window === "undefined") {
-    const url = getSupabaseUrl()
-    const key = getSupabaseAnonKey()
-
-    // Only create client if we have both URL and key
-    if (!url || !key) {
-      console.error("Cannot create Supabase client: missing environment variables")
-      // Return a dummy client that won't crash but will log errors
-      return new Proxy({} as ReturnType<typeof createClient>, {
-        get: (target, prop) => {
-          if (typeof prop === "string" && prop !== "then") {
-            return () =>
-              Promise.reject(new Error("Supabase client not initialized due to missing environment variables"))
-          }
-          return undefined
+    return createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+      {
+        auth: {
+          persistSession: false,
         },
-      }) as ReturnType<typeof createClient>
-    }
-
-    return createClient<Database>(url, key, {
-      auth: {
-        persistSession: false,
-      },
-      // Add more resilient fetch options
-      global: {
-        fetch: (...args) => {
-          return fetch(...args)
-        },
-        headers: {
-          "X-Client-Info": "billiards-timer-app",
+        // Add more resilient fetch options
+        global: {
+          fetch: (...args) => {
+            return fetch(...args)
+          },
+          headers: {
+            "X-Client-Info": "billiards-timer-app",
+          },
         },
       },
-    })
+    )
   }
 
   // In the browser, reuse the client instance but with connection throttling
   if (!supabaseClient || now - lastConnectionAttempt > CONNECTION_RETRY_DELAY) {
     lastConnectionAttempt = now
 
-    const supabaseUrl = getSupabaseUrl()
-    const supabaseKey = getSupabaseAnonKey()
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
-    // Only create client if we have both URL and key
     if (!supabaseUrl || !supabaseKey) {
       console.warn("Supabase URL or key is missing. Some features may not work correctly.")
-
-      // If we already have a client, keep using it
-      if (supabaseClient) {
-        return supabaseClient
-      }
-
-      // Otherwise return a dummy client that won't crash but will log errors
-      return new Proxy({} as ReturnType<typeof createClient>, {
-        get: (target, prop) => {
-          if (typeof prop === "string" && prop !== "then") {
-            return () =>
-              Promise.reject(new Error("Supabase client not initialized due to missing environment variables"))
-          }
-          return undefined
-        },
-      }) as ReturnType<typeof createClient>
     }
 
     // Create client with more resilient options
