@@ -7,7 +7,6 @@ import TouchLoginDialog from "@/components/auth/touch-login-dialog"
 export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [showLoginDialog, setShowLoginDialog] = useState(false)
-  const [initError, setInitError] = useState<string | null>(null)
 
   // Check authentication status on mount
   useEffect(() => {
@@ -22,25 +21,12 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error checking authentication:", error)
-        setInitError("Failed to check authentication status. Using guest mode.")
         setIsAuthenticated(false)
         setShowLoginDialog(true)
       }
     }
 
-    // Set a timeout to prevent the app from being stuck in loading state
-    const timeoutId = setTimeout(() => {
-      if (isAuthenticated === null) {
-        console.warn("Authentication check timed out, continuing as guest")
-        setInitError("Authentication check timed out. Using guest mode.")
-        setIsAuthenticated(false)
-        setShowLoginDialog(true)
-      }
-    }, 3000) // 3 second timeout
-
     checkAuth()
-
-    return () => clearTimeout(timeoutId)
   }, [])
 
   // Handle login dialog close
@@ -48,14 +34,8 @@ export default function Home() {
     setShowLoginDialog(false)
 
     // Check auth again after dialog closes
-    try {
-      const storedUser = localStorage.getItem("currentUser")
-      setIsAuthenticated(!!storedUser)
-    } catch (error) {
-      console.error("Error checking authentication after login:", error)
-      setInitError("Failed to verify login. Using guest mode.")
-      setIsAuthenticated(false)
-    }
+    const storedUser = localStorage.getItem("currentUser")
+    setIsAuthenticated(!!storedUser)
   }
 
   // Show loading state while checking auth
@@ -69,12 +49,6 @@ export default function Home() {
 
   return (
     <main>
-      {initError && (
-        <div className="fixed top-0 left-0 right-0 bg-yellow-600/70 text-white p-2 text-sm z-50">
-          <p>{initError}</p>
-        </div>
-      )}
-
       {isAuthenticated ? (
         <BilliardsTimerDashboard />
       ) : (

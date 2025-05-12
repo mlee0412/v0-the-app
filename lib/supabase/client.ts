@@ -6,7 +6,7 @@ let supabaseClient: ReturnType<typeof createClient> | null = null
 let lastConnectionAttempt = 0
 const CONNECTION_RETRY_DELAY = 5000 // 5 seconds between connection attempts
 
-// Update the getSupabaseClient function to handle connection failures gracefully
+// Update the getSupabaseClient function to handle missing environment variables better
 export const getSupabaseClient = () => {
   const now = Date.now()
 
@@ -22,14 +22,7 @@ export const getSupabaseClient = () => {
         // Add more resilient fetch options
         global: {
           fetch: (...args) => {
-            return fetch(...args).catch((err) => {
-              console.warn("Supabase fetch error (server):", err)
-              // Return a mock response to prevent crashes
-              return new Response(JSON.stringify({ error: "Failed to connect" }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-              })
-            })
+            return fetch(...args)
           },
           headers: {
             "X-Client-Info": "billiards-timer-app",
@@ -80,12 +73,7 @@ export const getSupabaseClient = () => {
             })
             .catch((error) => {
               clearTimeout(timeout)
-              console.warn("Supabase fetch error (client):", error)
-              // Return a mock response to prevent crashes
-              return new Response(JSON.stringify({ error: "Failed to connect" }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-              })
+              throw error
             })
         },
         headers: {
@@ -102,21 +90,15 @@ export const getSupabaseClient = () => {
 
     // Only validate connection if we have credentials
     if (supabaseUrl && supabaseKey) {
-      supabaseClient.auth
-        .getSession()
-        .then(({ data, error }) => {
-          if (error) {
-            console.error("Supabase connection error:", error.message)
-            window.dispatchEvent(new CustomEvent("supabase-disconnected"))
-          } else {
-            console.log("Supabase connection established")
-            window.dispatchEvent(new CustomEvent("supabase-connected"))
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to check Supabase session:", err)
+      supabaseClient.auth.getSession().then(({ data, error }) => {
+        if (error) {
+          console.error("Supabase connection error:", error.message)
           window.dispatchEvent(new CustomEvent("supabase-disconnected"))
-        })
+        } else {
+          console.log("Supabase connection established")
+          window.dispatchEvent(new CustomEvent("supabase-connected"))
+        }
+      })
     }
   }
 
