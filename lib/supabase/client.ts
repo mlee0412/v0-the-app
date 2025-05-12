@@ -1,9 +1,3 @@
-// Make sure there are no direct URL imports in this file
-// Replace any imports like:
-// import something from 'https://example.com'
-// With proper package imports:
-// import something from '@package/name'
-
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "./database.types"
 
@@ -11,11 +5,6 @@ import type { Database } from "./database.types"
 let supabaseClient: ReturnType<typeof createClient> | null = null
 let lastConnectionAttempt = 0
 const CONNECTION_RETRY_DELAY = 5000 // 5 seconds between connection attempts
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Update the getSupabaseClient function to handle missing environment variables better
 export const getSupabaseClient = () => {

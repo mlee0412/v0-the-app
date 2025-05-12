@@ -1,15 +1,13 @@
 "use client"
 
 import { useEffect } from "react"
-import { ServiceWorkerRegistration } from "./service-worker-registration"
+import { register } from "@/lib/pwa/register-sw"
+import { InstallPwaButton } from "./install-pwa-button"
 
 export function PwaInit() {
   useEffect(() => {
-    // Add any PWA initialization logic here
-    if (typeof window !== "undefined") {
-      console.log("PWA initialization")
-    }
+    register()
   }, [])
 
-  return <ServiceWorkerRegistration />
+  return <InstallPwaButton />
 }
