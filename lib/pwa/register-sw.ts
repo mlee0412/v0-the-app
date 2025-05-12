@@ -13,6 +13,9 @@ export function registerServiceWorker() {
   }
 }
 
+// Add an alias export for backward compatibility
+export const register = registerServiceWorker
+
 // Function to check if the app can be installed
 export function checkInstallability() {
   if (typeof window !== "undefined") {

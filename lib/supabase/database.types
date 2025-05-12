@@ -14,23 +14,89 @@ export interface Database {
           id: string
           username: string
           name: string
-          role: "admin" | "server" | "viewer"
+          role:
+            | "admin"
+            | "server"
+            | "viewer"
+            | "controller"
+            | "manager"
+            | "bartender"
+            | "barback"
+            | "kitchen"
+            | "security"
+            | "karaoke_main"
+            | "karaoke_staff"
+            | "staff"
+          role_id: string | null
           created_at: string
           updated_at: string
+          pin_code: string | null
+          email: string | null
         }
         Insert: {
           id: string
           username: string
           name: string
-          role: "admin" | "server" | "viewer"
+          role:
+            | "admin"
+            | "server"
+            | "viewer"
+            | "controller"
+            | "manager"
+            | "bartender"
+            | "barback"
+            | "kitchen"
+            | "security"
+            | "karaoke_main"
+            | "karaoke_staff"
+          role_id?: string | null
           created_at?: string
           updated_at?: string
+          pin_code?: string | null
+          email?: string | null
         }
         Update: {
           id?: string
           username?: string
           name?: string
-          role?: "admin" | "server" | "viewer"
+          role?:
+            | "admin"
+            | "server"
+            | "viewer"
+            | "controller"
+            | "manager"
+            | "bartender"
+            | "barback"
+            | "kitchen"
+            | "security"
+            | "karaoke_main"
+            | "karaoke_staff"
+          role_id?: string | null
+          created_at?: string
+          updated_at?: string
+          pin_code?: string | null
+          email?: string | null
+        }
+      }
+      roles: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -241,22 +307,71 @@ export interface Database {
       }
       system_settings: {
         Row: {
-          id: number
+          id: string
           day_started: boolean
           group_counter: number
           last_updated: string
         }
         Insert: {
-          id?: number
+          id?: string
           day_started?: boolean
           group_counter?: number
           last_updated?: string
         }
         Update: {
-          id?: number
+          id?: string
           day_started?: boolean
           group_counter?: number
           last_updated?: string
+        }
+      }
+      push_subscriptions: {
+        Row: {
+          id: number
+          user_id: string
+          subscription: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          subscription: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          subscription?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      notification_logs: {
+        Row: {
+          id: number
+          user_id: string
+          title: string
+          body: string
+          data: Json | null
+          sent_at: string
+        }
+        Insert: {
+          id?: number
+          user_id: string
+          title: string
+          body: string
+          data?: Json | null
+          sent_at?: string
+        }
+        Update: {
+          id?: number
+          user_id?: string
+          title?: string
+          body?: string
+          data?: Json | null
+          sent_at?: string
         }
       }
     }
@@ -267,6 +382,9 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
       [_ in never]: never
     }
   }

@@ -53,6 +53,7 @@
     "cmdk": "1.0.4",
     "date-fns": "latest",
     "embla-carousel-react": "8.5.1",
+    "https:": "latest",
     "immer": "latest",
     "input-otp": "1.4.1",
     "lodash": "latest",
@@ -74,6 +75,7 @@
     "use-sync-external-store": "latest",
     "uuid": "latest",
     "vaul": "^0.9.6",
+    "web-push": "latest",
     "zod": "^3.24.1",
     "zustand": "latest"
   },

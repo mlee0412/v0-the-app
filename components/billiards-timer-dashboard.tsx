@@ -16,7 +16,6 @@ import { SessionFeedbackDialog } from "@/components/session-feedback-dialog"
 import { Header } from "@/components/header"
 import { TableGrid } from "@/components/table-grid"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { TouchLogin } from "@/components/auth/touch-login"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useTableStore } from "@/utils/table-state-manager"
 import { BigBangAnimation } from "@/components/animations/big-bang-animation"
@@ -30,6 +29,18 @@ import { useMobile } from "@/hooks/use-mobile"
 import { IOSTouchFix } from "@/components/ios-touch-fix"
 import { MobileHeader } from "@/components/mobile/mobile-header"
 import { TableSessionLogs } from "@/components/mobile/table-session-logs"
+// Update the import for TouchLoginDialog
+import { TouchLoginDialog } from "@/components/auth/touch-login-dialog"
+import { AlertTriangle } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -96,6 +107,28 @@ export interface SystemSettings {
 }
 
 export function BilliardsTimerDashboard() {
+  // Access the auth context
+  const auth = useAuth()
+
+  // Debug: Check authentication state on component mount
+  useEffect(() => {
+    // Debug: Check authentication state on component mount
+    const checkAuth = async () => {
+      try {
+        const isAuth = await auth.isAuthenticated
+        const user = await auth.currentUser
+        console.log("Auth state on dashboard load:", {
+          isAuthenticated: isAuth,
+          currentUser: user,
+          localStorageUser: JSON.parse(localStorage.getItem("currentUser") || "null"),
+        })
+      } catch (error) {
+        console.error("Error checking auth state:", error)
+      }
+    }
+
+    checkAuth()
+  }, [auth])
   // Default time in milliseconds (60 minutes)
   const DEFAULT_TIME = 60 * 60 * 1000
 
@@ -183,6 +216,11 @@ export function BilliardsTimerDashboard() {
   // Login state
   const [loginUsername, setLoginUsername] = useState("admin")
   const [loginPassword, setLoginPassword] = useState("")
+
+  // Permission warning dialog
+  const [showPermissionWarning, setShowPermissionWarning] = useState(false)
+  const [permissionWarningMessage, setPermissionWarningMessage] = useState("")
+  const [permissionWarningTitle, setPermissionWarningTitle] = useState("Permission Denied")
 
   // Get Supabase data
   const {
@@ -297,6 +335,35 @@ export function BilliardsTimerDashboard() {
     }
 
     setTimeout(() => setNotification(null), 3000)
+  }
+
+  // Show permission warning dialog
+  const showPermissionWarningDialog = (message: string, title = "Permission Denied") => {
+    setPermissionWarningMessage(message)
+    setPermissionWarningTitle(title)
+    setShowPermissionWarning(true)
+    // Don't close the table dialog or modify any other state
+  }
+
+  // Check permission and show warning if not allowed
+  const checkPermission = (permission: string, actionName: string): boolean => {
+    if (!isAuthenticated) {
+      showPermissionWarningDialog(
+        "You need to log in to perform this action. Please log in using the Admin button.",
+        "Login Required",
+      )
+      return false
+    }
+
+    if (!hasPermission(permission)) {
+      const userRole = currentUser?.role || "user"
+      showPermissionWarningDialog(
+        `Your role (${userRole}) does not have permission to ${actionName}. Please contact an administrator if you need this access.`,
+      )
+      return false
+    }
+
+    return true
   }
 
   // Track viewport height for responsive layout
@@ -475,9 +542,9 @@ export function BilliardsTimerDashboard() {
 
   // Start table session
   const startTableSession = async (tableId: number) => {
-    if (!isAuthenticated || !hasPermission("canStartSession")) {
-      showNotification("Please log in using the Admin button", "error")
-      setLoginAttemptFailed(true)
+    // Check permission with specific message
+    if (!checkPermission("canStartSession", "start a table session")) {
+      // Don't close the dialog or modify any other state
       return
     }
 
@@ -489,12 +556,12 @@ export function BilliardsTimerDashboard() {
 
     // Double-check validation
     if (table.guestCount <= 0) {
-      showNotification("Please add at least one guest before starting the session", "error")
+      showPermissionWarningDialog("Please add at least one guest before starting the session", "Missing Information")
       return
     }
 
     if (!table.server) {
-      showNotification("Please assign a server before starting the session", "error")
+      showPermissionWarningDialog("Please assign a server before starting the session", "Missing Information")
       return
     }
 
@@ -581,9 +648,8 @@ export function BilliardsTimerDashboard() {
 
   // End table session with confirmation
   const confirmEndSession = (tableId: number) => {
-    if (!isAuthenticated || !hasPermission("canEndSession")) {
-      showNotification("Please log in using the Admin button", "error")
-      setLoginAttemptFailed(true)
+    // Check permission with specific message
+    if (!checkPermission("canEndSession", "end a table session")) {
       return
     }
 
@@ -747,6 +813,11 @@ export function BilliardsTimerDashboard() {
   // Update the addTime function to ensure proper time calculation
   const handleAddTime = useCallback(
     async (tableId: number, minutes: number) => {
+      // Check permission with specific message
+      if (!checkPermission("canAddTime", "add time to a table")) {
+        return
+      }
+
       const table = tables.find((t) => t.id === tableId)
       if (!table) return
 
@@ -775,6 +846,11 @@ export function BilliardsTimerDashboard() {
   // Update the subtractTime function to ensure proper time calculation
   const handleSubtractTime = useCallback(
     async (tableId: number, minutes: number) => {
+      // Check permission with specific message
+      if (!checkPermission("canSubtractTime", "subtract time from a table")) {
+        return
+      }
+
       const table = tables.find((t) => t.id === tableId)
       if (!table) return
 
@@ -802,9 +878,8 @@ export function BilliardsTimerDashboard() {
 
   // Add time to table
   const addTime = async (tableId: number, minutes = 15) => {
-    if (!isAuthenticated || !hasPermission("canAddTime")) {
-      showNotification("Please log in using the Admin button", "error")
-      setLoginAttemptFailed(true)
+    // Check permission with specific message
+    if (!checkPermission("canAddTime", "add time to a table")) {
       return
     }
 
@@ -920,9 +995,8 @@ export function BilliardsTimerDashboard() {
 
   // Subtract time from table
   const subtractTime = async (tableId: number, minutes: number) => {
-    if (!isAuthenticated || !hasPermission("canSubtractTime")) {
-      showNotification("Please log in using the Admin button", "error")
-      setLoginAttemptFailed(true)
+    // Check permission with specific message
+    if (!checkPermission("canSubtractTime", "subtract time from a table")) {
       return
     }
 
@@ -983,7 +1057,7 @@ export function BilliardsTimerDashboard() {
           ? Math.max(0, newInitialTime - (Date.now() - table.startTime))
           : newInitialTime
 
-      // Update local state immediately
+      // Update local state
       const updatedTable = {
         ...table,
         initialTime: newInitialTime,
@@ -1041,15 +1115,14 @@ export function BilliardsTimerDashboard() {
       }
 
       // Normal case - apply all checks
-      if (!isAuthenticated || !hasPermission("canUpdateGuests")) {
-        showNotification("Please log in using the Admin button", "error")
-        setLoginAttemptFailed(true)
+      // Check permission with specific message
+      if (!checkPermission("canUpdateGuests", "update the guest count")) {
         return
       }
 
       // Check if day has been started
       if (!supabaseDayStarted) {
-        showNotification("Please start the day before updating guest count", "error")
+        showPermissionWarningDialog("Please start the day before updating guest count", "Day Not Started")
         return
       }
 
@@ -1083,15 +1156,18 @@ export function BilliardsTimerDashboard() {
   // Assign server to table with throttling
   const assignServer = useCallback(
     async (tableId: number, serverId: string | null) => {
-      if (!isAuthenticated) {
-        showNotification("Please log in using the Admin button", "error")
-        setLoginAttemptFailed(true)
+      // Check permission with specific message
+      if (!checkPermission("canAssignServer", "assign a server to a table")) {
+        // Don't close the dialog or modify any other state
         return
       }
 
       // If not admin and trying to assign to someone else, prevent it
       if (!isAdmin && !hasPermission("canAssignServer") && serverId !== currentUser?.id) {
-        showNotification("You can only assign tables to yourself", "error")
+        showPermissionWarningDialog(
+          "You can only assign tables to yourself. To assign to another server, you need additional permissions.",
+          "Restricted Action",
+        )
         return
       }
 
@@ -1150,8 +1226,8 @@ export function BilliardsTimerDashboard() {
 
   // Group tables
   const groupTables = async (tableIds: number[]) => {
-    if (!isAuthenticated || !hasPermission("canGroupTables")) {
-      showNotification("Please log in using the Admin button", "error")
+    // Check permission with specific message
+    if (!checkPermission("canGroupTables", "group tables together")) {
       return
     }
 
@@ -1259,8 +1335,8 @@ export function BilliardsTimerDashboard() {
 
   // Ungroup table
   const ungroupTable = async (tableId: number) => {
-    if (!isAuthenticated || !hasPermission("canUngroupTable")) {
-      showNotification("Please log in using the Admin button", "error")
+    // Check permission with specific message
+    if (!checkPermission("canUngroupTable", "remove a table from a group")) {
       return
     }
 
@@ -1281,8 +1357,8 @@ export function BilliardsTimerDashboard() {
 
   // Move table data
   const moveTable = async (sourceId: number, targetId: number) => {
-    if (!isAuthenticated || !hasPermission("canMoveTable")) {
-      showNotification("Please log in using the Admin button", "error")
+    // Check permission with specific message
+    if (!checkPermission("canMoveTable", "move table data")) {
       return
     }
 
@@ -1396,14 +1472,14 @@ export function BilliardsTimerDashboard() {
     }
 
     // Normal case - apply all checks
-    if (!isAuthenticated || !hasPermission("canUpdateNotes")) {
-      showNotification("Please log in using the Admin button", "error")
+    // Check permission with specific message
+    if (!checkPermission("canUpdateNotes", "update table notes")) {
       return
     }
 
     // Check if day has been started
     if (!supabaseDayStarted) {
-      showNotification("Please start the day before updating notes", "error")
+      showPermissionWarningDialog("Please start the day before updating notes", "Day Not Started")
       return
     }
 
@@ -1445,7 +1521,10 @@ export function BilliardsTimerDashboard() {
   // Modified start day function to show animation
   const startDay = () => {
     if (!isAdmin) {
-      showNotification("Please log in using the Admin button", "error")
+      showPermissionWarningDialog(
+        "Only administrators can start the day. Please log in with an admin account to perform this action.",
+        "Admin Access Required",
+      )
       return
     }
 
@@ -1488,7 +1567,10 @@ export function BilliardsTimerDashboard() {
   // Modified end day function to show confirmation dialog
   const endDay = () => {
     if (!isAdmin) {
-      showNotification("Please log in using the Admin button", "error")
+      showPermissionWarningDialog(
+        "Only administrators can end the day. Please log in with an admin account to perform this action.",
+        "Admin Access Required",
+      )
       return
     }
 
@@ -1887,6 +1969,27 @@ export function BilliardsTimerDashboard() {
           </div>
         </div>
 
+        {/* Permission Warning Dialog */}
+        <Dialog open={showPermissionWarning} onOpenChange={setShowPermissionWarning}>
+          <DialogContent className="bg-gray-900 border-red-500 text-white">
+            <DialogHeader>
+              <DialogTitle className="flex items-center text-red-400">
+                <AlertTriangle className="h-5 w-5 mr-2" />
+                {permissionWarningTitle}
+              </DialogTitle>
+              <DialogDescription className="text-gray-300">{permissionWarningMessage}</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                onClick={() => setShowPermissionWarning(false)}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Understood
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Rest of the components remain the same */}
         {selectedTable && (
           <TableDialog
@@ -1978,13 +2081,7 @@ export function BilliardsTimerDashboard() {
           }}
         />
 
-        <TouchLogin
-          open={showTouchLogin}
-          onClose={() => setShowTouchLogin(false)}
-          defaultUsername={loginUsername}
-          defaultPassword={loginPassword}
-        />
-
+        {showTouchLogin && <TouchLoginDialog onClose={() => setShowTouchLogin(false)} />}
         {/* Pull-up AI Insights Panel */}
         {isAuthenticated && supabaseDayStarted && !isMobile && (
           <PullUpInsightsPanel tables={tables} logs={logs} servers={serverUsers} />

@@ -6,7 +6,7 @@ import { useEffect } from "react"
  * This component fixes touch events on iOS devices by adding a global touch handler
  * that responds to taps on elements with the "table-card" class.
  */
-export function IOSTouchFix() {
+export function IosTouchFix() {
   useEffect(() => {
     // Check if we're on iOS
     const isIOS =
@@ -96,3 +96,6 @@ export function IOSTouchFix() {
 
   return null
 }
+
+// Export with both naming conventions for backward compatibility
+export const IOSTouchFix = IosTouchFix

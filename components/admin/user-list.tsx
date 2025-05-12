@@ -29,10 +29,11 @@ interface UserListProps {
   users: User[]
   loading: boolean
   onEditUser: (user: User) => void
+  onManagePermissions?: (userId: string) => void
   onRefresh: () => void
 }
 
-export function UserList({ users, loading, onEditUser, onRefresh }: UserListProps) {
+export function UserList({ users, loading, onEditUser, onManagePermissions, onRefresh }: UserListProps) {
   const { toast } = useToast()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
@@ -68,9 +69,24 @@ export function UserList({ users, loading, onEditUser, onRefresh }: UserListProp
   const getRoleBadgeClass = (role: string) => {
     switch (role) {
       case "admin":
+      case "controller":
         return "bg-purple-500 text-white"
+      case "manager":
+        return "bg-indigo-500 text-white"
       case "server":
         return "bg-blue-500 text-white"
+      case "bartender":
+        return "bg-cyan-500 text-white"
+      case "barback":
+        return "bg-teal-500 text-white"
+      case "kitchen":
+        return "bg-green-500 text-white"
+      case "security":
+        return "bg-red-500 text-white"
+      case "karaoke_main":
+        return "bg-pink-500 text-white"
+      case "karaoke_staff":
+        return "bg-fuchsia-500 text-white"
       default:
         return "bg-gray-500 text-white"
     }
@@ -79,12 +95,28 @@ export function UserList({ users, loading, onEditUser, onRefresh }: UserListProp
   const getRoleIcon = (role: string) => {
     switch (role) {
       case "admin":
+      case "controller":
         return <ShieldAlert className="h-4 w-4 mr-1" />
+      case "manager":
       case "server":
+      case "bartender":
+      case "barback":
+      case "kitchen":
+      case "security":
+      case "karaoke_main":
+      case "karaoke_staff":
         return <Shield className="h-4 w-4 mr-1" />
       default:
         return null
     }
+  }
+
+  // Format role name for display
+  const formatRoleName = (name: string) => {
+    return name
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
   }
 
   if (loading) {
@@ -131,7 +163,7 @@ export function UserList({ users, loading, onEditUser, onRefresh }: UserListProp
                 )}`}
               >
                 {getRoleIcon(user.role)}
-                {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                {formatRoleName(user.role)}
               </span>
             </div>
 
@@ -155,6 +187,15 @@ export function UserList({ users, loading, onEditUser, onRefresh }: UserListProp
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
+                  {onManagePermissions && (
+                    <DropdownMenuItem
+                      className="flex items-center cursor-pointer hover:bg-gray-700"
+                      onClick={() => onManagePermissions(user.id)}
+                    >
+                      <ShieldAlert className="mr-2 h-4 w-4" />
+                      Permissions
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator className="bg-gray-700" />
                   <DropdownMenuItem
                     className="flex items-center cursor-pointer text-red-500 hover:bg-gray-700 hover:text-red-500"

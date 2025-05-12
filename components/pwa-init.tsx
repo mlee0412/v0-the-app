@@ -1,16 +1,13 @@
 "use client"
 
 import { useEffect } from "react"
-import { registerServiceWorker, checkInstallability } from "@/lib/pwa/register-sw"
+import { register } from "@/lib/pwa/register-sw"
+import { InstallPwaButton } from "./install-pwa-button"
 
-export function PWAInit() {
+export function PwaInit() {
   useEffect(() => {
-    // Register service worker
-    registerServiceWorker()
-
-    // Check if app can be installed
-    checkInstallability()
+    register()
   }, [])
 
-  return null
+  return <InstallPwaButton />
 }

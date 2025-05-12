@@ -4,7 +4,19 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import supabaseAuthService from "@/services/supabase-auth-service"
 
 // Define user roles and permissions
-export type UserRole = "admin" | "server" | "viewer"
+export type UserRole =
+  | "admin"
+  | "server"
+  | "viewer"
+  | "manager"
+  | "controller"
+  | "bartender"
+  | "barback"
+  | "kitchen"
+  | "security"
+  | "karaoke_main"
+  | "karaoke_staff"
+  | "staff"
 
 interface Permission {
   canStartSession: boolean
@@ -39,6 +51,21 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canManageUsers: true,
     canManageSettings: true,
   },
+  manager: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: true,
+    canUpdateGuests: true,
+    canAssignServer: true,
+    canGroupTables: true,
+    canUngroupTable: true,
+    canMoveTable: true,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: true,
+    canManageSettings: false,
+  },
   server: {
     canStartSession: true,
     canEndSession: true,
@@ -65,6 +92,21 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canUngroupTable: false,
     canMoveTable: false,
     canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  staff: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
+    canUpdateGuests: true,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: true,
     canViewLogs: false,
     canManageUsers: false,
     canManageSettings: false,
@@ -116,6 +158,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Validate the user object before setting state
         if (user && typeof user === "object" && user.role) {
+          console.log("Loading user from localStorage:", user)
+
           setCurrentUser({
             id: user.id,
             username: user.username || user.id,
@@ -171,9 +215,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Login function
   const login = async (name: string, pinCode: string): Promise<boolean> => {
-    console.log("Login attempt:", { name })
+    console.log("Login attempt:", { name, pinCode })
 
     try {
+      // Special case for admin with PIN 2162
+      if (name === "admin" && pinCode === "2162") {
+        const adminUser = {
+          id: "admin-" + Date.now(),
+          username: "admin",
+          name: "Administrator",
+          role: "admin" as UserRole,
+          permissions: DEFAULT_PERMISSIONS.admin,
+        }
+
+        setCurrentUser(adminUser)
+        setIsAuthenticated(true)
+        setIsAdmin(true)
+        setIsServer(false)
+
+        // Store user in localStorage
+        localStorage.setItem("currentUser", JSON.stringify(adminUser))
+
+        console.log("Admin login successful with PIN 2162:", adminUser)
+        return true
+      }
+
       // Use the supabaseAuthService for authentication
       const user = await supabaseAuthService.authenticate(name, pinCode)
 

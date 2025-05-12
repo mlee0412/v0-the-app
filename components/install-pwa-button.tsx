@@ -65,3 +65,6 @@ export function InstallPWAButton() {
     </Button>
   )
 }
+
+// Add an alias export with the alternative case for backward compatibility
+export const InstallPwaButton = InstallPWAButton

@@ -1,6 +1,22 @@
 import type React from "react"
 import { Inter } from "next/font/google"
+import ClientLayout from "./client-layout"
 import Styles from "./styles"
+
+import "./globals.css"
+import "./cursor.css"
+import "./animations.css"
+import "./space-animations.css"
+import "./mobile.css"
+import "./pull-up-panel.css"
+import "./logo-effects.css"
+import "./touch-improvements.css"
+import "./ios-touch-fixes.css"
+import "./mobile-fixes.css"
+import "./dialog-fixes.css"
+import "./mobile-optimizations.css"
+import "./bottom-nav.css"
+import "./pwa.css"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -99,11 +115,8 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <Styles />
-        {children}
+        <ClientLayout>{children}</ClientLayout>
       </body>
     </html>
   )
 }
-
-
-import './globals.css'

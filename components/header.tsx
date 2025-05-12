@@ -5,6 +5,7 @@ import { Settings, LogOut, RefreshCw, Maximize, Minimize, User, PlayCircle, Stop
 import { Button } from "@/components/ui/button"
 import { ConnectionStatus } from "@/components/connection-status"
 import { AnimatedLogo } from "@/components/animated-logo"
+import TouchLoginDialog from "@/components/auth/touch-login-dialog"
 import type { Table, Server, LogEntry } from "@/components/billiards-timer-dashboard"
 
 interface HeaderProps {
@@ -49,6 +50,7 @@ export function Header({
   const [activeTables, setActiveTables] = useState(0)
   const [currentTimeString, setCurrentTimeString] = useState("")
   const [currentDateString, setCurrentDateString] = useState("")
+  const [showLoginDialog, setShowLoginDialog] = useState(false)
 
   // Check if fullscreen is active
   useEffect(() => {
@@ -108,6 +110,16 @@ export function Header({
     setIsSyncing(true)
     await onSync()
     setTimeout(() => setIsSyncing(false), 1000)
+  }
+
+  // Handle login button click
+  const handleLoginClick = () => {
+    setShowLoginDialog(true)
+  }
+
+  // Handle login dialog close
+  const handleLoginDialogClose = () => {
+    setShowLoginDialog(false)
   }
 
   return (
@@ -222,7 +234,7 @@ export function Header({
                 variant="outline"
                 size="sm"
                 className="h-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400 text-xs px-2"
-                onClick={onLogin}
+                onClick={handleLoginClick}
               >
                 <User className="h-3 w-3 mr-1 text-gray-400" />
                 <span>Login</span>
@@ -231,6 +243,9 @@ export function Header({
           </div>
         </div>
       </div>
+
+      {/* Touch Login Dialog */}
+      {showLoginDialog && <TouchLoginDialog onClose={handleLoginDialogClose} />}
     </header>
   )
 }

@@ -2,7 +2,19 @@ import { getSupabaseClient } from "@/lib/supabase/client"
 import { v4 as uuidv4 } from "uuid"
 
 // Define user roles and default permissions
-export type UserRole = "admin" | "server" | "viewer"
+export type UserRole =
+  | "admin"
+  | "server"
+  | "viewer"
+  | "controller"
+  | "manager"
+  | "bartender"
+  | "barback"
+  | "kitchen"
+  | "security"
+  | "karaoke_main"
+  | "karaoke_staff"
+  | "staff"
 
 interface Permission {
   canStartSession: boolean
@@ -37,7 +49,127 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canManageUsers: true,
     canManageSettings: true,
   },
+  controller: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: true,
+    canUpdateGuests: true,
+    canAssignServer: true,
+    canGroupTables: true,
+    canUngroupTable: true,
+    canMoveTable: true,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: true,
+    canManageSettings: true,
+  },
+  manager: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: true,
+    canUpdateGuests: true,
+    canAssignServer: true,
+    canGroupTables: true,
+    canUngroupTable: true,
+    canMoveTable: true,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
   server: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
+    canUpdateGuests: true,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: true,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  bartender: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
+    canUpdateGuests: true,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  barback: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  kitchen: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  security: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: true,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  karaoke_main: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
+    canUpdateGuests: true,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  karaoke_staff: {
     canStartSession: true,
     canEndSession: true,
     canAddTime: true,
@@ -63,6 +195,21 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canUngroupTable: false,
     canMoveTable: false,
     canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  staff: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
+    canUpdateGuests: true,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: true,
     canViewLogs: false,
     canManageUsers: false,
     canManageSettings: false,
@@ -115,13 +262,14 @@ class SupabaseAuthService {
 
       if (error) {
         console.error("Error authenticating from users table:", error)
+        return null
       }
 
       // If user found in users table
       if (user && user.length > 0) {
         const foundUser = user[0]
 
-        // Check PIN code
+        // Check PIN code - STRICT COMPARISON
         if (foundUser.pin_code === pinCode) {
           // Get permissions if they exist
           const { data: permissions } = await supabase
@@ -140,40 +288,13 @@ class SupabaseAuthService {
             created_at: foundUser.created_at,
             updated_at: foundUser.updated_at,
           }
+        } else {
+          console.log("PIN code mismatch for user:", foundUser.username)
+          return null // PIN code doesn't match
         }
       }
 
-      // If not found in users table, try billiards_users table
-      const { data: billiardUsers, error: billiardError } = await supabase
-        .from("billiards_users")
-        .select("*")
-        .or(`username.eq.${nameOrUsername},name.eq.${nameOrUsername}`)
-        .limit(1)
-
-      if (billiardError) {
-        console.error("Error authenticating from billiards_users table:", billiardError)
-      }
-
-      // If user found in billiards_users table
-      if (billiardUsers && billiardUsers.length > 0) {
-        const foundUser = billiardUsers[0]
-
-        // Check PIN code
-        if (foundUser.pin === pinCode) {
-          return {
-            id: foundUser.id,
-            username: foundUser.username || foundUser.name.toLowerCase().replace(/\s+/g, ""),
-            name: foundUser.name,
-            role: foundUser.role,
-            pin_code: foundUser.pin,
-            permissions: DEFAULT_PERMISSIONS[foundUser.role],
-            created_at: foundUser.created_at,
-            updated_at: foundUser.updated_at,
-          }
-        }
-      }
-
-      return null
+      return null // User not found
     } catch (error) {
       console.error("Authentication error:", error)
       return null
@@ -185,46 +306,39 @@ class SupabaseAuthService {
     try {
       const supabase = getSupabaseClient()
 
-      // Get users from both tables
+      // Get users from the users table
       const { data: users, error } = await supabase.from("users").select("*")
 
-      const { data: billiardUsers, error: billiardError } = await supabase.from("billiards_users").select("*")
+      if (error) {
+        console.error("Error fetching users:", error)
+        // Return default admin user as fallback
+        return [
+          {
+            id: "admin-" + uuidv4().substring(0, 8),
+            username: "admin",
+            name: "Administrator",
+            role: "admin" as UserRole,
+            pin_code: "2162",
+            permissions: DEFAULT_PERMISSIONS.admin,
+          },
+        ]
+      }
 
-      // Combine and deduplicate users by username
-      const allUsers = [
-        ...(users || []).map((user) => ({
-          id: user.id,
-          username: user.username || user.name.toLowerCase().replace(/\s+/g, ""),
-          name: user.name,
-          role: user.role,
-          pin_code: user.pin_code,
-          permissions: DEFAULT_PERMISSIONS[user.role],
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-        })),
-        ...(billiardUsers || []).map((user) => ({
-          id: user.id,
-          username: user.username || user.name.toLowerCase().replace(/\s+/g, ""),
-          name: user.name,
-          role: user.role,
-          pin_code: user.pin,
-          permissions: DEFAULT_PERMISSIONS[user.role],
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-        })),
-      ]
-
-      // Deduplicate by username
-      const uniqueUsers = allUsers.reduce((acc, user) => {
-        if (!acc.some((u) => u.username === user.username)) {
-          acc.push(user)
-        }
-        return acc
-      }, [] as any[])
+      // Map users to the expected format
+      const allUsers = users.map((user) => ({
+        id: user.id,
+        username: user.username || user.name.toLowerCase().replace(/\s+/g, ""),
+        name: user.name,
+        role: user.role,
+        pin_code: user.pin_code,
+        permissions: DEFAULT_PERMISSIONS[user.role],
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+      }))
 
       // Ensure Administrator is always available
-      if (!uniqueUsers.some((u) => u.username === "admin" || u.name.toLowerCase() === "administrator")) {
-        uniqueUsers.push({
+      if (!allUsers.some((u) => u.username === "admin" || u.name.toLowerCase() === "administrator")) {
+        allUsers.push({
           id: "admin-" + uuidv4().substring(0, 8),
           username: "admin",
           name: "Administrator",
@@ -234,7 +348,7 @@ class SupabaseAuthService {
         })
       }
 
-      return uniqueUsers
+      return allUsers
     } catch (error) {
       console.error("Error fetching users:", error)
 
@@ -257,7 +371,7 @@ class SupabaseAuthService {
     try {
       const supabase = getSupabaseClient()
 
-      // Determine which table to use (prefer users table)
+      // Add user to the users table
       const { data, error } = await supabase
         .from("users")
         .insert([
@@ -271,27 +385,8 @@ class SupabaseAuthService {
         .select()
 
       if (error) {
-        // Try billiards_users table as fallback
-        const { data: billiardData, error: billiardError } = await supabase
-          .from("billiards_users")
-          .insert([
-            {
-              username: userData.username,
-              name: userData.name,
-              pin: userData.pin_code,
-              role: userData.role,
-            },
-          ])
-          .select()
-
-        if (billiardError) {
-          throw billiardError
-        }
-
-        // Broadcast user update
-        this.broadcastUserUpdate()
-
-        return billiardData?.[0]
+        console.error("Error adding user:", error)
+        throw error
       }
 
       // Broadcast user update
@@ -309,7 +404,7 @@ class SupabaseAuthService {
     try {
       const supabase = getSupabaseClient()
 
-      // Try to update in users table first
+      // Update user in the users table
       const { data, error } = await supabase
         .from("users")
         .update({
@@ -322,26 +417,8 @@ class SupabaseAuthService {
         .select()
 
       if (error) {
-        // Try billiards_users table
-        const { data: billiardData, error: billiardError } = await supabase
-          .from("billiards_users")
-          .update({
-            username: userData.username,
-            name: userData.name,
-            pin: userData.pin_code,
-            role: userData.role,
-          })
-          .eq("id", userId)
-          .select()
-
-        if (billiardError) {
-          throw billiardError
-        }
-
-        // Broadcast user update
-        this.broadcastUserUpdate()
-
-        return billiardData?.[0]
+        console.error("Error updating user:", error)
+        throw error
       }
 
       // Broadcast user update
@@ -359,9 +436,13 @@ class SupabaseAuthService {
     try {
       const supabase = getSupabaseClient()
 
-      // Try to delete from both tables
-      await supabase.from("users").delete().eq("id", userId)
-      await supabase.from("billiards_users").delete().eq("id", userId)
+      // Delete from the users table
+      const { error } = await supabase.from("users").delete().eq("id", userId)
+
+      if (error) {
+        console.error("Error deleting user:", error)
+        throw error
+      }
 
       // Broadcast user update
       this.broadcastUserUpdate()

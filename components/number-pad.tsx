@@ -1,76 +1,81 @@
 "use client"
-
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { SkipBackIcon as Backspace, XCircle } from "lucide-react"
+import { X } from "lucide-react"
 
 interface NumberPadProps {
   value: string
   onChange: (value: string) => void
   maxLength?: number
   onClose?: () => void
+  validateOnChange?: boolean
 }
 
-export function NumberPad({ value, onChange, maxLength = 4, onClose }: NumberPadProps) {
-  const [currentValue, setCurrentValue] = useState(value)
+export function NumberPad({ value, onChange, maxLength = 4, onClose, validateOnChange = false }: NumberPadProps) {
+  const handlePress = (digit: string) => {
+    if (value.length < maxLength) {
+      const newValue = value + digit
 
-  useEffect(() => {
-    setCurrentValue(value)
-  }, [value])
-
-  const handleKeyPress = (key: string) => {
-    if (key === "clear") {
-      setCurrentValue("")
-      onChange("")
-    } else if (key === "backspace") {
-      const newValue = currentValue.slice(0, -1)
-      setCurrentValue(newValue)
-      onChange(newValue)
-    } else {
-      // Only allow digits up to maxLength
-      if (currentValue.length < maxLength) {
-        const newValue = currentValue + key
-        setCurrentValue(newValue)
-        onChange(newValue)
+      // Only validate on change if explicitly requested
+      if (validateOnChange && !/^\d+$/.test(newValue)) {
+        return
       }
+
+      onChange(newValue)
     }
   }
 
+  const handleBackspace = () => {
+    onChange(value.slice(0, -1))
+  }
+
+  const handleClear = () => {
+    onChange("")
+  }
+
   return (
-    <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-2">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
           <Button
-            key={num}
+            key={digit}
+            type="button"
             variant="outline"
-            className="h-12 w-full border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] text-xl font-bold"
-            onClick={() => handleKeyPress(num.toString())}
+            className="h-14 text-xl font-medium bg-[#000033] border-[#00FFFF] text-[#00FFFF] hover:bg-[#000055]"
+            onClick={() => handlePress(digit.toString())}
           >
-            {num}
+            {digit}
           </Button>
         ))}
         <Button
+          type="button"
           variant="outline"
-          className="h-12 w-full border-red-800 bg-[#000033] hover:bg-[#000066] text-red-400"
-          onClick={() => handleKeyPress("clear")}
+          className="h-14 text-xl font-medium bg-[#000033] border-[#00FFFF] text-[#00FFFF] hover:bg-[#000055]"
+          onClick={handleClear}
         >
-          <XCircle className="h-5 w-5" />
+          Clear
         </Button>
         <Button
+          type="button"
           variant="outline"
-          className="h-12 w-full border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] text-xl font-bold"
-          onClick={() => handleKeyPress("0")}
+          className="h-14 text-xl font-medium bg-[#000033] border-[#00FFFF] text-[#00FFFF] hover:bg-[#000055]"
+          onClick={() => handlePress("0")}
         >
           0
         </Button>
         <Button
+          type="button"
           variant="outline"
-          className="h-12 w-full border-yellow-800 bg-[#000033] hover:bg-[#000066] text-yellow-400"
-          onClick={() => handleKeyPress("backspace")}
+          className="h-14 text-xl font-medium bg-[#000033] border-[#00FFFF] text-[#00FFFF] hover:bg-[#000055]"
+          onClick={handleBackspace}
         >
-          <Backspace className="h-5 w-5" />
+          <X className="h-6 w-6" />
         </Button>
       </div>
+      {onClose && (
+        <Button type="button" variant="ghost" className="w-full text-[#00FFFF] hover:bg-[#000055]" onClick={onClose}>
+          Done
+        </Button>
+      )}
     </div>
   )
 }

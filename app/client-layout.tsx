@@ -1,80 +1,66 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
-import { BilliardsTimerDashboard } from "@/components/billiards-timer-dashboard"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
+import { usePathname } from "next/navigation"
 import { AuthProvider } from "@/contexts/auth-context"
-import { SpaceBackgroundAnimation } from "@/components/space-background-animation"
-import { IOSViewportFix } from "@/components/ios-viewport-fix"
-import { DirectTouchHandler } from "@/components/direct-touch-handler"
-import { PWAInit } from "@/components/pwa-init"
+import AuthGuard from "@/components/auth/auth-guard"
+import { ThemeProvider } from "@/components/theme-provider"
+import { SupabaseInitializer } from "@/components/supabase-initializer"
+import { Toaster } from "@/components/ui/toaster"
+import { PwaInit } from "@/components/pwa-init"
+import { IosTouchFix } from "@/components/ios-touch-fix-wrapper"
+import { IosViewportFix } from "@/components/ios-viewport-fix"
 import { OfflineDetector } from "@/components/offline-detector"
-import "./globals.css"
-import "./mobile.css"
-import "./animations.css"
-import "./space-animations.css"
-import "./logo-effects.css"
-import "./cursor.css"
-import "./touch-improvements.css"
-import "./pwa.css"
-import "@/app/ios-touch-fixes.css"
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration"
 
-export default function ClientRootLayout({
+// Define route access rules
+const routeAccessRules: Record<string, string[]> = {
+  "/admin": ["admin"],
+  "/admin/users": ["admin", "manager"],
+  "/settings": ["admin", "manager"],
+  "/reports": ["admin", "manager"],
+}
+
+export default function ClientLayout({
   children,
-}: Readonly<{
-  children?: React.ReactNode
-}>) {
-  const [isClient, setIsClient] = useState(false)
+}: {
+  children: React.ReactNode
+}) {
+  const pathname = usePathname()
 
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
+  // Determine required roles for current route
+  const getRequiredRoles = (): string[] => {
+    // Check for exact route match
+    if (routeAccessRules[pathname]) {
+      return routeAccessRules[pathname]
+    }
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const element = document.documentElement
-      if (element.requestFullscreen) {
-        element.requestFullscreen().catch((err) => {
-          console.log("Fullscreen request failed:", err)
-        })
+    // Check for parent route match (for nested routes)
+    for (const route in routeAccessRules) {
+      if (pathname.startsWith(route)) {
+        return routeAccessRules[route]
       }
     }
-  }, [])
 
-  useEffect(() => {
-    // Fix for iOS viewport height
-    const setVh = () => {
-      const vh = window.innerHeight * 0.01
-      document.documentElement.style.setProperty("--vh", `${vh}px`)
-    }
-
-    setVh()
-    window.addEventListener("resize", setVh)
-    window.addEventListener("orientationchange", setVh)
-
-    return () => {
-      window.removeEventListener("resize", setVh)
-      window.removeEventListener("orientationchange", setVh)
-    }
-  }, [])
+    // No specific roles required
+    return []
+  }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-      {/* Initialize PWA functionality */}
-      <PWAInit />
-
-      {/* Offline detector */}
-      <OfflineDetector />
-
-      {/* Render the background animation outside of the auth provider */}
-      <SpaceBackgroundAnimation intensity={1.5} />
-      <IOSViewportFix />
-      <DirectTouchHandler />
-      <AuthProvider>{isClient ? <BilliardsTimerDashboard /> : <div>Loading...</div>}</AuthProvider>
-      <Toaster />
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <AuthProvider>
+        <SupabaseInitializer>
+          <AuthGuard requiredRoles={getRequiredRoles()}>
+            <PwaInit />
+            <IosTouchFix />
+            <IosViewportFix />
+            <OfflineDetector />
+            <ServiceWorkerRegistration />
+            {children}
+            <Toaster />
+          </AuthGuard>
+        </SupabaseInitializer>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

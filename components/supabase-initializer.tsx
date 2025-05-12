@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { isSupabaseConfigured } from "@/lib/supabase/client"
+import { isSupabaseConfigured as isSupabaseConfiguredLib } from "@/lib/supabase/client"
 import supabaseTablesService from "@/services/supabase-tables-service"
 import supabaseLogsService from "@/services/supabase-logs-service"
 import supabaseSettingsService from "@/services/supabase-settings-service"
@@ -14,6 +14,8 @@ interface SupabaseInitializerProps {
 }
 
 export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
+  // Check if Supabase is properly configured
+  const isSupabaseConfigured = !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,23 +25,35 @@ export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
         console.log("Initializing Supabase services...")
 
         // Skip initialization if Supabase is not configured
-        if (!isSupabaseConfigured()) {
+        if (!isSupabaseConfiguredLib()) {
           console.warn("Supabase is not configured. Skipping initialization.")
           setIsInitialized(true)
           return
         }
 
-        // Initialize tables
-        await supabaseTablesService.initializeTables()
+        // Initialize tables first
+        await supabaseTablesService.initializeTables().catch((err) => {
+          console.error("Error initializing tables:", err)
+          // Continue with other initializations
+        })
 
         // Initialize logs
-        await supabaseLogsService.initializeLogs()
+        await supabaseLogsService.initializeLogs().catch((err) => {
+          console.error("Error initializing logs:", err)
+          // Continue with other initializations
+        })
 
         // Initialize settings
-        await supabaseSettingsService.initializeSettings()
+        await supabaseSettingsService.initializeSettings().catch((err) => {
+          console.error("Error initializing settings:", err)
+          // Continue with other initializations
+        })
 
         // Initialize real-time service
-        await supabaseRealTimeService.initialize()
+        await supabaseRealTimeService.initialize().catch((err) => {
+          console.error("Error initializing real-time service:", err)
+          // Continue with other initializations
+        })
 
         console.log("Supabase services initialized successfully")
         setIsInitialized(true)
@@ -55,7 +69,7 @@ export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
 
     // Clean up on unmount
     return () => {
-      if (isSupabaseConfigured()) {
+      if (isSupabaseConfiguredLib()) {
         supabaseTablesService.cleanup()
         supabaseLogsService.cleanup()
         supabaseSettingsService.cleanup()
@@ -63,6 +77,15 @@ export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
       }
     }
   }, [])
+
+  // If Supabase is not configured, show a warning
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="fixed bottom-0 left-0 right-0 bg-yellow-500 text-black p-2 text-center z-50">
+        ⚠️ Supabase environment variables are missing. Some features may not work correctly.
+      </div>
+    )
+  }
 
   if (error) {
     console.warn("Supabase initialization error:", error)

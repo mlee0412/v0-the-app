@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 
-export function IOSViewportFix() {
+export function IosViewportFix() {
   useEffect(() => {
     // Check if we're on iOS
     const isIOS =

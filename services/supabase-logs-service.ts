@@ -43,13 +43,13 @@ class SupabaseLogsService {
     try {
       // Check if logs table exists
       const supabase = getSupabaseClient()
-      const { data, error } = await supabase.from("logs").select("count")
+      const { data, error } = await supabase.from("session_logs").select("count")
 
       if (error) {
-        console.error("Error checking logs table:", error)
+        console.error("Error checking session_logs table:", error)
         // If table doesn't exist, create it using SQL
         if (error.code === "PGRST116") {
-          console.log("Logs table does not exist, creating...")
+          console.log("Session logs table does not exist, creating...")
           await this.createLogsTable()
         } else {
           throw error
@@ -65,10 +65,11 @@ class SupabaseLogsService {
   private async createLogsTable(): Promise<void> {
     try {
       const supabase = getSupabaseClient()
-      const { error } = await supabase.rpc("create_logs_table")
+      // Call the correct RPC function that creates the session_logs table
+      const { error } = await supabase.rpc("create_session_logs_table")
       if (error) throw error
     } catch (error) {
-      console.error("Error creating logs table:", error)
+      console.error("Error creating session logs table:", error)
       throw error
     }
   }
@@ -77,7 +78,7 @@ class SupabaseLogsService {
   async getLogs(): Promise<LogEntry[]> {
     try {
       const supabase = getSupabaseClient()
-      const { data, error } = await supabase.from("logs").select("*").order("timestamp", { ascending: false })
+      const { data, error } = await supabase.from("session_logs").select("*").order("timestamp", { ascending: false })
 
       if (error) throw error
 
@@ -101,7 +102,7 @@ class SupabaseLogsService {
         details,
       }
 
-      const { error } = await supabase.from("logs").insert(convertLogToDB(newLog))
+      const { error } = await supabase.from("session_logs").insert(convertLogToDB(newLog))
 
       if (error) throw error
 
@@ -123,7 +124,7 @@ class SupabaseLogsService {
       const supabase = getSupabaseClient()
       const channel = supabase
         .channel("logs-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "logs" }, (payload) => {
+        .on("postgres_changes", { event: "*", schema: "public", table: "session_logs" }, (payload) => {
           console.log("Logs change received:", payload)
           this.getLogs().then(callback)
         })
