@@ -18,30 +18,7 @@ const VALID_ROLES = [
   "security",
   "karaoke_main",
   "karaoke_staff",
-  "staff",
 ]
-
-// Map UI roles to database-allowed roles
-// The database constraint likely only allows admin, server, viewer
-const ROLE_MAPPING: Record<string, string> = {
-  admin: "admin",
-  server: "server",
-  viewer: "viewer",
-  controller: "admin", // Map to admin
-  manager: "admin", // Map to admin
-  bartender: "server", // Map to server
-  barback: "server", // Map to server
-  kitchen: "server", // Map to server
-  security: "viewer", // Map to viewer
-  karaoke_main: "server", // Map to server
-  karaoke_staff: "server", // Map to server
-  staff: "server", // Map to server
-}
-
-// Store a mapping of user IDs to their original roles
-// This is a server-side in-memory cache that will be lost on server restart
-// but it's a simple solution that doesn't require database schema changes
-const userRoleCache: Record<string, string> = {}
 
 export async function getUsers(): Promise<User[]> {
   try {
@@ -78,21 +55,14 @@ export async function getUsers(): Promise<User[]> {
     // Map users with their roles
     const users = usersData.map((user) => {
       // If we have role_id and it exists in our roles map, use that role's data
-      const userData = {
-        ...user,
-        // Add the original role from our cache if it exists
-        original_role: userRoleCache[user.id] || null,
-      }
-
       if (user.role_id && rolesMap[user.role_id]) {
         return {
-          ...userData,
+          ...user,
           roleData: rolesMap[user.role_id],
         }
       }
-
       // Otherwise just return the user as is
-      return userData
+      return user
     })
 
     return users || []
@@ -123,15 +93,11 @@ export async function getUserById(id: string): Promise<User | null> {
         return {
           ...data,
           roleData,
-          original_role: userRoleCache[data.id] || null,
         }
       }
     }
 
-    return {
-      ...data,
-      original_role: userRoleCache[data.id] || null,
-    }
+    return data
   } catch (error) {
     console.error("Error in getUserById:", error)
     return null
@@ -171,15 +137,20 @@ export async function createUser(formData: {
       role_id = roleData.id
     }
 
-    // Map role to allowed values for the database constraint
-    const mappedRole = ROLE_MAPPING[formData.role] || "viewer" // Default to viewer if mapping not found
-    console.log(`Mapped UI role ${formData.role} to database role ${mappedRole}`)
+    // Map role to allowed values if needed
+    let mappedRole = formData.role
+    if (!["admin", "server", "viewer"].includes(formData.role)) {
+      // Map roles based on function
+      if (["bartender", "barback", "kitchen"].includes(formData.role)) {
+        mappedRole = "server"
+      } else {
+        mappedRole = "viewer"
+      }
+      console.log(`Mapped role ${formData.role} to ${mappedRole} due to constraint`)
+    }
 
     // Generate a UUID for the user
     const userId = uuidv4()
-
-    // Store the original role in our cache
-    userRoleCache[userId] = formData.role
 
     // Insert directly into users table without the email field
     console.log("Inserting user directly into users table...")
@@ -199,7 +170,7 @@ export async function createUser(formData: {
       id: userId,
       username: formData.username,
       name: formData.name,
-      role: mappedRole, // Use the mapped role that satisfies the constraint
+      role: mappedRole,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -223,13 +194,10 @@ export async function createUser(formData: {
     }
 
     // Create default permissions for the user
-    await createDefaultPermissions(userId, formData.role) // Use original role for permissions
+    await createDefaultPermissions(userId, mappedRole)
 
     revalidatePath("/admin/users")
-    return {
-      ...userData,
-      original_role: formData.role,
-    }
+    return userData
   } catch (error: any) {
     console.error("Error in createUser:", error)
     throw new Error(error.message || "Failed to create user")
@@ -273,12 +241,17 @@ export async function updateUser(userData: {
       role_id = roleData.id
     }
 
-    // Map role to allowed values for the database constraint
-    const mappedRole = ROLE_MAPPING[userData.role] || "viewer" // Default to viewer if mapping not found
-    console.log(`Mapped UI role ${userData.role} to database role ${mappedRole}`)
-
-    // Store the original role in our cache
-    userRoleCache[userData.id] = userData.role
+    // Map role to allowed values if needed
+    let mappedRole = userData.role
+    if (!["admin", "server", "viewer"].includes(userData.role)) {
+      // Map roles based on function
+      if (["bartender", "barback", "kitchen"].includes(userData.role)) {
+        mappedRole = "server"
+      } else {
+        mappedRole = "viewer"
+      }
+      console.log(`Mapped role ${userData.role} to ${mappedRole} due to constraint`)
+    }
 
     // Update user in our custom table first
     const updateData: any = {
@@ -307,10 +280,7 @@ export async function updateUser(userData: {
     }
 
     revalidatePath("/admin/users")
-    return {
-      ...data,
-      original_role: userData.role,
-    }
+    return data
   } catch (error: any) {
     console.error("Error in updateUser:", error)
     throw new Error(error.message || "Failed to update user")
@@ -334,9 +304,6 @@ export async function deleteUser(id: string): Promise<void> {
       console.warn("Non-critical error deleting permissions:", permError)
       // Continue anyway
     }
-
-    // Remove from our role cache
-    delete userRoleCache[id]
 
     revalidatePath("/admin/users")
   } catch (error: any) {

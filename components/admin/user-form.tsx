@@ -165,10 +165,10 @@ export function UserForm({ initialData = null, onSubmit, onCancel, isLoading = f
                 ) : (
                   <>
                     <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="server">Server</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
                     <SelectItem value="controller">Controller</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="bartender">Bartender</SelectItem>
                     <SelectItem value="barback">Barback</SelectItem>
                     <SelectItem value="kitchen">Kitchen</SelectItem>

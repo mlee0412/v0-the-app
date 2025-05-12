@@ -34,22 +34,6 @@ import {
 import { PermissionsForm } from "./permissions-form"
 import type { User } from "@/types/user"
 
-// Role display mapping for UI
-const ROLE_DISPLAY_NAMES: Record<string, string> = {
-  admin: "Admin",
-  server: "Server",
-  viewer: "Viewer",
-  controller: "Controller",
-  manager: "Manager",
-  bartender: "Bartender",
-  barback: "Barback",
-  kitchen: "Kitchen",
-  security: "Security",
-  karaoke_main: "Karaoke Main",
-  karaoke_staff: "Karaoke Staff",
-  staff: "Staff",
-}
-
 // Changed from default export to named export
 export function SupabaseUserManagement() {
   const [users, setUsers] = useState<User[]>([])
@@ -282,7 +266,7 @@ export function SupabaseUserManagement() {
       id: user.id,
       name: user.name || "",
       username: user.username || "",
-      role: user.original_role || user.role || "",
+      role: user.role || "",
     })
     setEditFormOpen(true)
   }
@@ -304,10 +288,6 @@ export function SupabaseUserManagement() {
   const getRoleName = (roleId: string) => {
     const role = roles.find((r) => r.id === roleId)
     return role ? role.name : "Unknown"
-  }
-
-  const getDisplayRoleName = (role: string) => {
-    return ROLE_DISPLAY_NAMES[role] || role.charAt(0).toUpperCase() + role.slice(1).replace(/_/g, " ")
   }
 
   return (
@@ -379,25 +359,9 @@ export function SupabaseUserManagement() {
                     <SelectContent>
                       {roles.map((role) => (
                         <SelectItem key={role.id} value={role.name}>
-                          {getDisplayRoleName(role.name)}
+                          {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                         </SelectItem>
                       ))}
-                      {roles.length === 0 && (
-                        <>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="server">Server</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                          <SelectItem value="controller">Controller</SelectItem>
-                          <SelectItem value="bartender">Bartender</SelectItem>
-                          <SelectItem value="barback">Barback</SelectItem>
-                          <SelectItem value="kitchen">Kitchen</SelectItem>
-                          <SelectItem value="security">Security</SelectItem>
-                          <SelectItem value="karaoke_main">Karaoke Main</SelectItem>
-                          <SelectItem value="karaoke_staff">Karaoke Staff</SelectItem>
-                          <SelectItem value="staff">Staff</SelectItem>
-                        </>
-                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -463,13 +427,11 @@ export function SupabaseUserManagement() {
                       <td className="py-3 px-4">{user.name}</td>
                       <td className="py-3 px-4">{user.username}</td>
                       <td className="py-3 px-4">
-                        {user.original_role
-                          ? getDisplayRoleName(user.original_role)
-                          : user.roleData
-                            ? getDisplayRoleName(user.roleData.name)
-                            : user.role_id
-                              ? getRoleName(user.role_id)
-                              : getDisplayRoleName(user.role)}
+                        {user.roleData
+                          ? user.roleData.name.charAt(0).toUpperCase() + user.roleData.name.slice(1)
+                          : user.role_id
+                            ? getRoleName(user.role_id)
+                            : user.role}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex justify-end gap-2">
@@ -558,25 +520,9 @@ export function SupabaseUserManagement() {
                   <SelectContent>
                     {roles.map((role) => (
                       <SelectItem key={role.id} value={role.name}>
-                        {getDisplayRoleName(role.name)}
+                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
                       </SelectItem>
                     ))}
-                    {roles.length === 0 && (
-                      <>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="manager">Manager</SelectItem>
-                        <SelectItem value="server">Server</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="controller">Controller</SelectItem>
-                        <SelectItem value="bartender">Bartender</SelectItem>
-                        <SelectItem value="barback">Barback</SelectItem>
-                        <SelectItem value="kitchen">Kitchen</SelectItem>
-                        <SelectItem value="security">Security</SelectItem>
-                        <SelectItem value="karaoke_main">Karaoke Main</SelectItem>
-                        <SelectItem value="karaoke_staff">Karaoke Staff</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                      </>
-                    )}
                   </SelectContent>
                 </Select>
               </div>

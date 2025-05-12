@@ -1,15 +1,15 @@
 export interface User {
   id: string
+  auth_id?: string
   username: string
+  email?: string // Added email field
   name: string
-  role: string
-  role_id?: string | null
-  created_at: string
-  updated_at: string
-  pin_code?: string | null
-  email?: string | null
+  role?: string
+  role_id?: string
+  pin_code?: string
+  created_at?: string
+  updated_at?: string
   roleData?: any
-  original_role?: string | null
 }
 
 export interface Permissions {

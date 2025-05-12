@@ -14,7 +14,6 @@ export type UserRole =
   | "security"
   | "karaoke_main"
   | "karaoke_staff"
-  | "staff"
 
 interface Permission {
   canStartSession: boolean
@@ -195,21 +194,6 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canUngroupTable: false,
     canMoveTable: false,
     canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
-  },
-  staff: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: false,
-    canUpdateGuests: true,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: true,
     canViewLogs: false,
     canManageUsers: false,
     canManageSettings: false,

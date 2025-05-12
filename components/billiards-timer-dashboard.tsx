@@ -342,7 +342,6 @@ export function BilliardsTimerDashboard() {
     setPermissionWarningMessage(message)
     setPermissionWarningTitle(title)
     setShowPermissionWarning(true)
-    // Don't close the table dialog or modify any other state
   }
 
   // Check permission and show warning if not allowed
@@ -544,7 +543,6 @@ export function BilliardsTimerDashboard() {
   const startTableSession = async (tableId: number) => {
     // Check permission with specific message
     if (!checkPermission("canStartSession", "start a table session")) {
-      // Don't close the dialog or modify any other state
       return
     }
 
@@ -1084,7 +1082,7 @@ export function BilliardsTimerDashboard() {
       }, 100)
 
       await addLogEntry(tableId, "Time Subtracted", `${minutes} minutes subtracted`)
-      showNotification(`Subtracted ${minutes} minutes from ${table.name}`, "info")
+      showNotification(`Subtracted ${minutes} minutes from ${table.name}`, "success")
     }
   }
 
@@ -1158,7 +1156,6 @@ export function BilliardsTimerDashboard() {
     async (tableId: number, serverId: string | null) => {
       // Check permission with specific message
       if (!checkPermission("canAssignServer", "assign a server to a table")) {
-        // Don't close the dialog or modify any other state
         return
       }
 

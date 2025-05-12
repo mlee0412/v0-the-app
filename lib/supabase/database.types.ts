@@ -20,7 +20,6 @@ export interface Database {
             | "security"
             | "karaoke_main"
             | "karaoke_staff"
-            | "staff"
           role_id: string | null
           created_at: string
           updated_at: string
@@ -43,7 +42,6 @@ export interface Database {
             | "security"
             | "karaoke_main"
             | "karaoke_staff"
-            | "staff"
           role_id?: string | null
           created_at?: string
           updated_at?: string
@@ -66,7 +64,6 @@ export interface Database {
             | "security"
             | "karaoke_main"
             | "karaoke_staff"
-            | "staff"
           role_id?: string | null
           created_at?: string
           updated_at?: string
