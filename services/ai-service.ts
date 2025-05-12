@@ -69,6 +69,13 @@ class AiService {
           },
           body: JSON.stringify({ messages }),
           signal: controller.signal,
+        }).catch((error) => {
+          console.error("AI fetch error:", error)
+          // Return a mock response to prevent crashes
+          return new Response(JSON.stringify({ error: "Failed to connect to AI service" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
         })
 
         // Clear the timeout

@@ -38,6 +38,9 @@ export async function POST(request: Request) {
         model: xai("grok-3-mini"),
         messages: messages,
         maxTokens: 500,
+      }).catch((error) => {
+        console.error("AI SDK error:", error)
+        throw error // Re-throw to be caught by the outer catch
       })
 
       // Check if the response is empty and provide a fallback if needed

@@ -53,6 +53,7 @@
     "cmdk": "1.0.4",
     "date-fns": "latest",
     "embla-carousel-react": "8.5.1",
+    "fs": "latest",
     "https:": "latest",
     "immer": "latest",
     "input-otp": "1.4.1",

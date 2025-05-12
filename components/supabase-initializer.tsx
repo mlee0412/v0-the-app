@@ -16,8 +16,16 @@ interface SupabaseInitializerProps {
 export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [initializationTimeout, setInitializationTimeout] = useState(false)
 
   useEffect(() => {
+    // Set a timeout to prevent the app from being stuck in loading state
+    const timeoutId = setTimeout(() => {
+      console.warn("Supabase initialization timed out, continuing with limited functionality")
+      setInitializationTimeout(true)
+      setIsInitialized(true)
+    }, 5000) // 5 second timeout for initialization
+
     const initializeSupabase = async () => {
       try {
         console.log("Initializing Supabase services...")
@@ -26,6 +34,7 @@ export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
         if (!isSupabaseConfigured()) {
           console.warn("Supabase is not configured. Skipping initialization.")
           setIsInitialized(true)
+          clearTimeout(timeoutId)
           return
         }
 
@@ -54,10 +63,12 @@ export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
         })
 
         console.log("Supabase services initialized successfully")
+        clearTimeout(timeoutId)
         setIsInitialized(true)
       } catch (err) {
         console.error("Error initializing Supabase:", err)
         setError((err as Error).message)
+        clearTimeout(timeoutId)
         // Still set initialized to true to allow the app to render
         setIsInitialized(true)
       }
@@ -67,22 +78,27 @@ export function SupabaseInitializer({ children }: SupabaseInitializerProps) {
 
     // Clean up on unmount
     return () => {
+      clearTimeout(timeoutId)
       if (isSupabaseConfigured()) {
-        supabaseTablesService.cleanup()
-        supabaseLogsService.cleanup()
-        supabaseSettingsService.cleanup()
-        supabaseRealTimeService.cleanup()
+        try {
+          supabaseTablesService.cleanup()
+          supabaseLogsService.cleanup()
+          supabaseSettingsService.cleanup()
+          supabaseRealTimeService.cleanup()
+        } catch (err) {
+          console.error("Error during cleanup:", err)
+        }
       }
     }
   }, [])
 
-  if (error) {
-    console.warn("Supabase initialization error:", error)
+  if (error || initializationTimeout) {
+    console.warn("Supabase initialization issue:", error || "Timeout")
     // Just show a warning instead of blocking the UI
     return (
       <>
         <div className="fixed top-0 left-0 right-0 bg-red-900/70 text-white p-2 text-sm z-50">
-          <p>Database connection error: {error}</p>
+          <p>Database connection issue: {error || "Connection timeout"}. Some features may be limited.</p>
         </div>
         {children}
       </>
