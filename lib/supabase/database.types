@@ -14,19 +14,7 @@ export interface Database {
           id: string
           username: string
           name: string
-          role:
-            | "admin"
-            | "server"
-            | "viewer"
-            | "controller"
-            | "manager"
-            | "bartender"
-            | "barback"
-            | "kitchen"
-            | "security"
-            | "karaoke_main"
-            | "karaoke_staff"
-            | "staff"
+          role: string
           role_id: string | null
           created_at: string
           updated_at: string
@@ -37,18 +25,7 @@ export interface Database {
           id: string
           username: string
           name: string
-          role:
-            | "admin"
-            | "server"
-            | "viewer"
-            | "controller"
-            | "manager"
-            | "bartender"
-            | "barback"
-            | "kitchen"
-            | "security"
-            | "karaoke_main"
-            | "karaoke_staff"
+          role: string
           role_id?: string | null
           created_at?: string
           updated_at?: string
@@ -59,18 +36,7 @@ export interface Database {
           id?: string
           username?: string
           name?: string
-          role?:
-            | "admin"
-            | "server"
-            | "viewer"
-            | "controller"
-            | "manager"
-            | "bartender"
-            | "barback"
-            | "kitchen"
-            | "security"
-            | "karaoke_main"
-            | "karaoke_staff"
+          role?: string
           role_id?: string | null
           created_at?: string
           updated_at?: string
@@ -325,55 +291,6 @@ export interface Database {
           last_updated?: string
         }
       }
-      push_subscriptions: {
-        Row: {
-          id: number
-          user_id: string
-          subscription: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: number
-          user_id: string
-          subscription: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: number
-          user_id?: string
-          subscription?: Json
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      notification_logs: {
-        Row: {
-          id: number
-          user_id: string
-          title: string
-          body: string
-          data: Json | null
-          sent_at: string
-        }
-        Insert: {
-          id?: number
-          user_id: string
-          title: string
-          body: string
-          data?: Json | null
-          sent_at?: string
-        }
-        Update: {
-          id?: number
-          user_id?: string
-          title?: string
-          body?: string
-          data?: Json | null
-          sent_at?: string
-        }
-      }
     }
     Views: {
       [_ in never]: never
@@ -389,3 +306,42 @@ export interface Database {
     }
   }
 }
+
+export type Tables<
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & {[_: string]: never})
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] & {[_: string]: never})
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] & {[_: string]: never})[TableName]["Row"]
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] & {[_: string]: never})
+    ? (Database["public"]["Tables"] & {[_: string]: never})[PublicTableNameOrOptions]["Row"]
+    : never
+
+export type TableInsert<
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & {[_: string]: never})
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] & {[_: string]: never})
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] & {[_: string]: never})[TableName]["Insert"]
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] & {[_: string]: never})
+    ? (Database["public"]["Tables"] & {[_: string]: never})[PublicTableNameOrOptions]["Insert"]
+    : never
+
+export type TableUpdate<
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & {[_: string]: never})
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] & {[_: string]: never})
+    : never = never
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] & {[_: string]: never})[TableName]["Update"]
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] & {[_: string]: never})
+    ? (Database["public"]["Tables"] & {[_: string]: never})[PublicTableNameOrOptions]["Update"]
+    : never
