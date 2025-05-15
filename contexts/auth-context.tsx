@@ -2,10 +2,9 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import supabaseAuthService from "@/services/supabase-auth-service"
+import { type UserRole, ADMIN_LEVEL_ROLES } from "@/types/user"
 
 // Define user roles and permissions
-export type UserRole = "admin" | "server" | "viewer" | "manager"
-
 interface Permission {
   canStartSession: boolean
   canEndSession: boolean
@@ -23,68 +22,7 @@ interface Permission {
 }
 
 // Define default permissions for each role
-const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
-  admin: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: true,
-    canUpdateGuests: true,
-    canAssignServer: true,
-    canGroupTables: true,
-    canUngroupTable: true,
-    canMoveTable: true,
-    canUpdateNotes: true,
-    canViewLogs: true,
-    canManageUsers: true,
-    canManageSettings: true,
-  },
-  manager: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: true,
-    canUpdateGuests: true,
-    canAssignServer: true,
-    canGroupTables: true,
-    canUngroupTable: true,
-    canMoveTable: true,
-    canUpdateNotes: true,
-    canViewLogs: true,
-    canManageUsers: true,
-    canManageSettings: false,
-  },
-  server: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: false,
-    canUpdateGuests: true,
-    canAssignServer: false, // Can only assign themselves
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: true,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
-  },
-  viewer: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
-  },
-}
+const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = supabaseAuthService.DEFAULT_PERMISSIONS
 
 // Define user type
 export interface User {
@@ -101,7 +39,7 @@ export interface AuthContextType {
   isAdmin: boolean
   isServer: boolean
   currentUser: User | null
-  login: (name: string, pinCode: string) => Promise<boolean>
+  login: (userId: string, pinCode: string) => Promise<boolean>
   logout: () => void
   hasPermission: (permission: string) => boolean
   users: User[] // Add this line
@@ -131,8 +69,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Validate the user object before setting state
         if (user && typeof user === "object" && user.role) {
-          console.log("Loading user from localStorage:", user)
-
           setCurrentUser({
             id: user.id,
             username: user.username || user.id,
@@ -141,7 +77,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             permissions: user.permissions || DEFAULT_PERMISSIONS[user.role],
           })
           setIsAuthenticated(true)
-          setIsAdmin(user.role === "admin" || user.name?.toLowerCase() === "administrator")
+          setIsAdmin(ADMIN_LEVEL_ROLES.includes(user.role))
           setIsServer(user.role === "server")
         } else {
           console.error("Invalid user object in localStorage:", user)
@@ -162,10 +98,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUsers(
           usersList.map((user) => ({
             id: user.id,
-            username: user.username,
+            username: user.username || user.email || user.id,
             name: user.name,
-            role: user.role,
-            permissions: user.permissions || DEFAULT_PERMISSIONS[user.role],
+            role: user.role as UserRole,
+            permissions: user.permissions || DEFAULT_PERMISSIONS[user.role as UserRole],
           })),
         )
       } catch (err) {
@@ -187,34 +123,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
 
   // Login function
-  const login = async (name: string, pinCode: string): Promise<boolean> => {
-    console.log("Login attempt:", { name, pinCode })
+  const login = async (userId: string, pinCode: string): Promise<boolean> => {
+    console.log("Login attempt:", { userId })
 
     try {
-      // Special case for admin with PIN 2162
-      if (name === "admin" && pinCode === "2162") {
-        const adminUser = {
-          id: "admin-" + Date.now(),
-          username: "admin",
-          name: "Administrator",
-          role: "admin" as UserRole,
-          permissions: DEFAULT_PERMISSIONS.admin,
-        }
-
-        setCurrentUser(adminUser)
-        setIsAuthenticated(true)
-        setIsAdmin(true)
-        setIsServer(false)
-
-        // Store user in localStorage
-        localStorage.setItem("currentUser", JSON.stringify(adminUser))
-
-        console.log("Admin login successful with PIN 2162:", adminUser)
-        return true
-      }
-
       // Use the supabaseAuthService for authentication
-      const user = await supabaseAuthService.authenticate(name, pinCode)
+      const user = await supabaseAuthService.authenticate(userId, pinCode)
 
       if (user) {
         // Ensure admin role for administrator name
@@ -230,7 +144,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         setCurrentUser(userWithPermissions)
         setIsAuthenticated(true)
-        setIsAdmin(user.role === "admin" || user.name?.toLowerCase() === "administrator")
+        setIsAdmin(ADMIN_LEVEL_ROLES.includes(user.role))
         setIsServer(user.role === "server")
 
         // Store user in localStorage
@@ -257,14 +171,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
     // Remove from localStorage
     localStorage.removeItem("currentUser")
+
+    // Call the service logout method to sign out from Supabase Auth
+    supabaseAuthService.logout()
   }
 
   // Check if user has a specific permission
   const hasPermission = (permission: string): boolean => {
     if (!isAuthenticated || !currentUser) return false
 
-    // Special case for administrator name
-    if (currentUser.name?.toLowerCase() === "administrator" || currentUser.role === "admin") {
+    // Admin level roles always have all permissions
+    if (ADMIN_LEVEL_ROLES.includes(currentUser.role)) {
       return true
     }
 

@@ -6,10 +6,10 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } fr
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import supabaseAuthService from "@/services/supabase-auth-service"
 import { useToast } from "@/hooks/use-toast"
+import type { Permission } from "@/services/user-service"
 import { Loader2 } from "lucide-react"
-import { getUserPermissions, updateUserPermissions } from "@/actions/user-actions"
-import type { Permissions } from "@/types/user"
 
 interface PermissionsFormProps {
   userId: string
@@ -21,21 +21,21 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const form = useForm<Permissions>({
+  const form = useForm<Permission>({
     defaultValues: {
-      can_start_session: false,
-      can_end_session: false,
-      can_add_time: false,
-      can_subtract_time: false,
-      can_update_guests: false,
-      can_assign_server: false,
-      can_group_tables: false,
-      can_ungroup_table: false,
-      can_move_table: false,
-      can_update_notes: false,
-      can_view_logs: false,
-      can_manage_users: false,
-      can_manage_settings: false,
+      canStartSession: false,
+      canEndSession: false,
+      canAddTime: false,
+      canSubtractTime: false,
+      canUpdateGuests: false,
+      canAssignServer: false,
+      canGroupTables: false,
+      canUngroupTable: false,
+      canMoveTable: false,
+      canUpdateNotes: false,
+      canViewLogs: false,
+      canManageUsers: false,
+      canManageSettings: false,
     },
   })
 
@@ -43,10 +43,10 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
     const fetchPermissions = async () => {
       try {
         setLoading(true)
-        const permissions = await getUserPermissions(userId)
+        const user = await supabaseAuthService.getUserById(userId)
 
-        if (permissions) {
-          form.reset(permissions)
+        if (user && user.permissions) {
+          form.reset(user.permissions)
         }
       } catch (error) {
         console.error("Error fetching user permissions:", error)
@@ -63,11 +63,26 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
     fetchPermissions()
   }, [userId, form, toast])
 
-  const onSubmit = async (data: Permissions) => {
+  const onSubmit = async (data: Permission) => {
     setSaving(true)
 
     try {
-      await updateUserPermissions(userId, data)
+      const user = await supabaseAuthService.getUserById(userId)
+
+      if (!user) {
+        throw new Error("User not found")
+      }
+
+      const updatedUser = {
+        ...user,
+        permissions: data,
+      }
+
+      const { success, error } = await supabaseAuthService.updateUser(updatedUser)
+
+      if (!success) {
+        throw new Error(error || "Failed to update permissions")
+      }
 
       toast({
         title: "Permissions updated",
@@ -105,7 +120,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <FormField
               control={form.control}
-              name="can_start_session"
+              name="canStartSession"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -125,7 +140,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_end_session"
+              name="canEndSession"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -145,7 +160,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_add_time"
+              name="canAddTime"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -165,7 +180,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_subtract_time"
+              name="canSubtractTime"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -194,7 +209,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <FormField
               control={form.control}
-              name="can_update_guests"
+              name="canUpdateGuests"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -214,7 +229,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_assign_server"
+              name="canAssignServer"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -234,7 +249,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_group_tables"
+              name="canGroupTables"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -254,7 +269,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_ungroup_table"
+              name="canUngroupTable"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -274,7 +289,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_move_table"
+              name="canMoveTable"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -294,7 +309,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_update_notes"
+              name="canUpdateNotes"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -323,7 +338,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <FormField
               control={form.control}
-              name="can_view_logs"
+              name="canViewLogs"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -343,7 +358,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_manage_users"
+              name="canManageUsers"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">
@@ -363,7 +378,7 @@ export function PermissionsForm({ userId, onSaved }: PermissionsFormProps) {
 
             <FormField
               control={form.control}
-              name="can_manage_settings"
+              name="canManageSettings"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between p-3 border border-gray-700 rounded-md bg-gray-800/50">
                   <div className="space-y-0.5">

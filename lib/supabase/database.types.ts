@@ -8,88 +8,23 @@ export interface Database {
           id: string
           username: string
           name: string
-          role:
-            | "admin"
-            | "server"
-            | "viewer"
-            | "controller"
-            | "manager"
-            | "bartender"
-            | "barback"
-            | "kitchen"
-            | "security"
-            | "karaoke_main"
-            | "karaoke_staff"
-          role_id: string | null
+          role: "admin" | "server" | "viewer"
           created_at: string
           updated_at: string
-          pin_code: string | null
-          email: string | null
         }
         Insert: {
           id: string
           username: string
           name: string
-          role:
-            | "admin"
-            | "server"
-            | "viewer"
-            | "controller"
-            | "manager"
-            | "bartender"
-            | "barback"
-            | "kitchen"
-            | "security"
-            | "karaoke_main"
-            | "karaoke_staff"
-          role_id?: string | null
+          role: "admin" | "server" | "viewer"
           created_at?: string
           updated_at?: string
-          pin_code?: string | null
-          email?: string | null
         }
         Update: {
           id?: string
           username?: string
           name?: string
-          role?:
-            | "admin"
-            | "server"
-            | "viewer"
-            | "controller"
-            | "manager"
-            | "bartender"
-            | "barback"
-            | "kitchen"
-            | "security"
-            | "karaoke_main"
-            | "karaoke_staff"
-          role_id?: string | null
-          created_at?: string
-          updated_at?: string
-          pin_code?: string | null
-          email?: string | null
-        }
-      }
-      roles: {
-        Row: {
-          id: string
-          name: string
-          description: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          description?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          description?: string | null
+          role?: "admin" | "server" | "viewer"
           created_at?: string
           updated_at?: string
         }

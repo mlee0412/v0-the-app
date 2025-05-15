@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { MoreHorizontal, Pencil, Trash2, ShieldAlert, Shield } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, ShieldAlert, Shield, Eye, Coffee, Utensils, Lock, Mic } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { User } from "@/types/user"
+import { ADMIN_LEVEL_ROLES, STAFF_LEVEL_ROLES, USER_ROLE_LABELS } from "@/types/user"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -29,11 +30,10 @@ interface UserListProps {
   users: User[]
   loading: boolean
   onEditUser: (user: User) => void
-  onManagePermissions?: (userId: string) => void
   onRefresh: () => void
 }
 
-export function UserList({ users, loading, onEditUser, onManagePermissions, onRefresh }: UserListProps) {
+export function UserList({ users, loading, onEditUser, onRefresh }: UserListProps) {
   const { toast } = useToast()
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
@@ -67,56 +67,33 @@ export function UserList({ users, loading, onEditUser, onManagePermissions, onRe
   }
 
   const getRoleBadgeClass = (role: string) => {
-    switch (role) {
-      case "admin":
-      case "controller":
-        return "bg-purple-500 text-white"
-      case "manager":
-        return "bg-indigo-500 text-white"
-      case "server":
-        return "bg-blue-500 text-white"
-      case "bartender":
-        return "bg-cyan-500 text-white"
-      case "barback":
-        return "bg-teal-500 text-white"
-      case "kitchen":
-        return "bg-green-500 text-white"
-      case "security":
-        return "bg-red-500 text-white"
-      case "karaoke_main":
-        return "bg-pink-500 text-white"
-      case "karaoke_staff":
-        return "bg-fuchsia-500 text-white"
-      default:
-        return "bg-gray-500 text-white"
+    if (ADMIN_LEVEL_ROLES.includes(role as any)) {
+      return "bg-purple-500 text-white"
+    } else if (role === "server") {
+      return "bg-blue-500 text-white"
+    } else if (STAFF_LEVEL_ROLES.includes(role as any)) {
+      return "bg-green-500 text-white"
+    } else {
+      return "bg-gray-500 text-white"
     }
   }
 
   const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "admin":
-      case "controller":
-        return <ShieldAlert className="h-4 w-4 mr-1" />
-      case "manager":
-      case "server":
-      case "bartender":
-      case "barback":
-      case "kitchen":
-      case "security":
-      case "karaoke_main":
-      case "karaoke_staff":
-        return <Shield className="h-4 w-4 mr-1" />
-      default:
-        return null
+    if (role === "admin" || role === "controller" || role === "manager") {
+      return <ShieldAlert className="h-4 w-4 mr-1" />
+    } else if (role === "server") {
+      return <Shield className="h-4 w-4 mr-1" />
+    } else if (role === "bartender" || role === "barback") {
+      return <Coffee className="h-4 w-4 mr-1" />
+    } else if (role === "kitchen") {
+      return <Utensils className="h-4 w-4 mr-1" />
+    } else if (role === "security") {
+      return <Lock className="h-4 w-4 mr-1" />
+    } else if (role === "karaoke_main" || role === "karaoke_staff") {
+      return <Mic className="h-4 w-4 mr-1" />
+    } else {
+      return <Eye className="h-4 w-4 mr-1" />
     }
-  }
-
-  // Format role name for display
-  const formatRoleName = (name: string) => {
-    return name
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
   }
 
   if (loading) {
@@ -163,7 +140,7 @@ export function UserList({ users, loading, onEditUser, onManagePermissions, onRe
                 )}`}
               >
                 {getRoleIcon(user.role)}
-                {formatRoleName(user.role)}
+                {USER_ROLE_LABELS[user.role as any] || user.role.charAt(0).toUpperCase() + user.role.slice(1)}
               </span>
             </div>
 
@@ -187,15 +164,6 @@ export function UserList({ users, loading, onEditUser, onManagePermissions, onRe
                     <Pencil className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  {onManagePermissions && (
-                    <DropdownMenuItem
-                      className="flex items-center cursor-pointer hover:bg-gray-700"
-                      onClick={() => onManagePermissions(user.id)}
-                    >
-                      <ShieldAlert className="mr-2 h-4 w-4" />
-                      Permissions
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuSeparator className="bg-gray-700" />
                   <DropdownMenuItem
                     className="flex items-center cursor-pointer text-red-500 hover:bg-gray-700 hover:text-red-500"

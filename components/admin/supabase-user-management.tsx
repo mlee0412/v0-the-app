@@ -1,606 +1,233 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { UserPlus, Users, RefreshCw, AlertCircle } from "lucide-react"
+import { UserForm } from "@/components/admin/user-form"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Plus, Trash2, Edit, Key } from "lucide-react"
-import { createUser, getUsers, updateUser, deleteUser, getRoles } from "@/actions/user-actions"
-import { toast } from "@/components/ui/use-toast"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import { PermissionsForm } from "./permissions-form"
-import type { User } from "@/types/user"
+import { USER_ROLE_LABELS, type UserRole } from "@/types/user"
+import supabaseAuthService from "@/services/supabase-auth-service"
 
-// Changed from default export to named export
 export function SupabaseUserManagement() {
-  const [users, setUsers] = useState<User[]>([])
-  const [roles, setRoles] = useState<any[]>([])
+  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [formOpen, setFormOpen] = useState(false)
-  const [editFormOpen, setEditFormOpen] = useState(false)
-  const [passwordFormOpen, setPasswordFormOpen] = useState(false)
-  const [permissionsFormOpen, setPermissionsFormOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    username: "",
-    email: "",
-    role: "staff",
-    pin_code: "",
-  })
-  const [editData, setEditData] = useState({
-    id: "",
-    name: "",
-    username: "",
-    role: "",
-  })
-  const [passwordData, setPasswordData] = useState({
-    id: "",
-    pin_code: "",
-  })
+  const [error, setError] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<any | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [activeTab, setActiveTab] = useState("users")
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
+  // Fetch users on component mount and when refreshTrigger changes
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true)
+        const fetchedUsers = await supabaseAuthService.getUsers()
+        setUsers(fetchedUsers)
+        setError(null)
+      } catch (err) {
+        console.error("Error fetching users:", err)
+        setError("Failed to load users. Please try again.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchUsers()
-    fetchRoles()
-  }, [])
+  }, [refreshTrigger])
 
-  const fetchUsers = async () => {
+  // Filter users based on search term
+  const filteredUsers = users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      USER_ROLE_LABELS[user.role as UserRole]?.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const handleAddUser = async (userData: any) => {
     try {
       setLoading(true)
-      const data = await getUsers()
-      setUsers(data)
-    } catch (error) {
-      console.error("Error fetching users:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load users. Please try again.",
-        variant: "destructive",
-      })
+      await supabaseAuthService.addUser(userData)
+      setShowAddForm(false)
+      setRefreshTrigger((prev) => prev + 1) // Trigger refresh
+    } catch (err) {
+      console.error("Error adding user:", err)
+      setError("Failed to add user. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchRoles = async () => {
-    try {
-      const data = await getRoles()
-      setRoles(data)
-    } catch (error) {
-      console.error("Error fetching roles:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load roles. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setEditData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setPasswordData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleRoleChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, role: value }))
-  }
-
-  const handleEditRoleChange = (value: string) => {
-    setEditData((prev) => ({ ...prev, role: value }))
-  }
-
-  const validatePinCode = (code: string) => {
-    return /^\d{4}$/.test(code)
-  }
-
-  const handleSubmitUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (formData.pin_code && !validatePinCode(formData.pin_code)) {
-      toast({
-        title: "Invalid PIN Code",
-        description: "PIN code must be exactly 4 digits",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleUpdateUser = async (userData: any) => {
+    if (!selectedUser) return
 
     try {
       setLoading(true)
-      console.log("Creating user with data:", formData)
-      const user = await createUser(formData)
-      console.log("User created:", user)
-      toast({
-        title: "Success",
-        description: "User created successfully",
-      })
-      setFormOpen(false)
-      setFormData({
-        name: "",
-        username: "",
-        email: "",
-        role: "staff",
-        pin_code: "",
-      })
-      fetchUsers()
-    } catch (error: any) {
-      console.error("Error saving user:", error)
-      toast({
-        title: "Error",
-        description: `Error saving user: ${error.message}`,
-        variant: "destructive",
-      })
+      await supabaseAuthService.updateUser(selectedUser.id, userData)
+      setSelectedUser(null)
+      setRefreshTrigger((prev) => prev + 1) // Trigger refresh
+    } catch (err) {
+      console.error("Error updating user:", err)
+      setError("Failed to update user. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleEditUser = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return
 
     try {
       setLoading(true)
-      await updateUser({
-        id: editData.id,
-        name: editData.name,
-        username: editData.username,
-        role: editData.role,
-      })
-      toast({
-        title: "Success",
-        description: "User updated successfully",
-      })
-      setEditFormOpen(false)
-      fetchUsers()
-    } catch (error: any) {
-      console.error("Error updating user:", error)
-      toast({
-        title: "Error",
-        description: `Error updating user: ${error.message}`,
-        variant: "destructive",
-      })
+      await supabaseAuthService.deleteUser(userId)
+      if (selectedUser?.id === userId) {
+        setSelectedUser(null)
+      }
+      setRefreshTrigger((prev) => prev + 1) // Trigger refresh
+    } catch (err) {
+      console.error("Error deleting user:", err)
+      setError("Failed to delete user. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validatePinCode(passwordData.pin_code)) {
-      toast({
-        title: "Invalid PIN Code",
-        description: "PIN code must be exactly 4 digits",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setLoading(true)
-      await updateUser({
-        id: passwordData.id,
-        name: selectedUser?.name || "",
-        username: selectedUser?.username || "",
-        role: selectedUser?.role || "",
-        pin_code: passwordData.pin_code,
-        changingPassword: true,
-      })
-      toast({
-        title: "Success",
-        description: "Password updated successfully",
-      })
-      setPasswordFormOpen(false)
-      setPasswordData({
-        id: "",
-        pin_code: "",
-      })
-    } catch (error: any) {
-      console.error("Error updating password:", error)
-      toast({
-        title: "Error",
-        description: `Error updating password: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDeleteUser = async (id: string) => {
-    try {
-      setLoading(true)
-      await deleteUser(id)
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-      })
-      fetchUsers()
-    } catch (error: any) {
-      console.error("Error deleting user:", error)
-      toast({
-        title: "Error",
-        description: `Error deleting user: ${error.message}`,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const openEditForm = (user: User) => {
-    setSelectedUser(user)
-    setEditData({
-      id: user.id,
-      name: user.name || "",
-      username: user.username || "",
-      role: user.role || "",
-    })
-    setEditFormOpen(true)
-  }
-
-  const openPasswordForm = (user: User) => {
-    setSelectedUser(user)
-    setPasswordData({
-      id: user.id,
-      pin_code: "",
-    })
-    setPasswordFormOpen(true)
-  }
-
-  const openPermissionsForm = (user: User) => {
-    setSelectedUser(user)
-    setPermissionsFormOpen(true)
-  }
-
-  const getRoleName = (roleId: string) => {
-    const role = roles.find((r) => r.id === roleId)
-    return role ? role.name : "Unknown"
+  const refreshUsers = () => {
+    setRefreshTrigger((prev) => prev + 1)
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">User Management</h1>
-        <Dialog open={formOpen} onOpenChange={setFormOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription>Create a new user account.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmitUser}>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="username" className="text-right">
-                    Username
-                  </Label>
-                  <Input
-                    id="username"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="email" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    required
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="role" className="text-right">
-                    Role
-                  </Label>
-                  <Select value={formData.role} onValueChange={handleRoleChange}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.name}>
-                          {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="pin_code" className="text-right">
-                    PIN Code
-                  </Label>
-                  <Input
-                    id="pin_code"
-                    name="pin_code"
-                    type="password"
-                    inputMode="numeric"
-                    pattern="\d{4}"
-                    maxLength={4}
-                    value={formData.pin_code}
-                    onChange={handleInputChange}
-                    className="col-span-3"
-                    placeholder="4-digit PIN"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save"
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+    <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-2 bg-gray-800 h-8">
+          <TabsTrigger value="users" className="data-[state=active]:bg-gray-700 h-8">
+            <Users className="h-4 w-4 mr-2" />
+            User List
+          </TabsTrigger>
+          <TabsTrigger value="add" className="data-[state=active]:bg-gray-700 h-8">
+            <UserPlus className="h-4 w-4 mr-2" />
+            {selectedUser ? "Edit User" : "Add User"}
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Users</CardTitle>
-          <CardDescription>Manage user accounts and permissions.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loading && users.length === 0 ? (
-            <div className="flex justify-center items-center h-40">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <TabsContent value="users" className="space-y-4 mt-4">
+          <div className="flex items-center justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Input
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Name</th>
-                    <th className="text-left py-3 px-4">Username</th>
-                    <th className="text-left py-3 px-4">Role</th>
-                    <th className="text-right py-3 px-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user.id} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-4">{user.name}</td>
-                      <td className="py-3 px-4">{user.username}</td>
-                      <td className="py-3 px-4">
-                        {user.roleData
-                          ? user.roleData.name.charAt(0).toUpperCase() + user.roleData.name.slice(1)
-                          : user.role_id
-                            ? getRoleName(user.role_id)
-                            : user.role}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="icon" onClick={() => openEditForm(user)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => openPasswordForm(user)}>
-                            <Key className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => openPermissionsForm(user)}>
-                            <span className="text-xs font-bold">P</span>
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="icon">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will permanently delete the user {user.name}. This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>Delete</AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshUsers}
+              disabled={loading}
+              className="border-cyan-500 text-cyan-500 hover:bg-cyan-950"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+
+          {error && (
+            <div className="bg-red-900/30 border border-red-700 text-red-200 p-3 rounded-md flex items-center">
+              <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+              <p className="text-sm">{error}</p>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Edit User Dialog */}
-      <Dialog open={editFormOpen} onOpenChange={setEditFormOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update user information.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleEditUser}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="edit-name"
-                  name="name"
-                  value={editData.name}
-                  onChange={handleEditInputChange}
-                  className="col-span-3"
-                  required
-                />
+          <ScrollArea className="h-[400px] rounded-md border border-gray-700 bg-gray-800 p-4">
+            {loading && !users.length ? (
+              <div className="flex justify-center items-center h-full">
+                <div className="animate-pulse text-gray-400">Loading users...</div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-username" className="text-right">
-                  Username
-                </Label>
-                <Input
-                  id="edit-username"
-                  name="username"
-                  value={editData.username}
-                  onChange={handleEditInputChange}
-                  className="col-span-3"
-                  required
-                />
+            ) : filteredUsers.length > 0 ? (
+              <div className="space-y-3">
+                {filteredUsers.map((user) => (
+                  <div
+                    key={user.id}
+                    className="p-3 rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-white">{user.name}</h3>
+                        <p className="text-sm text-gray-400">{user.email || "No email"}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-xs ${
+                              user.role === "admin" || user.role === "controller" || user.role === "manager"
+                                ? "bg-purple-900/50 text-purple-300 border border-purple-700"
+                                : user.role === "server" ||
+                                    user.role === "bartender" ||
+                                    user.role === "barback" ||
+                                    user.role === "kitchen" ||
+                                    user.role === "security" ||
+                                    user.role === "karaoke_main" ||
+                                    user.role === "karaoke_staff"
+                                  ? "bg-blue-900/50 text-blue-300 border border-blue-700"
+                                  : "bg-gray-800 text-gray-300 border border-gray-600"
+                            }`}
+                          >
+                            {USER_ROLE_LABELS[user.role as UserRole] || user.role}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedUser(user)
+                            setActiveTab("add")
+                          }}
+                          className="h-8 border-cyan-500 text-cyan-500 hover:bg-cyan-950"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="h-8 border-red-500 text-red-500 hover:bg-red-950"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-role" className="text-right">
-                  Role
-                </Label>
-                <Select value={editData.role} onValueChange={handleEditRoleChange}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.name}>
-                        {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            ) : (
+              <div className="flex justify-center items-center h-full">
+                <p className="text-gray-400">
+                  {searchTerm ? "No users match your search" : "No users found. Add some users to get started."}
+                </p>
               </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  "Update"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            )}
+          </ScrollArea>
+        </TabsContent>
 
-      {/* Change Password Dialog */}
-      <Dialog open={passwordFormOpen} onOpenChange={setPasswordFormOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Change PIN Code</DialogTitle>
-            <DialogDescription>Update user's PIN code.</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdatePassword}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="pin_code" className="text-right">
-                  New PIN
-                </Label>
-                <Input
-                  id="pin_code"
-                  name="pin_code"
-                  type="password"
-                  inputMode="numeric"
-                  pattern="\d{4}"
-                  maxLength={4}
-                  value={passwordData.pin_code}
-                  onChange={handlePasswordInputChange}
-                  className="col-span-3"
-                  placeholder="4-digit PIN"
-                  required
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  "Update PIN"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Permissions Dialog */}
-      <Dialog open={permissionsFormOpen} onOpenChange={setPermissionsFormOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>User Permissions</DialogTitle>
-            <DialogDescription>Manage permissions for {selectedUser?.name}.</DialogDescription>
-          </DialogHeader>
-          {selectedUser && <PermissionsForm userId={selectedUser.id} onSaved={() => setPermissionsFormOpen(false)} />}
-        </DialogContent>
-      </Dialog>
+        <TabsContent value="add" className="space-y-4 mt-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+            <h2 className="text-lg font-medium text-cyan-400 mb-4">{selectedUser ? "Edit User" : "Add New User"}</h2>
+            <UserForm
+              initialData={selectedUser}
+              onSubmit={selectedUser ? handleUpdateUser : handleAddUser}
+              onCancel={() => {
+                setSelectedUser(null)
+                setActiveTab("users")
+              }}
+              isLoading={loading}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
-
-// Also add a default export that exports the named function
-// This allows both import styles to work
-export default SupabaseUserManagement

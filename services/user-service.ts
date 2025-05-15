@@ -1,14 +1,5 @@
-// Add a deprecation notice to this service as it's being replaced by supabase-auth-service
-
-/**
- * @deprecated This service has been replaced by supabase-auth-service.ts
- * Please use that service for user management functionality.
- */
-
-// User types and roles
-import supabaseAuthService from "./supabase-auth-service"
-
-export type UserRole = "admin" | "server" | "viewer"
+import type { UserRole } from "@/types/user"
+import { createClient } from "@supabase/supabase-js"
 
 export interface Permission {
   canStartSession: boolean
@@ -37,6 +28,7 @@ export interface User {
 
 // Default permissions by role
 export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
+  // Admin level roles - full access
   admin: {
     canStartSession: true,
     canEndSession: true,
@@ -52,11 +44,42 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canManageUsers: true,
     canManageSettings: true,
   },
-  server: {
+  controller: {
     canStartSession: true,
     canEndSession: true,
     canAddTime: true,
     canSubtractTime: true,
+    canUpdateGuests: true,
+    canAssignServer: true,
+    canGroupTables: true,
+    canUngroupTable: true,
+    canMoveTable: true,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: true,
+    canManageSettings: true,
+  },
+  manager: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: true,
+    canUpdateGuests: true,
+    canAssignServer: true,
+    canGroupTables: true,
+    canUngroupTable: true,
+    canMoveTable: true,
+    canUpdateNotes: true,
+    canViewLogs: true,
+    canManageUsers: true,
+    canManageSettings: true,
+  },
+  // Staff level roles - operational access
+  server: {
+    canStartSession: true,
+    canEndSession: true,
+    canAddTime: true,
+    canSubtractTime: false,
     canUpdateGuests: true,
     canAssignServer: false, // Servers can only manage their own tables
     canGroupTables: false,
@@ -67,6 +90,97 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canManageUsers: false,
     canManageSettings: false,
   },
+  bartender: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  barback: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  kitchen: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  security: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  karaoke_main: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  karaoke_staff: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  // View only role
   viewer: {
     canStartSession: false,
     canEndSession: false,
@@ -126,8 +240,12 @@ const DEFAULT_USERS: User[] = [
 class UserService {
   private initialized = false
   private isBrowser = typeof window !== "undefined"
+  private supabaseUrl: string
+  private supabaseKey: string
 
   constructor() {
+    this.supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+    this.supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
     this.initialize()
   }
 
@@ -136,69 +254,84 @@ class UserService {
     this.initialized = true
   }
 
-  async getUsers(): Promise<User[]> {
-    return supabaseAuthService.getUsers()
+  async createUser(userData: any) {
+    try {
+      const response = await fetch("/api/staff/members", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to create user")
+      }
+
+      return await response.json()
+    } catch (error: any) {
+      console.error("Error in createUser:", error)
+      throw error
+    }
   }
 
-  async addUser(user: User) {
-    return supabaseAuthService.addUser(user)
+  async getUsers() {
+    try {
+      const response = await fetch("/api/staff/members")
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch users: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error: any) {
+      console.error("Error in getUsers:", error)
+      throw error
+    }
   }
 
-  async updateUser(user: User) {
-    return supabaseAuthService.updateUser(user)
+  async updateUser(userId: string, userData: any) {
+    try {
+      const supabase = createClient(this.supabaseUrl, this.supabaseKey)
+
+      const { data, error } = await supabase.from("staff_members").update(userData).eq("id", userId).select()
+
+      if (error) throw error
+      return data?.[0]
+    } catch (error: any) {
+      console.error("Error in updateUser:", error)
+      throw error
+    }
   }
 
   async deleteUser(userId: string) {
-    return supabaseAuthService.deleteUser(userId)
+    try {
+      const supabase = createClient(this.supabaseUrl, this.supabaseKey)
+
+      const { error } = await supabase.from("staff_members").delete().eq("id", userId)
+
+      if (error) throw error
+      return true
+    } catch (error: any) {
+      console.error("Error in deleteUser:", error)
+      throw error
+    }
   }
 
-  getUserById(userId: string): Promise<User | null> {
-    return supabaseAuthService.getUserById(userId)
-  }
+  async getRoles() {
+    try {
+      const response = await fetch("/api/staff/roles")
 
-  getUserByUsername(username: string): Promise<User | null> {
-    return supabaseAuthService.getUserByUsername(username)
-  }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch roles: ${response.status}`)
+      }
 
-  getUsersByRole(role: UserRole): Promise<User[]> {
-    return supabaseAuthService.getUsersByRole(role)
-  }
-
-  authenticate(username: string, password: string): Promise<User | null> {
-    return supabaseAuthService.authenticate(username, password)
-  }
-
-  getCurrentUser(): Promise<User | null> {
-    return supabaseAuthService.getCurrentUser()
-  }
-
-  logout() {
-    return supabaseAuthService.logout()
-  }
-
-  isAuthenticated(): Promise<boolean> {
-    return supabaseAuthService.isAuthenticated()
-  }
-
-  hasRole(role: UserRole): Promise<boolean> {
-    return supabaseAuthService.hasRole(role)
-  }
-
-  isAdmin(): Promise<boolean> {
-    return supabaseAuthService.isAdmin()
-  }
-
-  isServer(): Promise<boolean> {
-    return supabaseAuthService.isServer()
-  }
-
-  hasPermission(permission: keyof Permission): Promise<boolean> {
-    return supabaseAuthService.hasPermission(permission)
-  }
-
-  // Subscribe to user changes
-  subscribeToUsers(callback: (users: User[]) => void): () => void {
-    return supabaseAuthService.subscribeToUsers(callback)
+      return await response.json()
+    } catch (error: any) {
+      console.error("Error in getRoles:", error)
+      throw error
+    }
   }
 }
 

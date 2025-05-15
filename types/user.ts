@@ -1,19 +1,14 @@
 export interface User {
   id: string
-  auth_id?: string
-  username: string
-  email?: string // Added email field
   name: string
-  role?: string
-  role_id?: string
-  pin_code?: string
-  created_at?: string
-  updated_at?: string
-  roleData?: any
+  username: string
+  email: string
+  role: string
+  created_at: string
+  updated_at: string
 }
 
 export interface Permissions {
-  user_id?: string
   can_start_session: boolean
   can_end_session: boolean
   can_add_time: boolean
@@ -27,6 +22,44 @@ export interface Permissions {
   can_view_logs: boolean
   can_manage_users: boolean
   can_manage_settings: boolean
-  created_at?: string
-  updated_at?: string
 }
+
+export type UserRole =
+  | "admin"
+  | "manager"
+  | "controller"
+  | "server"
+  | "bartender"
+  | "barback"
+  | "kitchen"
+  | "security"
+  | "karaoke_main"
+  | "karaoke_staff"
+  | "viewer"
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Administrator",
+  controller: "Controller",
+  manager: "Manager",
+  server: "Server",
+  bartender: "Bartender",
+  barback: "Barback",
+  kitchen: "Kitchen",
+  security: "Security",
+  karaoke_main: "Karaoke Main",
+  karaoke_staff: "Karaoke Staff",
+  viewer: "Viewer",
+}
+
+// Group roles by permission level for easier management
+export const ADMIN_LEVEL_ROLES: UserRole[] = ["admin", "manager", "controller"]
+export const STAFF_LEVEL_ROLES: UserRole[] = [
+  "server",
+  "bartender",
+  "barback",
+  "kitchen",
+  "security",
+  "karaoke_main",
+  "karaoke_staff",
+]
+export const VIEW_ONLY_ROLES: UserRole[] = ["viewer"]

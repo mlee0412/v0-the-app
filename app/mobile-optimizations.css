@@ -17,8 +17,8 @@
 }
 
 .touch-feedback:active {
-  transform: scale(0.95);
-  opacity: 0.8;
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
 }
 
 /* Pull to refresh indicator */
@@ -524,4 +524,73 @@
 
 .scroll-direction-down {
   bottom: 120px;
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 1024px) {
+  /* Hide the touch test button on mobile devices */
+  .touch-test-button {
+    display: none !important;
+  }
+
+  /* Improve spacing in header for mobile */
+  .mobile-header-container {
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Ensure buttons don't overlap */
+  .mobile-header-buttons {
+    gap: 0.5rem;
+  }
+
+  /* Improve table card touch targets */
+  .table-card {
+    min-height: 120px;
+    touch-action: manipulation;
+  }
+
+  /* Ensure proper spacing between elements */
+  .mobile-spacing {
+    margin: 0.5rem 0;
+  }
+
+  /* Improve bottom navigation */
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid rgba(0, 139, 163, 0.3);
+  }
+
+  /* Ensure proper spacing in dialogs */
+  .mobile-dialog {
+    padding: 1rem;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  /* iPad specific adjustments */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .table-grid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .table-card {
+      min-height: 150px;
+    }
+  }
+}
+
+/* Ensure proper spacing for header buttons */
+.header-button-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Ensure login button doesn't overlap with other elements */
+.login-button {
+  margin-left: 0.5rem;
 }

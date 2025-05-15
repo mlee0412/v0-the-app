@@ -1,20 +1,8 @@
 import { getSupabaseClient } from "@/lib/supabase/client"
 import { v4 as uuidv4 } from "uuid"
+import { type UserRole, ADMIN_LEVEL_ROLES } from "@/types/user"
 
 // Define user roles and default permissions
-export type UserRole =
-  | "admin"
-  | "server"
-  | "viewer"
-  | "controller"
-  | "manager"
-  | "bartender"
-  | "barback"
-  | "kitchen"
-  | "security"
-  | "karaoke_main"
-  | "karaoke_staff"
-
 interface Permission {
   canStartSession: boolean
   canEndSession: boolean
@@ -33,6 +21,7 @@ interface Permission {
 
 // Define default permissions for each role
 const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
+  // Admin level roles - full access
   admin: {
     canStartSession: true,
     canEndSession: true,
@@ -75,16 +64,17 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canMoveTable: true,
     canUpdateNotes: true,
     canViewLogs: true,
-    canManageUsers: false,
-    canManageSettings: false,
+    canManageUsers: true,
+    canManageSettings: true,
   },
+  // Staff level roles - operational access
   server: {
     canStartSession: true,
     canEndSession: true,
     canAddTime: true,
     canSubtractTime: false,
     canUpdateGuests: true,
-    canAssignServer: false,
+    canAssignServer: false, // Servers can only manage their own tables
     canGroupTables: false,
     canUngroupTable: false,
     canMoveTable: false,
@@ -94,17 +84,17 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canManageSettings: false,
   },
   bartender: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
     canSubtractTime: false,
-    canUpdateGuests: true,
+    canUpdateGuests: false,
     canAssignServer: false,
     canGroupTables: false,
     canUngroupTable: false,
     canMoveTable: false,
-    canUpdateNotes: true,
-    canViewLogs: true,
+    canUpdateNotes: false,
+    canViewLogs: false,
     canManageUsers: false,
     canManageSettings: false,
   },
@@ -149,40 +139,41 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
     canUngroupTable: false,
     canMoveTable: false,
     canUpdateNotes: false,
-    canViewLogs: true,
-    canManageUsers: false,
-    canManageSettings: false,
-  },
-  karaoke_main: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: false,
-    canUpdateGuests: true,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: true,
-    canViewLogs: true,
-    canManageUsers: false,
-    canManageSettings: false,
-  },
-  karaoke_staff: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: false,
-    canUpdateGuests: true,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: true,
     canViewLogs: false,
     canManageUsers: false,
     canManageSettings: false,
   },
+  karaoke_main: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  karaoke_staff: {
+    canStartSession: false,
+    canEndSession: false,
+    canAddTime: false,
+    canSubtractTime: false,
+    canUpdateGuests: false,
+    canAssignServer: false,
+    canGroupTables: false,
+    canUngroupTable: false,
+    canMoveTable: false,
+    canUpdateNotes: false,
+    canViewLogs: false,
+    canManageUsers: false,
+    canManageSettings: false,
+  },
+  // View only role
   viewer: {
     canStartSession: false,
     canEndSession: false,
@@ -203,7 +194,8 @@ const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
 // Define user interface
 export interface User {
   id: string
-  username: string
+  email: string
+  username?: string
   name: string
   role: UserRole
   pin_code?: string
@@ -215,115 +207,92 @@ export interface User {
 class SupabaseAuthService {
   DEFAULT_PERMISSIONS = DEFAULT_PERMISSIONS
   private isBrowser = typeof window !== "undefined"
+  private supabase = getSupabaseClient()
+  private currentUser: any = null
+  private userPermissions: any = null
 
-  // Authenticate a user with username and PIN code
-  async authenticate(nameOrUsername: string, pinCode: string) {
-    try {
-      const supabase = getSupabaseClient()
-
-      // Special case for Administrator with hardcoded PIN
-      if (
-        (nameOrUsername.toLowerCase() === "administrator" || nameOrUsername.toLowerCase() === "admin") &&
-        pinCode === "2162"
-      ) {
-        const adminUser = {
-          id: "admin-" + uuidv4().substring(0, 8),
-          username: "admin",
-          name: "Administrator",
-          role: "admin" as UserRole,
-          pin_code: "2162",
-          permissions: DEFAULT_PERMISSIONS.admin,
+  constructor() {
+    // Initialize current user from local storage if available
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("currentUser")
+      if (storedUser) {
+        try {
+          this.currentUser = JSON.parse(storedUser)
+        } catch (e) {
+          console.error("Error parsing stored user:", e)
+          localStorage.removeItem("currentUser")
         }
-        return adminUser
       }
+    }
+  }
 
-      // Try to find user in the users table
-      const { data: user, error } = await supabase
-        .from("users")
-        .select("*")
-        .or(`username.eq.${nameOrUsername},name.eq.${nameOrUsername}`)
-        .limit(1)
+  // Authenticate a user with user ID and PIN code
+  async authenticate(userId: string, pinCode: string) {
+    try {
+      // Use the API endpoint for authentication
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId, pinCode }),
+      })
 
-      if (error) {
-        console.error("Error authenticating from users table:", error)
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Authentication error:", errorData)
         return null
       }
 
-      // If user found in users table
-      if (user && user.length > 0) {
-        const foundUser = user[0]
+      const data = await response.json()
 
-        // Check PIN code - STRICT COMPARISON
-        if (foundUser.pin_code === pinCode) {
-          // Get permissions if they exist
-          const { data: permissions } = await supabase
-            .from("user_permissions")
-            .select("*")
-            .eq("user_id", foundUser.id)
-            .limit(1)
-
-          return {
-            id: foundUser.id,
-            username: foundUser.username || foundUser.name.toLowerCase().replace(/\s+/g, ""),
-            name: foundUser.name,
-            role: foundUser.role,
-            pin_code: foundUser.pin_code,
-            permissions: permissions && permissions.length > 0 ? permissions[0] : DEFAULT_PERMISSIONS[foundUser.role],
-            created_at: foundUser.created_at,
-            updated_at: foundUser.updated_at,
-          }
-        } else {
-          console.log("PIN code mismatch for user:", foundUser.username)
-          return null // PIN code doesn't match
+      if (data.success && data.user) {
+        // Store the user in memory and localStorage
+        this.currentUser = data.user
+        if (typeof window !== "undefined") {
+          localStorage.setItem("currentUser", JSON.stringify(data.user))
         }
+
+        return data.user
       }
 
-      return null // User not found
+      return null
     } catch (error) {
       console.error("Authentication error:", error)
       return null
     }
   }
 
-  // Get all users
+  // Get all users - use a fetch API call to bypass RLS issues
   async getUsers() {
     try {
-      const supabase = getSupabaseClient()
-
-      // Get users from the users table
-      const { data: users, error } = await supabase.from("users").select("*")
-
-      if (error) {
-        console.error("Error fetching users:", error)
-        // Return default admin user as fallback
-        return [
-          {
-            id: "admin-" + uuidv4().substring(0, 8),
-            username: "admin",
-            name: "Administrator",
-            role: "admin" as UserRole,
-            pin_code: "2162",
-            permissions: DEFAULT_PERMISSIONS.admin,
-          },
-        ]
+      // Use fetch to call our API endpoint instead of direct Supabase query
+      const response = await fetch("/api/staff/members")
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
+      const data = await response.json()
 
-      // Map users to the expected format
-      const allUsers = users.map((user) => ({
+      // Format users from the API response
+      const formattedUsers = (data || []).map((user: any) => ({
         id: user.id,
-        username: user.username || user.name.toLowerCase().replace(/\s+/g, ""),
-        name: user.name,
-        role: user.role,
+        email: user.email || "",
+        username: user.email || user.first_name.toLowerCase().replace(/\s+/g, ""),
+        name: user.first_name,
+        display_name: user.display_name || user.first_name,
+        role: user.role?.toLowerCase() || "viewer",
         pin_code: user.pin_code,
-        permissions: DEFAULT_PERMISSIONS[user.role],
+        permissions: DEFAULT_PERMISSIONS[user.role?.toLowerCase() || "viewer"],
         created_at: user.created_at,
         updated_at: user.updated_at,
+        auth_id: user.auth_id,
       }))
 
       // Ensure Administrator is always available
-      if (!allUsers.some((u) => u.username === "admin" || u.name.toLowerCase() === "administrator")) {
-        allUsers.push({
+      if (!formattedUsers.some((u) => u.email === "admin@example.com" || u.username === "admin")) {
+        formattedUsers.push({
           id: "admin-" + uuidv4().substring(0, 8),
+          email: "admin@example.com",
           username: "admin",
           name: "Administrator",
           role: "admin",
@@ -332,7 +301,7 @@ class SupabaseAuthService {
         })
       }
 
-      return allUsers
+      return formattedUsers
     } catch (error) {
       console.error("Error fetching users:", error)
 
@@ -340,6 +309,7 @@ class SupabaseAuthService {
       return [
         {
           id: "admin-" + uuidv4().substring(0, 8),
+          email: "admin@example.com",
           username: "admin",
           name: "Administrator",
           role: "admin",
@@ -350,33 +320,29 @@ class SupabaseAuthService {
     }
   }
 
+  // The rest of the methods remain the same...
   // Add a new user
   async addUser(userData: any) {
     try {
-      const supabase = getSupabaseClient()
+      // Use API endpoint to bypass RLS
+      const response = await fetch("/api/staff/members", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      })
 
-      // Add user to the users table
-      const { data, error } = await supabase
-        .from("users")
-        .insert([
-          {
-            username: userData.username,
-            name: userData.name,
-            pin_code: userData.pin_code,
-            role: userData.role,
-          },
-        ])
-        .select()
-
-      if (error) {
-        console.error("Error adding user:", error)
-        throw error
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
+
+      const data = await response.json()
 
       // Broadcast user update
       this.broadcastUserUpdate()
 
-      return data?.[0]
+      return data
     } catch (error) {
       console.error("Error adding user:", error)
       throw error
@@ -386,29 +352,25 @@ class SupabaseAuthService {
   // Update an existing user
   async updateUser(userId: string, userData: any) {
     try {
-      const supabase = getSupabaseClient()
+      // Use API endpoint to bypass RLS
+      const response = await fetch(`/api/staff/members/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userData),
+      })
 
-      // Update user in the users table
-      const { data, error } = await supabase
-        .from("users")
-        .update({
-          username: userData.username,
-          name: userData.name,
-          pin_code: userData.pin_code,
-          role: userData.role,
-        })
-        .eq("id", userId)
-        .select()
-
-      if (error) {
-        console.error("Error updating user:", error)
-        throw error
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
+
+      const data = await response.json()
 
       // Broadcast user update
       this.broadcastUserUpdate()
 
-      return data?.[0]
+      return data
     } catch (error) {
       console.error("Error updating user:", error)
       throw error
@@ -418,14 +380,13 @@ class SupabaseAuthService {
   // Delete a user
   async deleteUser(userId: string) {
     try {
-      const supabase = getSupabaseClient()
+      // Use API endpoint to bypass RLS
+      const response = await fetch(`/api/staff/members/${userId}`, {
+        method: "DELETE",
+      })
 
-      // Delete from the users table
-      const { error } = await supabase.from("users").delete().eq("id", userId)
-
-      if (error) {
-        console.error("Error deleting user:", error)
-        throw error
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
 
       // Broadcast user update
@@ -438,24 +399,81 @@ class SupabaseAuthService {
     }
   }
 
+  // Get user permissions
+  async getUserPermissions(userId: string) {
+    try {
+      // Use API endpoint to bypass RLS
+      const response = await fetch(`/api/staff/permissions/${userId}`)
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error getting user permissions:", error)
+      return null
+    }
+  }
+
+  // Update user permissions
+  async updateUserPermissions(userId: string, permissions: any) {
+    try {
+      // Use API endpoint to bypass RLS
+      const response = await fetch(`/api/staff/permissions/${userId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(permissions),
+      })
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error updating permissions:", error)
+      throw error
+    }
+  }
+
+  // Get all roles
+  async getRoles() {
+    try {
+      // Use API endpoint to bypass RLS
+      const response = await fetch("/api/staff/roles")
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error("Error fetching roles:", error)
+      throw error
+    }
+  }
+
   // Check if a user has a specific permission
   async hasPermission(permission: string): Promise<boolean> {
     try {
       const user = await this.getCurrentUser()
       if (!user) return false
 
-      // Admin always has all permissions
-      if (user.role === "admin" || user.name?.toLowerCase() === "administrator") {
+      // Admin level roles always have all permissions
+      if (ADMIN_LEVEL_ROLES.includes(user.role as UserRole)) {
         return true
       }
 
       // Check user's specific permissions
       if (user.permissions && permission in user.permissions) {
-        return user.permissions[permission as keyof Permission]
+        return user.permissions[permission as keyof typeof user.permissions]
       }
 
       // Fall back to default permissions for role
-      return DEFAULT_PERMISSIONS[user.role][permission as keyof Permission] || false
+      return DEFAULT_PERMISSIONS[user.role as UserRole][permission as keyof Permission] || false
     } catch (error) {
       console.error("Error checking permission:", error)
       return false
@@ -491,7 +509,7 @@ class SupabaseAuthService {
   async isAdmin() {
     try {
       const user = await this.getCurrentUser()
-      return user?.role === "admin" || user?.name?.toLowerCase() === "administrator"
+      return ADMIN_LEVEL_ROLES.includes(user?.role as UserRole)
     } catch (error) {
       console.error("Error checking admin status:", error)
       return false
@@ -513,6 +531,9 @@ class SupabaseAuthService {
   async logout() {
     try {
       localStorage.removeItem("currentUser")
+
+      // Also sign out from Supabase Auth
+      await this.supabase.auth.signOut()
     } catch (error) {
       console.error("Error logging out:", error)
     }
@@ -529,10 +550,10 @@ class SupabaseAuthService {
     const supabase = getSupabaseClient()
 
     try {
-      // Try to subscribe to users table
+      // Try to subscribe to staff_members table
       subscription = supabase
-        .channel("users-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "users" }, () => {
+        .channel("staff-changes")
+        .on("postgres_changes", { event: "*", schema: "public", table: "staff_members" }, () => {
           this.getUsers().then(callback)
         })
         .subscribe()

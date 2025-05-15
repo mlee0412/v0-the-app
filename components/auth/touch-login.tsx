@@ -4,9 +4,8 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { LockIcon, UserIcon, Loader2 } from "lucide-react"
-import { getUsers } from "@/actions/user-actions"
-import { toast } from "@/components/ui/use-toast"
+import { LockIcon, UserIcon } from "lucide-react"
+import supabaseAuthService from "@/services/supabase-auth-service"
 
 interface TouchLoginProps {
   isOpen: boolean
@@ -20,25 +19,15 @@ export function TouchLogin({ isOpen, onClose, onLogin }: TouchLoginProps) {
   const [pinCode, setPinCode] = useState<string>("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [loadingUsers, setLoadingUsers] = useState(true)
 
   // Fetch users on component mount
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        setLoadingUsers(true)
-        const fetchedUsers = await getUsers()
-        setUsers(fetchedUsers)
-        console.log("Fetched users:", fetchedUsers)
+        const users = await supabaseAuthService.getUsers()
+        setUsers(users)
       } catch (err) {
         console.error("Error fetching users:", err)
-        toast({
-          title: "Error",
-          description: "Failed to load users. Please try again.",
-          variant: "destructive",
-        })
-      } finally {
-        setLoadingUsers(false)
       }
     }
 
@@ -64,37 +53,16 @@ export function TouchLogin({ isOpen, onClose, onLogin }: TouchLoginProps) {
     setError(null)
 
     try {
-      // Find the selected user
-      const user = users.find((u) => u.username === selectedUser)
+      const user = await supabaseAuthService.authenticate(selectedUser, pinCode)
 
-      if (!user) {
-        throw new Error("User not found")
+      if (user) {
+        // Store user in localStorage
+        localStorage.setItem("currentUser", JSON.stringify(user))
+        onLogin(user)
+        onClose()
+      } else {
+        setError("Invalid PIN code")
       }
-
-      // Create a user object with permissions
-      const userWithPermissions = {
-        ...user,
-        permissions: {
-          canStartSession: user.role !== "viewer",
-          canEndSession: user.role !== "viewer",
-          canAddTime: user.role !== "viewer",
-          canSubtractTime: user.role !== "viewer",
-          canUpdateGuests: user.role !== "viewer",
-          canAssignServer: user.role === "admin",
-          canGroupTables: user.role === "admin",
-          canUngroupTable: user.role === "admin",
-          canMoveTable: user.role === "admin",
-          canUpdateNotes: user.role !== "viewer",
-          canViewLogs: true,
-          canManageUsers: user.role === "admin",
-          canManageSettings: user.role === "admin",
-        },
-      }
-
-      // Store user in localStorage
-      localStorage.setItem("currentUser", JSON.stringify(userWithPermissions))
-      onLogin(userWithPermissions)
-      onClose()
     } catch (err) {
       console.error("Login error:", err)
       setError("An error occurred during login")
@@ -134,24 +102,18 @@ export function TouchLogin({ isOpen, onClose, onLogin }: TouchLoginProps) {
               <UserIcon className="h-4 w-4" />
               Select User
             </label>
-            {loadingUsers ? (
-              <div className="flex justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
-              </div>
-            ) : (
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger className="w-full h-12 bg-gray-800 border-cyan-500 text-white">
-                  <SelectValue placeholder="Select a user" />
-                </SelectTrigger>
-                <SelectContent className="bg-gray-800 border-cyan-500 text-white">
-                  {users.map((user) => (
-                    <SelectItem key={user.username} value={user.username} className="hover:bg-gray-700">
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Select value={selectedUser} onValueChange={setSelectedUser}>
+              <SelectTrigger className="w-full h-12 bg-gray-800 border-cyan-500 text-white">
+                <SelectValue placeholder="Select a user" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-800 border-cyan-500 text-white max-h-[300px]">
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.email || user.username}>
+                    {user.name} ({user.email || user.username})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* PIN Code Display */}

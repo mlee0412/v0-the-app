@@ -207,7 +207,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[800px] bg-gray-900 text-white border-gray-700 max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-[800px] bg-gray-900 text-white border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-0">
           <DialogTitle className="text-lg text-purple-400 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -222,7 +222,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-2 my-2">
+        <div className="space-y-2 my-2 flex-1 overflow-hidden flex flex-col">
           {/* Search and filter bar */}
           <div className="flex flex-wrap gap-2">
             <div className="relative flex-grow">
@@ -249,7 +249,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
               <SelectTrigger className="w-[120px] h-8 text-xs bg-gray-800 border-gray-700">
                 <SelectValue placeholder="Table" />
               </SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-700 text-white">
+              <SelectContent className="bg-gray-800 border-gray-700 text-white max-h-[200px]">
                 <SelectItem value="all">All Tables</SelectItem>
                 {uniqueTables.map((table) => (
                   <SelectItem key={table} value={table}>
@@ -263,7 +263,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
               <SelectTrigger className="w-[140px] h-8 text-xs bg-gray-800 border-gray-700">
                 <SelectValue placeholder="Action" />
               </SelectTrigger>
-              <SelectContent className="bg-gray-800 border-gray-700 text-white">
+              <SelectContent className="bg-gray-800 border-gray-700 text-white max-h-[200px]">
                 <SelectItem value="all">All Actions</SelectItem>
                 {uniqueActions.map((action) => (
                   <SelectItem key={action} value={action}>
@@ -299,7 +299,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
 
           {/* Custom date range inputs (only shown when custom range is selected) */}
           {filterTimeRange === "custom" && (
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3 text-gray-400" />
                 <span className="text-xs text-gray-400">From:</span>
@@ -337,7 +337,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
           </Tabs>
 
           {/* Sort buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <SpaceButton
               variant={sortField === "timestamp" ? "default" : "outline"}
               size="sm"
@@ -412,7 +412,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
           </div>
 
           {/* Log entries */}
-          <ScrollArea className="h-[400px] rounded-md border border-gray-700 bg-gray-800 p-2">
+          <ScrollArea className="flex-1 rounded-md border border-gray-700 bg-gray-800 p-2">
             {viewMode === "all" ? (
               // Chronological view
               sortedLogs.length > 0 ? (
@@ -480,7 +480,7 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
           </ScrollArea>
         </div>
 
-        <div className="flex justify-end pt-1">
+        <div className="flex justify-end pt-1 shrink-0">
           <Button onClick={onClose} className="bg-gray-700 hover:bg-gray-600 h-7 text-xs">
             Close
           </Button>

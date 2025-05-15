@@ -9,26 +9,22 @@ import {
   FileText,
   LogOut,
   BookOpen,
-  Loader2,
-  Settings,
-  AlertTriangle,
+  UserPlus,
+  Edit,
+  RefreshCw,
 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserManual } from "@/components/user-manual"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { USER_ROLE_LABELS, type UserRole } from "@/types/user"
+import supabaseAuthService from "@/services/supabase-auth-service"
+import { useToast } from "@/hooks/use-toast"
 import type { Server, NoteTemplate } from "@/components/billiards-timer-dashboard"
 import { useAuth } from "@/contexts/auth-context"
-import { getUsers } from "@/actions/user-actions"
-import type { User } from "@/types/user"
+import { AddUserDialog } from "@/components/add-user-dialog"
 
 interface SettingsDialogProps {
   open: boolean
@@ -55,50 +51,65 @@ export function SettingsDialog({
   onLogout,
   showAdminControls,
 }: SettingsDialogProps) {
+  const { toast } = useToast()
   const { currentUser } = useAuth()
   const [selectedTab, setSelectedTab] = useState("servers")
   const [editedServers, setEditedServers] = useState<Server[]>([...servers])
   const [newServerName, setNewServerName] = useState("")
   const [editedTemplates, setEditedTemplates] = useState<NoteTemplate[]>([...noteTemplates])
   const [newTemplateText, setNewTemplateText] = useState("")
-  const [users, setUsers] = useState<User[]>([])
-  const [loadingUsers, setLoadingUsers] = useState(false)
-  const [warningDialogOpen, setWarningDialogOpen] = useState(false)
-  const [warningMessage, setWarningMessage] = useState("")
 
-  // Check if user has admin privileges
-  const hasAdminAccess =
-    currentUser?.role === "admin" || currentUser?.role === "controller" || currentUser?.role === "manager"
+  // User management state
+  const [users, setUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedUser, setSelectedUser] = useState<any | null>(null)
+  const [adminSubTab, setAdminSubTab] = useState("userList")
+  const [searchTerm, setSearchTerm] = useState("")
 
-  // Fetch users from database
+  // Predefined server list
+  const predefinedServers = ["Mike", "Ji", "Gun", "Alex", "Lucy", "Tanya", "Ian", "Rolando", "Alexa", "Diego", "BB"]
+
+  // Initialize servers if empty
+  useState(() => {
+    if (editedServers.length === 0) {
+      const initialServers = predefinedServers.map((name, index) => ({
+        id: `server-${index + 1}`,
+        name,
+        enabled: true,
+      }))
+      setEditedServers(initialServers)
+    }
+  })
+
+  // Fetch users when admin tab is selected
   useEffect(() => {
-    if (open) {
+    if (selectedTab === "admin" && adminSubTab === "userList") {
       fetchUsers()
     }
-  }, [open])
+  }, [selectedTab, adminSubTab])
 
   const fetchUsers = async () => {
     try {
-      setLoadingUsers(true)
-      const fetchedUsers = await getUsers()
+      setLoading(true)
+      const fetchedUsers = await supabaseAuthService.getUsers()
       setUsers(fetchedUsers)
-
-      // Update servers list based on users
-      const updatedServers = fetchedUsers.map((user) => ({
-        id: user.id,
-        name: user.name,
-        enabled: servers.some((s) => s.id === user.id)
-          ? servers.find((s) => s.id === user.id)?.enabled || false
-          : user.role !== "viewer", // Default enable all non-viewers
-      }))
-
-      setEditedServers(updatedServers)
-    } catch (error) {
-      console.error("Error fetching users:", error)
+      setError(null)
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      setError("Failed to load users. Please try again.")
     } finally {
-      setLoadingUsers(false)
+      setLoading(false)
     }
   }
+
+  // Filter users based on search term
+  const filteredUsers = users.filter(
+    (user) =>
+      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      USER_ROLE_LABELS[user.role as UserRole]?.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   // Add new server
   const addServer = () => {
@@ -125,11 +136,6 @@ export function SettingsDialog({
 
   // Toggle server enabled state
   const toggleServerEnabled = (id: string) => {
-    if (!hasAdminAccess) {
-      showWarning("Only administrators, controllers, and managers can change server status.")
-      return
-    }
-
     setEditedServers(
       editedServers.map((server) => (server.id === id ? { ...server, enabled: !server.enabled } : server)),
     )
@@ -167,6 +173,16 @@ export function SettingsDialog({
     onClose()
   }
 
+  // Reset to predefined servers
+  const resetToPredefinedServers = () => {
+    const initialServers = predefinedServers.map((name, index) => ({
+      id: `server-${index + 1}`,
+      name,
+      enabled: true,
+    }))
+    setEditedServers(initialServers)
+  }
+
   // Reset to predefined note templates
   const resetToPredefinedTemplates = () => {
     const initialTemplates = [
@@ -179,304 +195,441 @@ export function SettingsDialog({
     setEditedTemplates(initialTemplates)
   }
 
-  // Handle admin actions with permission check
-  const handleAdminAction = (action: () => void, actionName: string) => {
-    if (!hasAdminAccess) {
-      showWarning(`Only administrators, controllers, and managers can ${actionName}.`)
-      return
+  // User management functions
+  const handleAddUser = async (userData: any) => {
+    try {
+      setLoading(true)
+      await supabaseAuthService.addUser(userData)
+      toast({
+        title: "Success",
+        description: "User added successfully",
+      })
+      setAdminSubTab("userList")
+      fetchUsers()
+    } catch (err) {
+      console.error("Error adding user:", err)
+      toast({
+        title: "Error",
+        description: "Failed to add user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    onClose() // Close settings dialog first
-    action() // Then perform the action
   }
 
-  // Show warning dialog
-  const showWarning = (message: string) => {
-    setWarningMessage(message)
-    setWarningDialogOpen(true)
+  const handleUpdateUser = async (userData: any) => {
+    if (!selectedUser) return
+
+    try {
+      setLoading(true)
+      await supabaseAuthService.updateUser(selectedUser.id, userData)
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      })
+      setSelectedUser(null)
+      setAdminSubTab("userList")
+      fetchUsers()
+    } catch (err) {
+      console.error("Error updating user:", err)
+      toast({
+        title: "Error",
+        description: "Failed to update user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return
+
+    try {
+      setLoading(true)
+      await supabaseAuthService.deleteUser(userId)
+      if (selectedUser?.id === userId) {
+        setSelectedUser(null)
+      }
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      })
+      fetchUsers()
+    } catch (err) {
+      console.error("Error deleting user:", err)
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <>
-      <Dialog className="settings-dialog" open={open} onOpenChange={onClose}>
-        <DialogContent
-          className="dialog-content sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh] overflow-hidden flex flex-col"
-          onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
-          onEscapeKeyDown={(e) => e.preventDefault()} // Prevent closing on Escape key
-        >
-          {/* Remove the close button by adding a custom DialogHeader without it */}
-          <div className="px-6 pt-6 pb-0">
-            <h2 className="text-lg font-semibold text-cyan-400 flex justify-between items-center">
-              <span>Settings</span>
-              {currentUser && (
-                <div className="px-2 py-0.5 rounded-lg bg-[#000033] border border-[#00FFFF] text-[#00FFFF] text-xs">
-                  {currentUser.name || "User"}
+    <Dialog className="settings-dialog" open={open} onOpenChange={onClose}>
+      <DialogContent
+        className="dialog-content sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh] overflow-hidden flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
+        onEscapeKeyDown={(e) => e.preventDefault()} // Prevent closing on Escape key
+      >
+        {/* Remove the close button by adding a custom DialogHeader without it */}
+        <div className="px-6 pt-6 pb-0">
+          <h2 className="text-lg font-semibold text-cyan-400 flex justify-between items-center">
+            <span>Settings</span>
+            {currentUser && (
+              <div className="px-2 py-0.5 rounded-lg bg-[#000033] border border-[#00FFFF] text-[#00FFFF] text-xs">
+                {currentUser.name || "User"}
+              </div>
+            )}
+          </h2>
+        </div>
+
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+          <TabsList className="grid grid-cols-4 bg-gray-800 h-7">
+            <TabsTrigger value="servers" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+              Servers
+            </TabsTrigger>
+            <TabsTrigger value="notes" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+              Note Templates
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+              <BookOpen className="h-3 w-3 mr-1" />
+              User Manual
+            </TabsTrigger>
+            <TabsTrigger value="admin" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+              <Users className="h-3 w-3 mr-1" />
+              Admin
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="dialog-body overflow-y-auto" style={{ maxHeight: "calc(80vh - 180px)" }}>
+            <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-fuchsia-400">Server Management</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetToPredefinedServers}
+                    className="border-fuchsia-400 text-fuchsia-400 hover:bg-fuchsia-900/20 h-6 text-xs"
+                  >
+                    Reset
+                  </Button>
                 </div>
-              )}
-            </h2>
-          </div>
 
-          <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full flex flex-col h-full">
-            <TabsList className="grid grid-cols-4 bg-gray-800 h-7">
-              <TabsTrigger value="servers" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-                Servers
-              </TabsTrigger>
-              <TabsTrigger value="notes" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-                Notes
-              </TabsTrigger>
-              <TabsTrigger value="manual" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-                <BookOpen className="h-3 w-3 mr-1" />
-                Manual
-              </TabsTrigger>
-              {/* Only show admin tab for users with appropriate roles */}
-              {hasAdminAccess && showAdminControls && (
-                <TabsTrigger value="admin" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-                  <Settings className="h-3 w-3 mr-1" />
-                  Admin
-                </TabsTrigger>
-              )}
-            </TabsList>
-
-            <div className="dialog-body flex-1 overflow-hidden flex flex-col">
-              <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-hidden flex-1 flex flex-col">
-                <div className="space-y-2 flex-1 overflow-hidden flex flex-col">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-medium text-fuchsia-400">Server Management</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={fetchUsers}
-                      className="border-fuchsia-400 text-fuchsia-400 hover:bg-fuchsia-900/20 h-6 text-xs"
-                    >
-                      Refresh
-                    </Button>
-                  </div>
-
-                  <div className="flex-1 overflow-auto pr-1 mb-2">
-                    {loadingUsers ? (
-                      <div className="flex justify-center items-center h-[200px]">
-                        <Loader2 className="h-6 w-6 animate-spin text-cyan-400" />
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-2">
-                        {editedServers.map((server) => {
-                          // Find the corresponding user to get their role
-                          const user = users.find((u) => u.id === server.id)
-                          const userRole = user?.role || "viewer"
-
-                          return (
-                            <div key={server.id} className="flex items-center gap-1 bg-gray-800 rounded p-1">
-                              <div className="flex-1 flex items-center">
-                                <span className="text-white text-sm">{server.name}</span>
-                                {userRole && (
-                                  <span
-                                    className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
-                                      userRole === "admin"
-                                        ? "bg-purple-900 text-purple-200"
-                                        : userRole === "server"
-                                          ? "bg-blue-900 text-blue-200"
-                                          : "bg-gray-700 text-gray-300"
-                                    }`}
-                                  >
-                                    {userRole}
-                                  </span>
-                                )}
-                              </div>
-                              <Button
-                                variant={server.enabled ? "default" : "outline"}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  toggleServerEnabled(server.id)
-                                }}
-                                className={`h-5 px-1 text-[9px] touch-manipulation active:scale-95 transition-all duration-75 ${
-                                  server.enabled
-                                    ? "bg-green-600 hover:bg-green-700 text-white"
-                                    : "border-red-400 text-red-400 hover:bg-red-900/20"
-                                } ${!hasAdminAccess ? "opacity-50" : ""}`}
-                              >
-                                {server.enabled ? "Active" : "Inactive"}
-                              </Button>
-                            </div>
-                          )
-                        })}
-
-                        {editedServers.length === 0 && !loadingUsers && (
-                          <div className="text-center py-4 text-gray-400 text-sm">
-                            No servers found. Add users in User Management.
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {hasAdminAccess && (
-                    <div className="flex items-center gap-1 mb-2">
+                <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto pr-1 mb-2">
+                  {editedServers.map((server) => (
+                    <div key={server.id} className="flex items-center gap-1 bg-gray-800 rounded p-1">
                       <Input
-                        value={newServerName}
-                        onChange={(e) => setNewServerName(e.target.value)}
-                        placeholder="New server name"
+                        value={server.name}
+                        onChange={(e) => updateServerName(server.id, e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white h-6 text-xs flex-1"
+                      />
+                      <Button
+                        variant={server.enabled ? "default" : "outline"}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          toggleServerEnabled(server.id)
+                        }}
+                        className={`h-5 px-1 text-[9px] touch-manipulation active:scale-95 transition-all duration-75 ${
+                          server.enabled
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "border-red-400 text-red-400 hover:bg-red-900/20"
+                        }`}
+                      >
+                        {server.enabled ? "On" : "Off"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeServer(server.id)}
+                        className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
+                      >
+                        <Trash2Icon className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-1 mb-2">
+                  <Input
+                    value={newServerName}
+                    onChange={(e) => setNewServerName(e.target.value)}
+                    placeholder="New server name"
+                    className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={addServer}
+                    disabled={!newServerName.trim()}
+                    className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="notes" className="pt-2 pb-0 px-0 overflow-visible">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-medium text-yellow-400">Note Templates</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetToPredefinedTemplates}
+                    className="border-yellow-400 text-yellow-400 hover:bg-yellow-900/20 h-6 text-xs"
+                  >
+                    Reset
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 mb-2">
+                  {editedTemplates.map((template) => (
+                    <div key={template.id} className="flex items-center gap-1">
+                      <Input
+                        value={template.text}
+                        onChange={(e) => updateTemplateText(template.id, e.target.value)}
                         className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
                       />
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
-                        onClick={addServer}
-                        disabled={!newServerName.trim()}
-                        className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
+                        onClick={() => removeTemplate(template.id)}
+                        className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
                       >
-                        <PlusIcon className="h-3 w-3" />
+                        <Trash2Icon className="h-3 w-3" />
                       </Button>
                     </div>
-                  )}
+                  ))}
                 </div>
-              </TabsContent>
 
-              <TabsContent value="notes" className="pt-2 pb-0 px-0 overflow-hidden flex-1 flex flex-col">
-                <div className="space-y-2 flex-1 overflow-hidden flex flex-col">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-medium text-yellow-400">Note Templates</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={resetToPredefinedTemplates}
-                      className="border-yellow-400 text-yellow-400 hover:bg-yellow-900/20 h-6 text-xs"
-                    >
-                      Reset
-                    </Button>
-                  </div>
-
-                  <div className="flex-1 overflow-auto grid grid-cols-1 gap-2 mb-2 pr-1">
-                    {editedTemplates.map((template) => (
-                      <div key={template.id} className="flex items-center gap-1">
-                        <Input
-                          value={template.text}
-                          onChange={(e) => updateTemplateText(template.id, e.target.value)}
-                          className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeTemplate(template.id)}
-                          className="h-6 w-6 text-red-400 hover:text-red-300 hover:bg-red-900/20 p-0"
-                        >
-                          <Trash2Icon className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-1 mb-2">
-                    <Input
-                      value={newTemplateText}
-                      onChange={(e) => setNewTemplateText(e.target.value)}
-                      placeholder="New note template"
-                      className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={addTemplate}
-                      disabled={!newTemplateText.trim()}
-                      className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
-                    >
-                      <PlusIcon className="h-3 w-3" />
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-1 mb-2">
+                  <Input
+                    value={newTemplateText}
+                    onChange={(e) => setNewTemplateText(e.target.value)}
+                    placeholder="New note template"
+                    className="bg-gray-800 border-gray-700 text-white h-6 text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={addTemplate}
+                    disabled={!newTemplateText.trim()}
+                    className="h-6 w-6 border-gray-700 bg-gray-800 hover:bg-gray-700 p-0"
+                  >
+                    <PlusIcon className="h-3 w-3" />
+                  </Button>
                 </div>
-              </TabsContent>
+              </div>
+            </TabsContent>
 
-              <TabsContent value="manual" className="pt-2 pb-0 px-0 overflow-auto flex-1">
-                <UserManual />
-              </TabsContent>
+            <TabsContent value="manual" className="pt-2 pb-0 px-0 overflow-visible">
+              <UserManual />
+            </TabsContent>
 
-              {/* Admin Tab - Only rendered if user has access */}
-              {hasAdminAccess && (
-                <TabsContent value="admin" className="pt-2 pb-0 px-0 overflow-auto flex-1">
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-medium text-cyan-400 mb-3">Admin Controls</h3>
-                      <div className="grid grid-cols-1 gap-3">
-                        <Button
-                          onClick={() => handleAdminAction(onShowUserManagement, "access user management")}
-                          className="bg-[#000033] hover:bg-[#000066] text-[#FF00FF] border border-[#FF00FF] flex items-center justify-center gap-2 h-10"
-                        >
-                          <Users className="h-4 w-4" />
-                          <span>User Management</span>
-                        </Button>
-                        <Button
-                          onClick={() => handleAdminAction(onShowLogs, "view system logs")}
-                          className="bg-[#000033] hover:bg-[#000066] text-[#00FFFF] border border-[#00FFFF] flex items-center justify-center gap-2 h-10"
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span>View System Logs</span>
-                        </Button>
-                        <Button
-                          onClick={onLogout}
-                          className="bg-[#000033] hover:bg-[#000066] text-[#FF0000] border border-[#FF0000] flex items-center justify-center gap-2 h-10 mt-4"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          <span>Logout</span>
-                        </Button>
-                      </div>
+            <TabsContent value="admin" className="pt-2 pb-0 px-0 overflow-visible">
+              {showAdminControls ? (
+                <div className="space-y-4">
+                  <Tabs value={adminSubTab} onValueChange={setAdminSubTab} className="w-full">
+                    <TabsList className="grid grid-cols-2 bg-gray-800 h-7">
+                      <TabsTrigger value="userList" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+                        <Users className="h-3 w-3 mr-1" />
+                        User List
+                      </TabsTrigger>
+                      <TabsTrigger value="userForm" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        {selectedUser ? "Edit User" : "Add User"}
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <div className="mt-2">
+                      {adminSubTab === "userList" ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="relative flex-1 max-w-sm">
+                              <Input
+                                placeholder="Search users..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="bg-gray-800 border-gray-700 text-white h-7 text-xs"
+                              />
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={fetchUsers}
+                              disabled={loading}
+                              className="border-cyan-500 text-cyan-500 hover:bg-cyan-950 h-7 text-xs"
+                            >
+                              <RefreshCw className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`} />
+                              Refresh
+                            </Button>
+                          </div>
+
+                          {error && (
+                            <div className="bg-red-900/30 border border-red-700 text-red-200 p-2 rounded-md flex items-center text-xs">
+                              <p>{error}</p>
+                            </div>
+                          )}
+
+                          <ScrollArea className="h-[300px] rounded-md border border-gray-700 bg-gray-800 p-2">
+                            {loading && !users.length ? (
+                              <div className="flex justify-center items-center h-full">
+                                <div className="animate-pulse text-gray-400 text-xs">Loading users...</div>
+                              </div>
+                            ) : filteredUsers.length > 0 ? (
+                              <div className="space-y-2">
+                                {filteredUsers.map((user) => (
+                                  <div
+                                    key={user.id}
+                                    className="p-2 rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 transition-colors"
+                                  >
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <h3 className="font-medium text-white text-sm">{user.name}</h3>
+                                        <p className="text-xs text-gray-400">{user.email || "No email"}</p>
+                                        <div className="mt-1 flex items-center gap-1">
+                                          <span
+                                            className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                                              user.role === "admin" ||
+                                              user.role === "controller" ||
+                                              user.role === "manager"
+                                                ? "bg-purple-900/50 text-purple-300 border border-purple-700"
+                                                : user.role === "server" ||
+                                                    user.role === "bartender" ||
+                                                    user.role === "barback" ||
+                                                    user.role === "kitchen" ||
+                                                    user.role === "security" ||
+                                                    user.role === "karaoke_main" ||
+                                                    user.role === "karaoke_staff"
+                                                  ? "bg-blue-900/50 text-blue-300 border border-blue-700"
+                                                  : "bg-gray-800 text-gray-300 border border-gray-600"
+                                            }`}
+                                          >
+                                            {USER_ROLE_LABELS[user.role as UserRole] || user.role}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setSelectedUser(user)
+                                            setAdminSubTab("userForm")
+                                          }}
+                                          className="h-6 border-cyan-500 text-cyan-500 hover:bg-cyan-950 text-xs"
+                                        >
+                                          <Edit className="h-3 w-3 mr-1" />
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handleDeleteUser(user.id)}
+                                          className="h-6 border-red-500 text-red-500 hover:bg-red-950 text-xs"
+                                        >
+                                          <Trash2Icon className="h-3 w-3 mr-1" />
+                                          Delete
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="flex justify-center items-center h-full">
+                                <p className="text-gray-400 text-xs">
+                                  {searchTerm
+                                    ? "No users match your search"
+                                    : "No users found. Add some users to get started."}
+                                </p>
+                              </div>
+                            )}
+                          </ScrollArea>
+
+                          <div className="flex justify-between items-center mt-2">
+                            <Button
+                              onClick={() => {
+                                setSelectedUser(null)
+                                setAdminSubTab("userForm")
+                              }}
+                              className="bg-[#000033] hover:bg-[#000066] text-[#00FFFF] border border-[#00FFFF] flex items-center gap-1 h-7 text-xs"
+                            >
+                              <UserPlus className="h-3 w-3" />
+                              <span>Add New User</span>
+                            </Button>
+
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={onShowLogs}
+                                className="bg-[#000033] hover:bg-[#000066] text-[#00FFFF] border border-[#00FFFF] flex items-center gap-1 h-7 text-xs"
+                              >
+                                <FileText className="h-3 w-3" />
+                                <span>View Logs</span>
+                              </Button>
+
+                              <Button
+                                onClick={onLogout}
+                                className="bg-[#000033] hover:bg-[#000066] text-[#FF0000] border border-[#FF0000] flex items-center gap-1 h-7 text-xs"
+                              >
+                                <LogOut className="h-3 w-3" />
+                                <span>Logout</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <AddUserDialog
+                            open={true}
+                            onClose={() => {
+                              setSelectedUser(null)
+                              setAdminSubTab("userList")
+                            }}
+                            onUserAdded={() => {
+                              fetchUsers()
+                              setSelectedUser(null)
+                              setAdminSubTab("userList")
+                            }}
+                            editUser={selectedUser}
+                          />
+                        </div>
+                      )}
                     </div>
-
-                    <div className="mt-4 p-3 bg-gray-800 rounded-md border border-gray-700">
-                      <h4 className="text-sm font-medium text-amber-400 mb-2">System Information</h4>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="text-gray-400">User:</div>
-                        <div className="text-white">{currentUser?.name || "Unknown"}</div>
-                        <div className="text-gray-400">Role:</div>
-                        <div className="text-white">{currentUser?.role || "Unknown"}</div>
-                        <div className="text-gray-400">Version:</div>
-                        <div className="text-white">1.5.2</div>
-                        <div className="text-gray-400">Database:</div>
-                        <div className="text-white">Connected</div>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
+                  </Tabs>
+                </div>
+              ) : (
+                <div className="p-4 text-center text-gray-400">
+                  <p>You don't have admin privileges.</p>
+                </div>
               )}
-            </div>
+            </TabsContent>
+          </div>
+        </Tabs>
 
-            <DialogFooter className="dialog-footer flex flex-row gap-1 pt-2 mt-auto shrink-0">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white h-7 text-xs"
-              >
-                Cancel
-              </Button>
-              {selectedTab !== "manual" && selectedTab !== "admin" && (
-                <Button
-                  onClick={saveChanges}
-                  className="bg-lime-600 hover:bg-lime-700 flex items-center gap-1 h-7 text-xs"
-                >
-                  <SaveIcon className="h-3 w-3" />
-                  Save Changes
-                </Button>
-              )}
-            </DialogFooter>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
-
-      {/* Warning Dialog for unauthorized actions */}
-      <Dialog open={warningDialogOpen} onOpenChange={setWarningDialogOpen}>
-        <DialogContent className="bg-gray-900 border-red-500 text-white">
-          <DialogHeader>
-            <DialogTitle className="flex items-center text-red-400">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Permission Denied
-            </DialogTitle>
-            <DialogDescription className="text-gray-300">{warningMessage}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setWarningDialogOpen(false)} className="bg-red-600 hover:bg-red-700 text-white">
-              Understood
+        <DialogFooter className="dialog-footer flex flex-row gap-1 pt-2 mt-auto shrink-0">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white h-7 text-xs"
+          >
+            Cancel
+          </Button>
+          {(selectedTab === "servers" || selectedTab === "notes") && (
+            <Button onClick={saveChanges} className="bg-lime-600 hover:bg-lime-700 flex items-center gap-1 h-7 text-xs">
+              <SaveIcon className="h-3 w-3" />
+              Save Changes
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -1,12 +1,13 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { LockIcon, UserIcon, XIcon } from "lucide-react"
+import { LockIcon, UserIcon, XIcon, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { NumberPad } from "@/components/number-pad"
-import supabaseAuthService from "@/services/supabase-auth-service"
 
 interface LoginDialogProps {
   open: boolean
@@ -16,11 +17,13 @@ interface LoginDialogProps {
 export function LoginDialog({ open, onClose }: LoginDialogProps) {
   const { login } = useAuth()
   const [selectedUser, setSelectedUser] = useState("")
+  const [selectedUserName, setSelectedUserName] = useState("")
   const [pinCode, setPinCode] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [users, setUsers] = useState<any[]>([])
   const [showUserList, setShowUserList] = useState(false)
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false)
 
   // Fetch users when dialog opens
   useEffect(() => {
@@ -33,22 +36,29 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
 
   const fetchUsers = async () => {
     try {
-      const usersList = await supabaseAuthService.getUsers()
-      setUsers(usersList)
+      setIsLoadingUsers(true)
+      const response = await fetch("/api/staff/members")
+      if (!response.ok) {
+        throw new Error("Failed to fetch users")
+      }
+      const data = await response.json()
+      setUsers(data)
     } catch (err) {
       console.error("Error fetching users:", err)
-      setUsers([{ id: "admin", username: "admin", name: "Administrator" }])
+      setUsers([{ id: "admin", first_name: "Administrator" }])
+    } finally {
+      setIsLoadingUsers(false)
     }
   }
 
   const handleLogin = async () => {
     if (!selectedUser) {
-      setError("Please select a username")
+      setError("Please select a user")
       return
     }
 
-    if (!pinCode || pinCode.length < 4) {
-      setError("Please enter a 4-digit PIN code")
+    if (!pinCode || pinCode.length !== 4) {
+      setError("Please enter a valid 4-digit PIN code")
       return
     }
 
@@ -60,24 +70,25 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
       if (success) {
         onClose()
       } else {
-        setError("Invalid username or PIN code")
+        setError("Invalid PIN code")
       }
-    } catch (err) {
-      setError("An error occurred during login")
-      console.error(err)
+    } catch (err: any) {
+      console.error("Login error:", err)
+      setError(err.message || "An error occurred during login")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const selectUser = (username: string) => {
-    setSelectedUser(username)
+  const selectUser = (userId: string, userName: string) => {
+    setSelectedUser(userId)
+    setSelectedUserName(userName)
     setShowUserList(false)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[400px] bg-black text-white border-[#00FFFF] space-theme font-mono">
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-[420px] bg-black text-white border-[#00FFFF] space-theme font-mono">
         <DialogHeader>
           <DialogTitle className="text-xl text-[#00FFFF] flex items-center gap-2">
             <LockIcon className="h-5 w-5" />
@@ -85,7 +96,7 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-8 py-4">
           {/* Username Selection */}
           <div className="space-y-2">
             <div className="text-white flex items-center gap-2">
@@ -98,8 +109,18 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
                 variant="outline"
                 className="w-full justify-between bg-[#000033] border-[#00FFFF] text-white hover:bg-[#000066]"
                 onClick={() => setShowUserList(!showUserList)}
+                disabled={isLoadingUsers}
               >
-                {selectedUser ? users.find((u) => u.username === selectedUser)?.name || selectedUser : "Select a user"}
+                {isLoadingUsers ? (
+                  <div className="flex items-center">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading users...
+                  </div>
+                ) : selectedUserName ? (
+                  selectedUserName
+                ) : (
+                  "Select a user"
+                )}
                 <span className="ml-2">▼</span>
               </Button>
 
@@ -120,12 +141,20 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
                     <div
                       key={user.id}
                       className="p-3 hover:bg-[#000066] cursor-pointer flex items-center gap-2"
-                      onClick={() => selectUser(user.username)}
+                      onClick={() => selectUser(user.id, user.display_name || user.first_name)}
                     >
                       <UserIcon className="h-4 w-4 text-[#00FFFF]" />
-                      <span>{user.name}</span>
+                      <span>{user.display_name || user.first_name}</span>
                     </div>
                   ))}
+                  {/* Add admin user option */}
+                  <div
+                    className="p-3 hover:bg-[#000066] cursor-pointer flex items-center gap-2 border-t border-[#00FFFF]/30"
+                    onClick={() => selectUser("admin", "Administrator")}
+                  >
+                    <UserIcon className="h-4 w-4 text-[#00FFFF]" />
+                    <span>Administrator</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -135,27 +164,34 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
           <div className="space-y-2">
             <div className="text-white flex items-center gap-2">
               <LockIcon className="h-4 w-4 text-[#00FFFF]" />
-              <span>Enter PIN Code</span>
+              <span>Enter PIN Code (4 digits)</span>
             </div>
 
-            <div className="flex items-center justify-center mb-2">
-              <div className="flex gap-2">
+            <div className="flex items-center justify-center mb-4">
+              <div className="flex gap-3">
                 {[0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
                     className="w-12 h-12 border-2 border-[#00FFFF] rounded-md flex items-center justify-center bg-[#000033]"
                   >
                     {pinCode.length > i ? (
-                      <div className="w-4 h-4 rounded-full bg-[#00FFFF]"></div>
+                      <div className="w-5 h-5 rounded-full bg-[#00FFFF]"></div>
                     ) : (
-                      <div className="w-4 h-4 rounded-full border border-[#00FFFF] opacity-30"></div>
+                      <div className="w-5 h-5 rounded-full border border-[#00FFFF] opacity-30"></div>
                     )}
                   </div>
                 ))}
               </div>
             </div>
 
-            <NumberPad value={pinCode} onChange={setPinCode} maxLength={4} />
+            <NumberPad
+              value={pinCode}
+              onChange={setPinCode}
+              maxLength={4}
+              showLoginButton={true}
+              onLogin={handleLogin}
+              isPending={isLoading}
+            />
           </div>
 
           {error && (
@@ -169,16 +205,9 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
+            className="w-full border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
           >
             Cancel
-          </Button>
-          <Button
-            onClick={handleLogin}
-            disabled={isLoading || !selectedUser || pinCode.length < 4}
-            className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black"
-          >
-            {isLoading ? "Logging in..." : "Login"}
           </Button>
         </DialogFooter>
       </DialogContent>

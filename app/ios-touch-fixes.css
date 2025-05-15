@@ -15,6 +15,18 @@ a,
   touch-action: manipulation;
   min-height: 44px; /* Minimum touch target size for iOS */
   min-width: 44px;
+  position: relative;
+  transition: transform 0.1s ease;
+}
+
+/* Add touch feedback */
+button:active,
+a:active,
+[role="button"]:active,
+.interactive:active,
+.clickable:active,
+.tappable:active {
+  transform: scale(0.97);
 }
 
 /* Fix for iOS scrolling issues */
@@ -60,6 +72,11 @@ dialog,
   z-index: 1;
   position: relative;
   will-change: transform; /* Hint for browser to optimize */
+  transition: transform 0.15s ease;
+}
+
+.table-card:active {
+  transform: scale(0.98);
 }
 
 /* Fix for iOS dialog tapping */
@@ -73,13 +90,6 @@ dialog,
   touch-action: none; /* Capture all touch events */
 }
 
-/* Fix for iOS button active states */
-button:active,
-.button:active,
-.interactive:active {
-  opacity: 0.7;
-}
-
 /* Enhanced iOS touch fixes */
 .ios-touch-fix {
   cursor: pointer;
@@ -88,6 +98,35 @@ button:active,
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+}
+
+/* iPad specific adjustments */
+@media (min-width: 768px) and (max-width: 1024px) {
+  /* Improve spacing for iPad */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Ensure header buttons don't overlap on iPad */
+  .header-buttons {
+    gap: 0.75rem;
+  }
+
+  /* Improve table grid layout for iPad */
+  .table-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+
+/* Hide touch test button on mobile devices */
+@media (max-width: 1024px) {
+  .touch-test-button {
+    display: none !important;
+  }
 }
 
 /* Add specific fixes for iOS Safari */
@@ -104,9 +143,9 @@ button:active,
   }
 
   /* Add click feedback for iOS */
-  .table-card:active {
+  /* .table-card:active {
     transform: scale(0.98);
-  }
+  } */
 
   /* Make items in the card non-interactive for touch so the card itself gets the tap */
   .table-card * {
@@ -119,5 +158,13 @@ button:active,
     position: fixed;
     touch-action: none;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Fix for notch and home indicator on newer iOS devices */
+  .safe-area-padding {
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
   }
 }

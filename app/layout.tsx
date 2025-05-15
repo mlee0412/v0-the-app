@@ -1,28 +1,31 @@
-import type React from "react"
-import { Inter } from "next/font/google"
-import ClientLayout from "./client-layout"
-import Styles from "./styles"
-
 import "./globals.css"
 import "./cursor.css"
 import "./animations.css"
+import "./logo-effects.css"
 import "./space-animations.css"
 import "./mobile.css"
 import "./pull-up-panel.css"
-import "./logo-effects.css"
-import "./touch-improvements.css"
 import "./ios-touch-fixes.css"
-import "./mobile-fixes.css"
-import "./dialog-fixes.css"
 import "./mobile-optimizations.css"
+import "./dialog-fixes.css"
+import "./mobile-fixes.css"
 import "./bottom-nav.css"
 import "./pwa.css"
+import "./global-fixes.css"
+
+import type { Metadata, Viewport } from "next"
+import type React from "react"
+import { Inter } from "next/font/google"
+import { ThemeProvider } from "@/components/theme-provider"
+import { SupabaseInitializer } from "@/components/supabase-initializer"
+import ClientLayout from "./client-layout" // Import using default import syntax
+import { AddUserButton } from "@/components/add-user-button"
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata = {
-  title: "Space Billiard Timer",
-  description: "Cosmic billiard table management system",
+export const metadata: Metadata = {
+  title: "Billiards Timer",
+  description: "Track billiards table usage and time",
   manifest: "/manifest.json",
   themeColor: "#000033",
   appleWebApp: {
@@ -40,14 +43,22 @@ export const metadata = {
   formatDetection: {
     telephone: false,
   },
+  icons: [
+    { rel: "apple-touch-icon", url: "/icons/icon-192x192.png" },
+    { rel: "icon", url: "/icons/icon-192x192.png" },
+  ],
     generator: 'v0.dev'
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -113,9 +124,13 @@ export default function RootLayout({
 
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={inter.className}>
-        <Styles />
-        <ClientLayout>{children}</ClientLayout>
+      <body className={`${inter.className} overflow-hidden`}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          <SupabaseInitializer>
+            <ClientLayout>{children}</ClientLayout>
+            <AddUserButton /> {/* Add the button here */}
+          </SupabaseInitializer>
+        </ThemeProvider>
       </body>
     </html>
   )
