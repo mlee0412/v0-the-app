@@ -11,7 +11,7 @@ import "./dialog-fixes.css"
 import "./mobile-fixes.css"
 import "./bottom-nav.css"
 import "./pwa.css"
-import "./global-fixes.css"
+import "./ipad.css"
 
 import type { Metadata, Viewport } from "next"
 import type React from "react"
@@ -19,7 +19,6 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SupabaseInitializer } from "@/components/supabase-initializer"
 import ClientLayout from "./client-layout" // Import using default import syntax
-import { AddUserButton } from "@/components/add-user-button"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -128,7 +127,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SupabaseInitializer>
             <ClientLayout>{children}</ClientLayout>
-            <AddUserButton /> {/* Add the button here */}
           </SupabaseInitializer>
         </ThemeProvider>
       </body>

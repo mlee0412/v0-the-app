@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { NumberPad } from "@/components/number-pad"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface AddUserDialogProps {
   open: boolean
@@ -34,36 +33,6 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
   const [showPinPad, setShowPinPad] = useState(false)
   const [showPin, setShowPin] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
-
-  // Add this near the top of the component with other useEffect hooks
-  useEffect(() => {
-    // Save the current fullscreen state when dialog opens
-    const isFullScreen = !!(
-      document.fullscreenElement ||
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullscreenElement ||
-      (document as any).msFullscreenElement
-    )
-
-    // Prevent the dialog from exiting fullscreen mode
-    const handleFullScreenChange = (e: Event) => {
-      e.stopPropagation()
-    }
-
-    if (open && isFullScreen) {
-      document.addEventListener("fullscreenchange", handleFullScreenChange, true)
-      document.addEventListener("webkitfullscreenchange", handleFullScreenChange, true)
-      document.addEventListener("mozfullscreenchange", handleFullScreenChange, true)
-      document.addEventListener("MSFullscreenChange", handleFullScreenChange, true)
-    }
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullScreenChange, true)
-      document.removeEventListener("webkitfullscreenchange", handleFullScreenChange, true)
-      document.removeEventListener("mozfullscreenchange", handleFullScreenChange, true)
-      document.removeEventListener("MSFullscreenChange", handleFullScreenChange, true)
-    }
-  }, [open])
 
   // Fetch roles when dialog opens
   useEffect(() => {
@@ -210,174 +179,166 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent
-        className="sm:max-w-[500px] bg-black text-white border-[#00FFFF] space-theme font-mono max-h-[90vh] overflow-hidden flex flex-col dialog-content"
-        onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
-        onEscapeKeyDown={(e) => e.preventDefault()} // Prevent closing on Escape key
-      >
-        <DialogHeader className="dialog-header">
+      <DialogContent className="sm:max-w-[500px] bg-black text-white border-[#00FFFF] space-theme font-mono">
+        <DialogHeader>
           <DialogTitle className="text-xl text-[#00FFFF]">{isEditMode ? "Edit User" : "Add New User"}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-1 overflow-y-auto" style={{ maxHeight: "calc(90vh - 180px)" }}>
-          <div className="space-y-4 py-4 pr-4">
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="First Name"
-                  className="bg-[#000033] border-[#00FFFF] text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="displayName">Display Name (Optional)</Label>
-                <Input
-                  id="displayName"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Display Name"
-                  className="bg-[#000033] border-[#00FFFF] text-white"
-                />
-                <p className="text-sm text-gray-400">Leave blank to use First Name</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  className="bg-[#000033] border-[#00FFFF] text-white"
-                />
-                <p className="text-sm text-gray-400">Email address will be used for login.</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number (Optional)</Label>
-                <Input
-                  id="phone"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Phone Number"
-                  className="bg-[#000033] border-[#00FFFF] text-white"
-                />
-                <p className="text-sm text-gray-400">Leave blank if not available.</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="nativeLanguage">Native Language</Label>
-                <Select value={nativeLanguage} onValueChange={setNativeLanguage}>
-                  <SelectTrigger className="bg-[#000033] border-[#00FFFF] text-white">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#000033] border-[#00FFFF] text-white">
-                    <SelectItem value="English">English</SelectItem>
-                    <SelectItem value="Spanish">Spanish</SelectItem>
-                    <SelectItem value="Chinese">Chinese</SelectItem>
-                    <SelectItem value="Korean">Korean</SelectItem>
-                    <SelectItem value="Japanese">Japanese</SelectItem>
-                    <SelectItem value="Vietnamese">Vietnamese</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="pinCode">PIN Code (4 digits)</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      id="pinCode"
-                      type={showPin ? "text" : "password"}
-                      value={pinCode}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        if (/^\d{0,4}$/.test(value)) {
-                          setPinCode(value)
-                        }
-                      }}
-                      placeholder="4-digit PIN"
-                      maxLength={4}
-                      className="bg-[#000033] border-[#00FFFF] text-white pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 text-gray-400"
-                      onClick={() => setShowPin(!showPin)}
-                    >
-                      {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-[#00FFFF] bg-[#000033] text-[#00FFFF]"
-                    onClick={() => setShowPinPad(!showPinPad)}
-                  >
-                    {showPinPad ? "Hide Pad" : "Use Pad"}
-                  </Button>
-                </div>
-
-                {showPinPad && (
-                  <div className="mt-2 p-3 border border-[#00FFFF] rounded-md bg-[#000022]">
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="text-[#00FFFF]">Enter 4-digit PIN</div>
-                      <div className="flex gap-2">
-                        {[0, 1, 2, 3].map((i) => (
-                          <div
-                            key={i}
-                            className="w-8 h-8 border border-[#00FFFF] rounded-md flex items-center justify-center"
-                          >
-                            {pinCode.length > i ? (showPin ? pinCode[i] : "•") : ""}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <NumberPad
-                      value={pinCode}
-                      onChange={setPinCode}
-                      maxLength={4}
-                      onClose={() => setShowPinPad(false)}
-                      showLoginButton={false}
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger className="bg-[#000033] border-[#00FFFF] text-white">
-                    <SelectValue placeholder={isLoadingRoles ? "Loading roles..." : "Select role"} />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#000033] border-[#00FFFF] text-white max-h-[300px]">
-                    {roles.map((role) => (
-                      <SelectItem key={role.id} value={role.role_name}>
-                        {role.role_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {error && (
-                <div className="p-2 bg-red-900/30 border border-red-800 rounded-md">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
-            </div>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="firstName">First Name</Label>
+            <Input
+              id="firstName"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="First Name"
+              className="bg-[#000033] border-[#00FFFF] text-white"
+            />
           </div>
-        </ScrollArea>
 
-        <DialogFooter className="dialog-footer mt-4 border-t border-[#00FFFF]/20 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Display Name (Optional)</Label>
+            <Input
+              id="displayName"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Display Name"
+              className="bg-[#000033] border-[#00FFFF] text-white"
+            />
+            <p className="text-sm text-gray-400">Leave blank to use First Name</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              className="bg-[#000033] border-[#00FFFF] text-white"
+            />
+            <p className="text-sm text-gray-400">Email address will be used for login.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number (Optional)</Label>
+            <Input
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone Number"
+              className="bg-[#000033] border-[#00FFFF] text-white"
+            />
+            <p className="text-sm text-gray-400">Leave blank if not available.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="nativeLanguage">Native Language</Label>
+            <Select value={nativeLanguage} onValueChange={setNativeLanguage}>
+              <SelectTrigger className="bg-[#000033] border-[#00FFFF] text-white">
+                <SelectValue placeholder="Select language" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#000033] border-[#00FFFF] text-white">
+                <SelectItem value="English">English</SelectItem>
+                <SelectItem value="Spanish">Spanish</SelectItem>
+                <SelectItem value="Chinese">Chinese</SelectItem>
+                <SelectItem value="Korean">Korean</SelectItem>
+                <SelectItem value="Japanese">Japanese</SelectItem>
+                <SelectItem value="Vietnamese">Vietnamese</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pinCode">PIN Code (4 digits)</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="pinCode"
+                  type={showPin ? "text" : "password"}
+                  value={pinCode}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (/^\d{0,4}$/.test(value)) {
+                      setPinCode(value)
+                    }
+                  }}
+                  placeholder="4-digit PIN"
+                  maxLength={4}
+                  className="bg-[#000033] border-[#00FFFF] text-white pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 text-gray-400"
+                  onClick={() => setShowPin(!showPin)}
+                >
+                  {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-[#00FFFF] bg-[#000033] text-[#00FFFF]"
+                onClick={() => setShowPinPad(!showPinPad)}
+              >
+                {showPinPad ? "Hide Pad" : "Use Pad"}
+              </Button>
+            </div>
+
+            {showPinPad && (
+              <div className="mt-2 p-3 border border-[#00FFFF] rounded-md bg-[#000022]">
+                <div className="flex justify-between items-center mb-2">
+                  <div className="text-[#00FFFF]">Enter 4-digit PIN</div>
+                  <div className="flex gap-2">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="w-8 h-8 border border-[#00FFFF] rounded-md flex items-center justify-center"
+                      >
+                        {pinCode.length > i ? (showPin ? pinCode[i] : "•") : ""}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <NumberPad
+                  value={pinCode}
+                  onChange={setPinCode}
+                  maxLength={4}
+                  onClose={() => setShowPinPad(false)}
+                  showLoginButton={false}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger className="bg-[#000033] border-[#00FFFF] text-white">
+                <SelectValue placeholder={isLoadingRoles ? "Loading roles..." : "Select role"} />
+              </SelectTrigger>
+              <SelectContent className="bg-[#000033] border-[#00FFFF] text-white max-h-[300px]">
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.role_name}>
+                    {role.role_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {error && (
+            <div className="p-2 bg-red-900/30 border border-red-800 rounded-md">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
           <Button
             variant="outline"
             onClick={onClose}

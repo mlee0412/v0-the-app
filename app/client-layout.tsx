@@ -8,9 +8,11 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/contexts/auth-context"
 import { SpaceBackgroundAnimation } from "@/components/space-background-animation"
 import { IOSViewportFix } from "@/components/ios-viewport-fix"
+import { IOSTouchFix } from "@/components/ios-touch-fix"
 import { DirectTouchHandler } from "@/components/direct-touch-handler"
 import { PWAInit } from "@/components/pwa-init"
 import { OfflineDetector } from "@/components/offline-detector"
+import { AddUserButton } from "@/components/add-user-button"
 import "./globals.css"
 import "./mobile.css"
 import "./animations.css"
@@ -71,8 +73,12 @@ export default function ClientLayout({
       {/* Render the background animation outside of the auth provider */}
       <SpaceBackgroundAnimation intensity={1.5} />
       <IOSViewportFix />
+      <IOSTouchFix />
       <DirectTouchHandler />
-      <AuthProvider>{isClient ? <BilliardsTimerDashboard /> : <div>Loading...</div>}</AuthProvider>
+      <AuthProvider>
+        {isClient ? <BilliardsTimerDashboard /> : <div>Loading...</div>}
+        <AddUserButton />
+      </AuthProvider>
       <Toaster />
     </ThemeProvider>
   )

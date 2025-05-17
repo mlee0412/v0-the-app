@@ -17,8 +17,8 @@
 }
 
 .touch-feedback:active {
-  transform: scale(0.97);
-  transition: transform 0.1s ease;
+  transform: scale(0.95);
+  opacity: 0.8;
 }
 
 /* Pull to refresh indicator */
@@ -526,71 +526,109 @@
   bottom: 120px;
 }
 
-/* Mobile-specific optimizations */
-@media (max-width: 1024px) {
-  /* Hide the touch test button on mobile devices */
-  .touch-test-button {
-    display: none !important;
-  }
+/* Improve touch response */
+* {
+  touch-action: manipulation;
+}
 
-  /* Improve spacing in header for mobile */
-  .mobile-header-container {
-    padding: 0.5rem 0.75rem;
-  }
+/* Make touch targets more forgiving with invisible expanded hit areas */
+.touch-target {
+  position: relative;
+}
 
-  /* Ensure buttons don't overlap */
-  .mobile-header-buttons {
-    gap: 0.5rem;
-  }
+.touch-target::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  z-index: 1;
+}
 
-  /* Improve table card touch targets */
-  .table-card {
-    min-height: 120px;
-    touch-action: manipulation;
-  }
+/* Improve active state feedback */
+.touch-response:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease-out;
+}
 
-  /* Ensure proper spacing between elements */
-  .mobile-spacing {
-    margin: 0.5rem 0;
-  }
+/* Make text inputs easier to interact with */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+textarea {
+  font-size: 16px !important; /* Prevents zoom on iOS */
+}
 
-  /* Improve bottom navigation */
-  .mobile-bottom-nav {
-    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(10px);
-    border-top: 1px solid rgba(0, 139, 163, 0.3);
-  }
+/* Apply subtle elastic animation to pressed elements */
+.elastic-press {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
 
-  /* Ensure proper spacing in dialogs */
-  .mobile-dialog {
-    padding: 1rem;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
+.elastic-press:active {
+  transform: scale(0.95);
+}
 
-  /* iPad specific adjustments */
-  @media (min-width: 768px) and (max-width: 1024px) {
-    .table-grid {
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 1rem;
-      padding: 1rem;
-    }
+/* More visible focus states for accessibility */
+:focus-visible {
+  outline: 2px solid #00ffff !important;
+  outline-offset: 2px !important;
+}
 
-    .table-card {
-      min-height: 150px;
-    }
+/* Button press effect */
+.btn-press {
+  transform: translateY(0);
+  transition: transform 0.1s ease-out;
+}
+
+.btn-press:active {
+  transform: translateY(2px);
+}
+
+/* Ensure dialogs are properly centered and sized */
+@media (max-width: 768px) {
+  .fixed-dialog {
+    width: 92vw !important;
+    max-width: 92vw !important;
+    margin: 4vh auto !important;
+    max-height: 88vh !important;
   }
 }
 
-/* Ensure proper spacing for header buttons */
-.header-button-group {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
+/* Improve scrolling in lists */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
 }
 
-/* Ensure login button doesn't overlap with other elements */
-.login-button {
-  margin-left: 0.5rem;
+.smooth-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Improve rendering performance */
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Better tap highlights for iOS */
+.ios-tap-highlight {
+  -webkit-tap-highlight-color: rgba(0, 255, 255, 0.2);
+}
+
+/* Fix for notched devices */
+.notch-aware {
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-left: env(safe-area-inset-left, 0);
+  padding-right: env(safe-area-inset-right, 0);
+}
+
+/* Fix for iOS Safari 100vh issue more comprehensively */
+.full-height {
+  height: 100vh;
+  height: -webkit-fill-available;
 }

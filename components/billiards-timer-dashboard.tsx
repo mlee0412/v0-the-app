@@ -30,8 +30,7 @@ import { useMobile } from "@/hooks/use-mobile"
 import { IOSTouchFix } from "@/components/ios-touch-fix"
 import { MobileHeader } from "@/components/mobile/mobile-header"
 import { TableSessionLogs } from "@/components/mobile/table-session-logs"
-// Add this import at the top
-import { HapticFeedback } from "@/components/haptic-feedback"
+import { FunctionsDashboard } from "@/components/functions-dashboard"
 
 // Define interfaces for our data structures
 export interface Table {
@@ -180,6 +179,7 @@ export function BilliardsTimerDashboard() {
   const [hideSystemElements, setHideSystemElements] = useState(isMobile)
 
   // Add this state near the other state declarations
+  const [showFunctionsDashboard, setShowFunctionsDashboard] = useState(false)
   // Remove const [showServerSelectionDialog, setShowServerSelectionDialog] = useState(false)
 
   // Login state
@@ -403,34 +403,68 @@ export function BilliardsTimerDashboard() {
 
   // Toggle fullscreen
   const toggleFullScreen = () => {
-    if (!isFullScreen) {
-      const element = document.documentElement
-      if (element.requestFullscreen) {
-        element.requestFullscreen()
-      } else if ((element as any).mozRequestFullScreen) {
-        ;(element as any).mozRequestFullScreen()
-      } else if ((element as any).webkitRequestFullscreen) {
-        ;(element as any).webkitRequestFullscreen()
-      } else if ((element as any).msRequestFullscreen) {
-        ;(element as any).msRequestFullscreen()
-      }
-    } else {
+    // If already in fullscreen mode, show exit confirmation
+    if (isFullScreen) {
       setShowExitFullScreenConfirm(true)
+      return
+    }
+
+    // If not in fullscreen mode, request fullscreen with proper error handling
+    const element = document.documentElement
+
+    try {
+      // Use a Promise to handle the fullscreen request
+      const requestFullscreenPromise = () => {
+        if (element.requestFullscreen) {
+          return element.requestFullscreen()
+        } else if ((element as any).mozRequestFullScreen) {
+          return (element as any).mozRequestFullScreen()
+        } else if ((element as any).webkitRequestFullscreen) {
+          return (element as any).webkitRequestFullscreen()
+        } else if ((element as any).msRequestFullscreen) {
+          return (element as any).msRequestFullscreen()
+        }
+        return Promise.reject("Fullscreen API not supported")
+      }
+
+      // Execute the request and handle errors
+      requestFullscreenPromise().catch((error) => {
+        console.error("Fullscreen request failed:", error)
+        showNotification("Fullscreen mode failed to activate", "error")
+      })
+    } catch (error) {
+      console.error("Error attempting fullscreen:", error)
+      showNotification("Fullscreen mode is not supported on this device", "error")
     }
   }
 
   // Exit fullscreen after confirmation
   const confirmExitFullScreen = () => {
-    if (document.exitFullscreen) {
-      document.exitFullscreen()
-    } else if ((document as any).mozCancelFullScreen) {
-      ;(document as any).mozCancelFullScreen()
-    } else if ((document as any).webkitExitFullscreen) {
-      ;(document as any).webkitExitFullscreen()
-    } else if ((document as any).msExitFullscreen) {
-      ;(document as any).msExitFullscreen()
+    try {
+      const exitFullscreenPromise = () => {
+        if (document.exitFullscreen) {
+          return document.exitFullscreen()
+        } else if ((document as any).mozCancelFullScreen) {
+          return (document as any).mozCancelFullScreen()
+        } else if ((document as any).webkitExitFullscreen) {
+          return (document as any).webkitExitFullscreen()
+        } else if ((document as any).msExitFullscreen) {
+          return (document as any).msExitFullscreen()
+        }
+        return Promise.reject("Exit Fullscreen API not supported")
+      }
+
+      exitFullscreenPromise()
+        .catch((error) => {
+          console.error("Exit fullscreen request failed:", error)
+        })
+        .finally(() => {
+          setShowExitFullScreenConfirm(false)
+        })
+    } catch (error) {
+      console.error("Error attempting to exit fullscreen:", error)
+      setShowExitFullScreenConfirm(false)
     }
-    setShowExitFullScreenConfirm(false)
   }
 
   // Format time as HH:MM AM/PM
@@ -1752,6 +1786,11 @@ export function BilliardsTimerDashboard() {
   const handleSync = syncData
   const handleToggleFullScreen = toggleFullScreen
 
+  // Add this function near the other handler functions
+  const handleShowFunctions = () => {
+    setShowFunctionsDashboard(true)
+  }
+
   // Mobile view
   const handleTableClick = (table: Table) => {
     setSelectedTable(table)
@@ -1784,9 +1823,6 @@ export function BilliardsTimerDashboard() {
       >
         {/* Add the iOS touch fix component */}
         <IOSTouchFix />
-
-        {/* Add haptic feedback */}
-        <HapticFeedback enabled={soundEffectsEnabled} />
 
         {/* Remove SpaceBackgroundAnimation since it's now in client-layout */}
 
@@ -1823,6 +1859,7 @@ export function BilliardsTimerDashboard() {
             onLogin={handleLogin}
             onSync={handleSync}
             onToggleFullScreen={handleToggleFullScreen}
+            onShowFunctions={handleShowFunctions}
             tables={tables}
             logs={logs}
             servers={serverUsers}
@@ -2006,6 +2043,8 @@ export function BilliardsTimerDashboard() {
         {isAuthenticated && supabaseDayStarted && !isMobile && (
           <PullUpInsightsPanel tables={tables} logs={logs} servers={serverUsers} />
         )}
+        {/* Functions Dashboard */}
+        <FunctionsDashboard open={showFunctionsDashboard} onClose={() => setShowFunctionsDashboard(false)} />
       </div>
     </TooltipProvider>
   )

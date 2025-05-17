@@ -333,12 +333,8 @@ export function SwipeableTableCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-lg border shadow-md transition-all duration-200 touch-feedback ${
-        table.isActive
-          ? "border-green-500 bg-green-900/20 shadow-green-500/20"
-          : "border-cyan-800 bg-black/40 shadow-cyan-500/10"
-      } ${className}`}
-      style={{ touchAction: "pan-x" }}
+      className={`relative swipeable-card-container ${className}`}
+      style={{ touchAction: "pan-y" }}
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

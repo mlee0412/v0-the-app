@@ -1,12 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Settings, LogOut, RefreshCw, Maximize, Minimize, User, PlayCircle, StopCircle } from "lucide-react"
+import {
+  Settings,
+  LogOut,
+  Maximize,
+  Minimize,
+  User,
+  PlayCircle,
+  StopCircle,
+  ActivityIcon as Function,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ConnectionStatus } from "@/components/connection-status"
 import { AnimatedLogo } from "@/components/animated-logo"
 import type { Table, Server, LogEntry } from "@/components/billiards-timer-dashboard"
-import { useMobile } from "@/hooks/use-mobile"
 
 interface HeaderProps {
   currentTime: Date
@@ -21,6 +29,7 @@ interface HeaderProps {
   onLogin: () => void
   onSync: () => void
   onToggleFullScreen: () => void
+  onShowFunctions: () => void
   tables: Table[]
   logs: LogEntry[]
   servers: Server[]
@@ -40,6 +49,7 @@ export function Header({
   onLogin,
   onSync,
   onToggleFullScreen,
+  onShowFunctions,
   tables,
   logs,
   servers,
@@ -50,8 +60,6 @@ export function Header({
   const [activeTables, setActiveTables] = useState(0)
   const [currentTimeString, setCurrentTimeString] = useState("")
   const [currentDateString, setCurrentDateString] = useState("")
-
-  const isMobile = useMobile()
 
   // Check if fullscreen is active
   useEffect(() => {
@@ -183,26 +191,23 @@ export function Header({
               variant="outline"
               size="icon"
               className="h-8 w-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400"
-              onClick={handleSync}
-              disabled={isSyncing}
+              onClick={onShowFunctions}
             >
-              <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin text-cyan-400" : "text-gray-400"}`} />
+              <Function className="h-4 w-4 text-gray-400" />
             </Button>
 
-            {!isMobile && (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400"
-                onClick={onToggleFullScreen}
-              >
-                {isFullScreen ? (
-                  <Minimize className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <Maximize className="h-4 w-4 text-gray-400" />
-                )}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400 lg:flex hidden"
+              onClick={onToggleFullScreen}
+            >
+              {isFullScreen ? (
+                <Minimize className="h-4 w-4 text-gray-400" />
+              ) : (
+                <Maximize className="h-4 w-4 text-gray-400" />
+              )}
+            </Button>
 
             <Button
               variant="outline"

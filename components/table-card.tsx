@@ -11,6 +11,9 @@ import type { LogEntry } from "@/components/billiards-timer-dashboard"
 import { throttle } from "@/utils/timer-sync-utils"
 import { useTableStore, addTableUpdateListener } from "@/utils/table-state-manager"
 
+// Import the haptic feedback utility at the top
+import { hapticFeedback } from "@/utils/haptic-feedback"
+
 // Define the Server type
 interface Server {
   id: string
@@ -887,6 +890,9 @@ export const TableCard = memo(function TableCard({ table, servers, logs, onClick
       // Prevent default behavior to avoid any browser interference
       e.preventDefault()
       e.stopPropagation()
+
+      // Add haptic feedback
+      hapticFeedback.medium()
 
       // On iOS, we need to make sure the click isn't swallowed
       const isIOS =
