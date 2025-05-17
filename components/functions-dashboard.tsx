@@ -36,7 +36,7 @@ export function FunctionsDashboard({ open, onClose }: FunctionsDashboardProps) {
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[80vh] p-0 bg-black/90 border border-cyan-500/50 shadow-lg shadow-cyan-500/20 backdrop-blur-sm overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[85vh] p-0 bg-black/90 border border-cyan-500/50 shadow-lg shadow-cyan-500/20 backdrop-blur-sm overflow-hidden">
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-cyan-800/50">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-fuchsia-400 bg-clip-text text-transparent">
@@ -75,9 +75,9 @@ export function FunctionsDashboard({ open, onClose }: FunctionsDashboardProps) {
               </TabsList>
             </div>
 
-            <div className="flex-1 overflow-auto p-6">
+            <div className="flex-1 overflow-auto p-4">
               <TabsContent value="main" className="h-full mt-0">
-                <div className="grid grid-cols-3 gap-6 h-full">
+                <div className="grid grid-cols-3 gap-3 h-full">
                   {/* Bento box style buttons */}
                   <FunctionCard
                     title="Inventory"
@@ -293,10 +293,10 @@ interface FunctionCardProps {
 
 function FunctionCard({ title, description, icon, gradient }: FunctionCardProps) {
   return (
-    <button className="bg-black/60 border border-cyan-800/50 rounded-lg p-6 flex flex-col items-center text-center hover:bg-black/80 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20">
-      <div className={`bg-gradient-to-br ${gradient} p-3 rounded-full mb-4`}>{icon}</div>
-      <h3 className="font-bold text-white mb-2">{title}</h3>
-      <p className="text-sm text-gray-400">{description}</p>
+    <button className="bg-black/60 border border-cyan-800/50 rounded-lg p-3 flex flex-col items-center text-center hover:bg-black/80 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20">
+      <div className={`bg-gradient-to-br ${gradient} p-2 rounded-full mb-2`}>{icon}</div>
+      <h3 className="font-bold text-white mb-1 text-sm">{title}</h3>
+      <p className="text-xs text-gray-400">{description}</p>
     </button>
   )
 }

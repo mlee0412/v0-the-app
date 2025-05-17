@@ -13,7 +13,7 @@ import {
   Edit,
   RefreshCw,
 } from "lucide-react"
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -306,7 +306,7 @@ export function SettingsDialog({
             </TabsTrigger>
           </TabsList>
 
-          <div className="dialog-body overflow-y-auto" style={{ maxHeight: "calc(80vh - 180px)" }}>
+          <div className="dialog-body overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
             <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
               <div className="space-y-2">
                 <div className="flex justify-between items-center mb-2">
@@ -372,6 +372,17 @@ export function SettingsDialog({
                     <PlusIcon className="h-3 w-3" />
                   </Button>
                 </div>
+                {selectedTab === "servers" && (
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      onClick={saveChanges}
+                      className="bg-lime-600 hover:bg-lime-700 flex items-center gap-1 h-7 text-xs"
+                    >
+                      <SaveIcon className="h-3 w-3" />
+                      Save Changes
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -426,6 +437,17 @@ export function SettingsDialog({
                     <PlusIcon className="h-3 w-3" />
                   </Button>
                 </div>
+                {selectedTab === "notes" && (
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      onClick={saveChanges}
+                      className="bg-lime-600 hover:bg-lime-700 flex items-center gap-1 h-7 text-xs"
+                    >
+                      <SaveIcon className="h-3 w-3" />
+                      Save Changes
+                    </Button>
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -613,22 +635,6 @@ export function SettingsDialog({
             </TabsContent>
           </div>
         </Tabs>
-
-        <DialogFooter className="dialog-footer flex flex-row gap-1 pt-2 mt-auto shrink-0">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-gray-700 bg-gray-800 hover:bg-gray-700 text-white h-7 text-xs"
-          >
-            Cancel
-          </Button>
-          {(selectedTab === "servers" || selectedTab === "notes") && (
-            <Button onClick={saveChanges} className="bg-lime-600 hover:bg-lime-700 flex items-center gap-1 h-7 text-xs">
-              <SaveIcon className="h-3 w-3" />
-              Save Changes
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

@@ -56,6 +56,18 @@
   overflow: hidden;
 }
 
+/* Improve touch target size for mobile navigation */
+.mobile-bottom-nav-item {
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Add active state visual feedback */
+.mobile-bottom-nav-item:active {
+  opacity: 0.7;
+}
+
 .mobile-bottom-nav-item::before {
   content: "";
   position: absolute;
@@ -476,5 +488,21 @@
 
   .mobile-bottom-nav-label {
     font-size: 9px;
+  }
+}
+
+/* Ensure buttons have proper touch behavior */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Fix for iOS touch delay */
+@media (pointer: coarse) {
+  .mobile-bottom-nav-item,
+  button,
+  [role="button"] {
+    cursor: pointer;
+    touch-action: manipulation;
   }
 }

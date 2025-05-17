@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
 import { Home, List, Settings, LogOut, User, ActivityIcon as Function } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
@@ -41,9 +43,18 @@ export function MobileBottomNav({
 
   // Provide haptic feedback on tab change if supported
   const handleTabClick = (tab: string) => {
-    // Provide haptic feedback when changing tabs
-    hapticFeedback.selection()
-    onTabChange(tab)
+    // Prevent default behavior to avoid any browser issues
+    if (typeof window !== "undefined") {
+      // Provide haptic feedback when changing tabs
+      hapticFeedback.selection()
+
+      // Small delay to ensure UI feedback before tab change
+      setTimeout(() => {
+        onTabChange(tab)
+      }, 10)
+    } else {
+      onTabChange(tab)
+    }
   }
 
   // Handle FAB click with haptic feedback
@@ -53,11 +64,44 @@ export function MobileBottomNav({
     onAddSession()
   }
 
+  // Handle settings click
+  const handleSettingsClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    hapticFeedback.selection()
+
+    // Small delay to ensure UI feedback
+    setTimeout(() => {
+      onShowSettings()
+    }, 10)
+  }
+
+  // Handle login/logout click
+  const handleAuthClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    hapticFeedback.selection()
+
+    // Small delay to ensure UI feedback
+    setTimeout(() => {
+      if (isAuthenticated) {
+        onLogout()
+      } else {
+        onLogin()
+      }
+    }, 10)
+  }
+
   return (
     <>
       {/* Floating Action Button */}
       {showFab && (
-        <button className="mobile-fab touch-feedback" onClick={handleFabClick} aria-label="Add new session">
+        <button
+          className="mobile-fab touch-feedback"
+          onClick={handleFabClick}
+          aria-label="Add new session"
+          type="button"
+        >
           <span className="plus-icon">+</span>
         </button>
       )}
@@ -65,6 +109,7 @@ export function MobileBottomNav({
       {/* Bottom Navigation Bar */}
       <nav className="mobile-bottom-nav">
         <button
+          type="button"
           className={`mobile-bottom-nav-item ${activeTab === "tables" ? "active" : ""}`}
           onClick={() => handleTabClick("tables")}
         >
@@ -73,6 +118,7 @@ export function MobileBottomNav({
         </button>
 
         <button
+          type="button"
           className={`mobile-bottom-nav-item ${activeTab === "logs" ? "active" : ""}`}
           onClick={() => handleTabClick("logs")}
         >
@@ -81,6 +127,7 @@ export function MobileBottomNav({
         </button>
 
         <button
+          type="button"
           className={`mobile-bottom-nav-item ${activeTab === "functions" ? "active" : ""}`}
           onClick={() => handleTabClick("functions")}
         >
@@ -88,22 +135,24 @@ export function MobileBottomNav({
           <span className="mobile-bottom-nav-label">FUNCTIONS</span>
         </button>
 
-        <button className={`mobile-bottom-nav-item`} onClick={onShowSettings}>
+        <button type="button" className={`mobile-bottom-nav-item`} onClick={handleSettingsClick}>
           <Settings className="mobile-bottom-nav-icon" size={20} />
           <span className="mobile-bottom-nav-label">SETTINGS</span>
         </button>
 
-        {isAuthenticated ? (
-          <button className={`mobile-bottom-nav-item`} onClick={onLogout}>
-            <LogOut className="mobile-bottom-nav-icon" size={20} />
-            <span className="mobile-bottom-nav-label">LOGOUT</span>
-          </button>
-        ) : (
-          <button className={`mobile-bottom-nav-item`} onClick={onLogin}>
-            <User className="mobile-bottom-nav-icon" size={20} />
-            <span className="mobile-bottom-nav-label">LOGIN</span>
-          </button>
-        )}
+        <button type="button" className={`mobile-bottom-nav-item`} onClick={handleAuthClick}>
+          {isAuthenticated ? (
+            <>
+              <LogOut className="mobile-bottom-nav-icon" size={20} />
+              <span className="mobile-bottom-nav-label">LOGOUT</span>
+            </>
+          ) : (
+            <>
+              <User className="mobile-bottom-nav-icon" size={20} />
+              <span className="mobile-bottom-nav-label">LOGIN</span>
+            </>
+          )}
+        </button>
       </nav>
     </>
   )
