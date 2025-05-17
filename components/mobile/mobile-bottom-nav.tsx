@@ -46,7 +46,7 @@ export function MobileBottomNav({
     // Prevent default behavior to avoid any browser issues
     if (typeof window !== "undefined") {
       // Provide haptic feedback when changing tabs
-      hapticFeedback.selection()
+      hapticFeedback.light() // Using light haptic feedback for tab changes
 
       // Small delay to ensure UI feedback before tab change
       setTimeout(() => {
@@ -68,7 +68,7 @@ export function MobileBottomNav({
   const handleSettingsClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    hapticFeedback.selection()
+    hapticFeedback.medium() // Using medium haptic feedback for settings
 
     // Small delay to ensure UI feedback
     setTimeout(() => {
@@ -80,7 +80,7 @@ export function MobileBottomNav({
   const handleAuthClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    hapticFeedback.selection()
+    hapticFeedback.medium() // Using medium haptic feedback for auth actions
 
     // Small delay to ensure UI feedback
     setTimeout(() => {
