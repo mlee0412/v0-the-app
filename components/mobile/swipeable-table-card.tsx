@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/tables/table-card"
 import { Clock, X } from "lucide-react"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
-import { hapticFeedback } from "@/lib/utils"
+import { hapticFeedback } from "@/utils/haptic-feedback"
 
 interface SwipeableTableCardProps {
   table: Table
@@ -125,15 +125,29 @@ export function SwipeableTableCard({
         if (table.isActive && canEndSession && distance < 0) {
           // Left swipe (end session)
           setSwipeOffset(newOffset)
-          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+          const isThresholdCrossed = Math.abs(newOffset) > swipeThreshold / 2
+
+          // Provide subtle haptic feedback when crossing threshold
+          if (isThresholdCrossed !== showLeftAction) {
+            if (isThresholdCrossed) hapticFeedback.light()
+          }
+
+          setShowLeftAction(isThresholdCrossed)
         } else if (table.isActive && canAddTime && distance > 0) {
           // Right swipe (add time)
           setSwipeOffset(newOffset)
-          setShowRightAction(newOffset > swipeThreshold / 2)
+          const isThresholdCrossed = newOffset > swipeThreshold / 2
+
+          // Provide subtle haptic feedback when crossing threshold
+          if (isThresholdCrossed !== showRightAction) {
+            if (isThresholdCrossed) hapticFeedback.light()
+          }
+
+          setShowRightAction(isThresholdCrossed)
         }
       }
     },
-    [table.isActive, canEndSession, canAddTime, swipeThreshold],
+    [table.isActive, canEndSession, canAddTime, swipeThreshold, showLeftAction, showRightAction],
   )
 
   // Handle touch end

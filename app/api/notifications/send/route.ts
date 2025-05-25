@@ -1,51 +1,66 @@
-import webPush from "web-push"
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import webpush from "web-push"
 
-export async function POST(req: NextRequest) {
+// Configure web-push with VAPID keys
+const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY
+let vapidSubject = process.env.VAPID_SUBJECT || ""
+
+// Ensure VAPID subject has mailto: prefix
+if (vapidSubject && !vapidSubject.startsWith("mailto:")) {
+  vapidSubject = `mailto:${vapidSubject}`
+}
+
+if (!vapidPublicKey || !vapidPrivateKey || !vapidSubject) {
+  console.error("VAPID keys or subject are missing")
+}
+
+// Set VAPID details
+try {
+  webpush.setVapidDetails(vapidSubject, vapidPublicKey || "", vapidPrivateKey || "")
+} catch (error) {
+  console.error("Error setting VAPID details:", error)
+}
+
+export async function POST(request: Request) {
   try {
-    if (req.method !== "POST") {
-      return new NextResponse(JSON.stringify({ message: "Method Not Allowed" }), {
-        status: 405,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+    const { subscription, title, body, icon, data } = await request.json()
+
+    if (!subscription) {
+      return NextResponse.json({ error: "No subscription provided" }, { status: 400 })
     }
 
-    const subscription = await req.json()
-
-    // Ensure VAPID_SUBJECT is properly formatted with mailto: prefix
-    const vapidSubject = process.env.VAPID_SUBJECT || "admin@billiardsapp.com"
-    const formattedSubject = vapidSubject.startsWith("mailto:") ? vapidSubject : `mailto:${vapidSubject}`
-
-    webPush.setVapidDetails(
-      formattedSubject,
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
-      process.env.VAPID_PRIVATE_KEY || "",
-    )
-
+    // Prepare notification payload
     const payload = JSON.stringify({
-      title: "Billiards App Update",
-      body: "A new game is waiting for you!",
-    })
-
-    webPush.sendNotification(subscription, payload).catch((error) => {
-      console.error("Error sending notification: ", error)
-    })
-
-    return new NextResponse(JSON.stringify({ message: "Notification sent" }), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
+      notification: {
+        title: title || "Billiards Timer",
+        body: body || "You have a notification",
+        icon: icon || "/images/space-billiard-logo.png",
+        badge: "/images/space-billiard-logo.png",
+        vibrate: [100, 50, 100],
+        data: {
+          dateOfArrival: Date.now(),
+          primaryKey: 1,
+          ...data,
+        },
+        actions: [
+          {
+            action: "explore",
+            title: "View Details",
+          },
+        ],
       },
     })
+
+    // Send push notification
+    await webpush.sendNotification(subscription, payload)
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error in POST: ", error)
-    return new NextResponse(JSON.stringify({ message: "Internal Server Error", error: error }), {
-      status: 500,
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
+    console.error("Error sending push notification:", error)
+    return NextResponse.json(
+      { error: `Failed to send push notification: ${error instanceof Error ? error.message : String(error)}` },
+      { status: 500 },
+    )
   }
 }
