@@ -1,21 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js" // Ensure this is the correct import for server-side
+import { createClient } from "@supabase/supabase-js"
 
 // Ensure environment variables are loaded and checked at the top
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-if (!supabaseUrl || !supabaseServiceRoleKey) {
-  console.error(
-    "API_STAFF_MEMBERS_ROUTE: FATAL ERROR - Supabase URL or Service Role Key is not defined in the environment.",
-  )
-  // Do not proceed if basic configuration is missing.
-  // The function will implicitly return a 500 if this state is reached without an explicit return,
-  // or we can force a clear error response.
-}
-
 // Initialize Supabase client (only if env vars are present)
-let supabase: any // Declare supabase outside the conditional block
+let supabase: any = null
+
 if (supabaseUrl && supabaseServiceRoleKey) {
   supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
@@ -23,8 +15,6 @@ if (supabaseUrl && supabaseServiceRoleKey) {
       persistSession: false,
     },
   })
-} else {
-  // supabase remains undefined, subsequent checks will handle this
 }
 
 // GET handler to fetch all staff members
@@ -120,13 +110,6 @@ export async function POST(request: NextRequest) {
 
       if (authError) {
         console.error("API_STAFF_MEMBERS_POST: Error creating Supabase auth user:", JSON.stringify(authError, null, 2))
-        // Do not fail the whole request if auth user creation fails, but log it.
-        // The staff_member can still be created.
-        // However, if this is critical, you might want to return an error:
-        // return NextResponse.json(
-        //   { error: "Failed to create authentication user.", details: authError.message },
-        //   { status: 500 }
-        // );
       } else if (authUserResponse && authUserResponse.user) {
         authId = authUserResponse.user.id
         console.log("API_STAFF_MEMBERS_POST: Supabase auth user created with ID:", authId)
@@ -145,6 +128,7 @@ export async function POST(request: NextRequest) {
       role: userData.role,
       auth_id: authId,
     }
+
     console.log("API_STAFF_MEMBERS_POST: Attempting to insert into staff_members:", staffMemberData)
 
     const { data: staffMember, error: staffError } = await supabase
@@ -169,11 +153,8 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       )
     }
+
     console.log("API_STAFF_MEMBERS_POST: Staff member created successfully:", staffMember)
-
-    // The trigger `auto_initialize_staff_permissions` in your schema_staff.sql
-    // should handle permission initialization. If not, you might need an RPC call here.
-
     return NextResponse.json(staffMember || {})
   } catch (error: any) {
     console.error("API_STAFF_MEMBERS_POST: Unexpected error in POST handler:", JSON.stringify(error, null, 2))
@@ -185,7 +166,6 @@ export async function POST(request: NextRequest) {
 }
 
 // Helper function to get default permissions based on role (example, not directly used if RPC handles it)
-// This was in your original file, can be removed if RPC `initialize_staff_permissions` works.
 /*
 function getDefaultPermissionsForRole(role: string) {
   // ... (your existing permission logic here if needed)
