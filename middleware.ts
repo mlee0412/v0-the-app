@@ -11,14 +11,12 @@ export function middleware(request: NextRequest) {
   if (
     request.nextUrl.pathname.startsWith("/_next") ||
     request.nextUrl.pathname.startsWith("/static") ||
-    request.nextUrl.pathname.includes(".") ||
-    request.nextUrl.pathname === "/favicon.ico"
+    request.nextUrl.pathname.includes(".")
   ) {
     return NextResponse.next()
   }
 
   // For now, allow all other requests to pass through
-  // You can add authentication checks here in the future
   return NextResponse.next()
 }
 

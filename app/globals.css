@@ -55,12 +55,6 @@
   }
   body {
     @apply bg-background text-foreground;
-    overflow: hidden; /* Prevent scrollbars from appearing */
-  }
-
-  /* Ensure canvas elements render properly */
-  canvas {
-    display: block;
   }
 }
 
@@ -164,22 +158,4 @@ body {
     transform: scale(1);
     opacity: 1;
   }
-}
-
-/* Fix for canvas background animations */
-.fixed {
-  position: fixed;
-}
-
-.-z-10 {
-  z-index: -10;
-}
-
-/* Ensure animations are visible */
-canvas.fixed {
-  width: 100vw !important;
-  height: 100vh !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
 }

@@ -27,12 +27,8 @@ export function SpaceBackgroundAnimation({ intensity = 1 }: SpaceBackgroundAnima
 
     // Set canvas dimensions
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = window.innerWidth * dpr
-      canvas.height = window.innerHeight * dpr
-      canvas.style.width = `${window.innerWidth}px`
-      canvas.style.height = `${window.innerHeight}px`
-      ctx.scale(dpr, dpr)
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
     }
 
     resizeCanvas()
@@ -45,8 +41,8 @@ export function SpaceBackgroundAnimation({ intensity = 1 }: SpaceBackgroundAnima
     for (let i = 0; i < starCount; i++) {
       const radius = Math.random() * 1.5 * intensity
       stars.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
         radius: radius,
         color: `rgba(255, 255, 255, ${0.5 + Math.random() * 0.5})`,
         velocity: (0.05 + Math.random() * 0.1) * intensity,
@@ -74,8 +70,8 @@ export function SpaceBackgroundAnimation({ intensity = 1 }: SpaceBackgroundAnima
 
     for (let i = 0; i < nebulaCount; i++) {
       nebulae.push({
-        x: Math.random() * window.innerWidth,
-        y: Math.random() * window.innerHeight,
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
         radius: 50 + Math.random() * 100 * intensity,
         color: nebulaColors[Math.floor(Math.random() * nebulaColors.length)],
         velocity: (0.02 + Math.random() * 0.05) * intensity,
@@ -146,7 +142,6 @@ export function SpaceBackgroundAnimation({ intensity = 1 }: SpaceBackgroundAnima
       ref={canvasRef}
       className="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none"
       style={{ opacity: 0.8 }}
-      aria-hidden="true"
     />
   )
 }
