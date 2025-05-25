@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import webPush from "web-push"
+import { createClient } from "@supabase/supabase-js"
+
+// Configure web-push with VAPID keys
+webPush.setVapidDetails(
+  process.env.VAPID_SUBJECT || "mailto:admin@billiardsapp.com",
+  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
+  process.env.VAPID_PRIVATE_KEY || "",
+)
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL || ""
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function POST(request: Request) {
   try {
-    const { title, body, userId, tableId } = await request.json()
+    const { title, body, icon, data } = await request.json()
 
+    // Validate required fields
     if (!title || !body) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+      return NextResponse.json({ error: "Title and body are required" }, { status: 400 })
     }
 
-    // Create Supabase client
-    const supabase = createClient()
-
-    // Get all subscriptions for the user (or all users if userId is not provided)
-    const query = supabase.from("push_subscriptions").select("*")
-    if (userId) {
-      query.eq("user_id", userId)
-    }
-
-    const { data: subscriptions, error } = await query
+    // Get all push subscriptions from the database
+    const { data: subscriptions, error } = await supabase.from("push_subscriptions").select("*")
 
     if (error) {
       console.error("Error fetching subscriptions:", error)
@@ -26,30 +32,50 @@ export async function POST(request: Request) {
     }
 
     if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ message: "No subscriptions found" }, { status: 404 })
+      return NextResponse.json({ message: "No subscriptions found" }, { status: 200 })
     }
 
-    // In a real implementation, you would use web-push to send notifications
-    // For this demo, we'll just log the notifications that would be sent
-    console.log(`Would send notification to ${subscriptions.length} subscribers:`, {
+    // Send push notifications to all subscriptions
+    const notificationPayload = JSON.stringify({
       title,
       body,
-      data: { tableId },
+      icon: icon || "/images/space-billiard-logo.png",
+      badge: "/images/space-billiard-logo.png",
+      data,
+      actions: [
+        {
+          action: "view",
+          title: "View",
+        },
+        {
+          action: "dismiss",
+          title: "Dismiss",
+        },
+      ],
     })
 
-    // Log the notification in the database
-    await supabase.from("notification_logs").insert({
-      title,
-      body,
-      user_id: userId,
-      table_id: tableId,
-      sent_at: new Date().toISOString(),
-      recipients_count: subscriptions.length,
+    const sendPromises = subscriptions.map(async (sub) => {
+      try {
+        await webPush.sendNotification(sub.subscription, notificationPayload)
+        return { success: true, endpoint: sub.subscription.endpoint }
+      } catch (error) {
+        console.error("Error sending notification:", error)
+
+        // If subscription is no longer valid, remove it
+        if (error.statusCode === 404 || error.statusCode === 410) {
+          await supabase.from("push_subscriptions").delete().eq("id", sub.id)
+        }
+
+        return { success: false, endpoint: sub.subscription.endpoint, error }
+      }
     })
+
+    const results = await Promise.all(sendPromises)
+    const successCount = results.filter((r) => r.success).length
 
     return NextResponse.json({
-      success: true,
-      sentTo: subscriptions.length,
+      message: `Sent notifications to ${successCount} of ${subscriptions.length} subscriptions`,
+      results,
     })
   } catch (error) {
     console.error("Error sending push notifications:", error)

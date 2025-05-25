@@ -1,65 +1,53 @@
 -- Create push_subscriptions table
 CREATE TABLE IF NOT EXISTS push_subscriptions (
-  id SERIAL PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  endpoint TEXT NOT NULL UNIQUE,
-  p256dh TEXT NOT NULL,
-  auth TEXT NOT NULL,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  subscription JSONB NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create index on user_id for faster lookups
+-- Create index on user_id
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
 
--- Create notification_logs table to track sent notifications
-CREATE TABLE IF NOT EXISTS notification_logs (
-  id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  body TEXT NOT NULL,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  table_id TEXT,
-  sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  recipients_count INTEGER DEFAULT 0
-);
+-- Create function to update updated_at timestamp
+CREATE OR REPLACE FUNCTION update_push_subscription_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Add RLS policies for push_subscriptions
+-- Create trigger to update timestamp
+CREATE TRIGGER update_push_subscription_timestamp
+BEFORE UPDATE ON push_subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION update_push_subscription_timestamp();
+
+-- RLS policies for push_subscriptions
 ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Users can only see their own subscriptions
-CREATE POLICY "Users can view their own push subscriptions"
-  ON push_subscriptions FOR SELECT
+-- Allow users to read their own subscriptions
+CREATE POLICY read_own_subscriptions ON push_subscriptions
+  FOR SELECT
   USING (auth.uid() = user_id);
 
--- Users can insert their own subscriptions
-CREATE POLICY "Users can insert their own push subscriptions"
-  ON push_subscriptions FOR INSERT
+-- Allow users to insert their own subscriptions
+CREATE POLICY insert_own_subscriptions ON push_subscriptions
+  FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- Users can update their own subscriptions
-CREATE POLICY "Users can update their own push subscriptions"
-  ON push_subscriptions FOR UPDATE
+-- Allow users to update their own subscriptions
+CREATE POLICY update_own_subscriptions ON push_subscriptions
+  FOR UPDATE
   USING (auth.uid() = user_id);
 
--- Users can delete their own subscriptions
-CREATE POLICY "Users can delete their own push subscriptions"
-  ON push_subscriptions FOR DELETE
+-- Allow users to delete their own subscriptions
+CREATE POLICY delete_own_subscriptions ON push_subscriptions
+  FOR DELETE
   USING (auth.uid() = user_id);
 
--- Add RLS policies for notification_logs
-ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
-
--- Only admins can view all notification logs
-CREATE POLICY "Admins can view all notification logs"
-  ON notification_logs FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM users
-      WHERE users.id = auth.uid() AND users.role = 'admin'
-    )
-  );
-
--- Users can view their own notification logs
-CREATE POLICY "Users can view their own notification logs"
-  ON notification_logs FOR SELECT
-  USING (auth.uid() = user_id);
+-- Allow service role to manage all subscriptions
+CREATE POLICY service_role_manage_subscriptions ON push_subscriptions
+  USING (auth.jwt() ->> 'role' = 'service_role');

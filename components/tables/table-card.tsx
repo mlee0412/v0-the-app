@@ -538,6 +538,36 @@ const TableCardComponent = function TableCard({
     [servers],
   )
 
+  // Ensure canvas is properly sized
+  useEffect(() => {
+    if (particlesRef.current && cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect()
+      particlesRef.current.width = rect.width
+      particlesRef.current.height = rect.height
+    }
+  }, [])
+
+  // Add resize observer to handle size changes
+  useEffect(() => {
+    if (!cardRef.current || !particlesRef.current) return
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (particlesRef.current) {
+          particlesRef.current.width = width
+          particlesRef.current.height = height
+        }
+      }
+    })
+
+    resizeObserver.observe(cardRef.current)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+
   return (
     <>
       <style>{showAnimations ? animationStyles : ""}</style>
@@ -564,7 +594,11 @@ const TableCardComponent = function TableCard({
                     ${backgroundStyles.animationClassName}`}
           style={backgroundStyles.style}
         >
-          <canvas ref={particlesRef} className="absolute inset-0 pointer-events-none z-0" />
+          <canvas
+            ref={particlesRef}
+            className="absolute inset-0 pointer-events-none z-0"
+            style={{ width: "100%", height: "100%" }}
+          />
           <div
             className="absolute inset-0 pointer-events-none z-0"
             style={{
