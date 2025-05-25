@@ -1,587 +1,381 @@
-import { getSupabaseClient } from "@/lib/supabase/client"
-import { v4 as uuidv4 } from "uuid"
-import { type UserRole, ADMIN_LEVEL_ROLES } from "@/types/user"
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { v4 as uuidv4 } from "uuid";
+// Import types from the canonical source
+import { type UserRole, type User, type Permission, ADMIN_LEVEL_ROLES, USER_ROLE_LABELS } from "@/types/user";
 
-// Define user roles and default permissions
-interface Permission {
-  canStartSession: boolean
-  canEndSession: boolean
-  canAddTime: boolean
-  canSubtractTime: boolean
-  canUpdateGuests: boolean
-  canAssignServer: boolean
-  canGroupTables: boolean
-  canUngroupTable: boolean
-  canMoveTable: boolean
-  canUpdateNotes: boolean
-  canViewLogs: boolean
-  canManageUsers: boolean
-  canManageSettings: boolean
-}
-
-// Define default permissions for each role
+// Define default permissions for each role (remains here as it's service-specific default logic)
 const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
-  // Admin level roles - full access
   admin: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: true,
-    canUpdateGuests: true,
-    canAssignServer: true,
-    canGroupTables: true,
-    canUngroupTable: true,
-    canMoveTable: true,
-    canUpdateNotes: true,
-    canViewLogs: true,
-    canManageUsers: true,
-    canManageSettings: true,
+    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
+    canUpdateGuests: true, canAssignServer: true, canGroupTables: true, canUngroupTable: true,
+    canMoveTable: true, canUpdateNotes: true, canViewLogs: true, canManageUsers: true, canManageSettings: true,
   },
   controller: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: true,
-    canUpdateGuests: true,
-    canAssignServer: true,
-    canGroupTables: true,
-    canUngroupTable: true,
-    canMoveTable: true,
-    canUpdateNotes: true,
-    canViewLogs: true,
-    canManageUsers: true,
-    canManageSettings: true,
+    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
+    canUpdateGuests: true, canAssignServer: true, canGroupTables: true, canUngroupTable: true,
+    canMoveTable: true, canUpdateNotes: true, canViewLogs: true, canManageUsers: true, canManageSettings: true,
   },
   manager: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: true,
-    canUpdateGuests: true,
-    canAssignServer: true,
-    canGroupTables: true,
-    canUngroupTable: true,
-    canMoveTable: true,
-    canUpdateNotes: true,
-    canViewLogs: true,
-    canManageUsers: true,
-    canManageSettings: true,
+    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
+    canUpdateGuests: true, canAssignServer: true, canGroupTables: true, canUngroupTable: true,
+    canMoveTable: true, canUpdateNotes: true, canViewLogs: true, canManageUsers: true, canManageSettings: true,
   },
-  // Staff level roles - operational access
   server: {
-    canStartSession: true,
-    canEndSession: true,
-    canAddTime: true,
-    canSubtractTime: false,
-    canUpdateGuests: true,
-    canAssignServer: false, // Servers can only manage their own tables
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: true,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: false,
+    canUpdateGuests: true, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: true, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   bartender: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   barback: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   kitchen: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   security: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   karaoke_main: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   karaoke_staff: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
-  // View only role
   viewer: {
-    canStartSession: false,
-    canEndSession: false,
-    canAddTime: false,
-    canSubtractTime: false,
-    canUpdateGuests: false,
-    canAssignServer: false,
-    canGroupTables: false,
-    canUngroupTable: false,
-    canMoveTable: false,
-    canUpdateNotes: false,
-    canViewLogs: false,
-    canManageUsers: false,
-    canManageSettings: false,
+    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
+    canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
-}
+};
 
-// Define user interface
-export interface User {
-  id: string
-  email: string
-  username?: string
-  name: string
-  role: UserRole
-  pin_code?: string
-  permissions?: Permission
-  created_at?: string
-  updated_at?: string
-}
+// User interface is now imported from @/types/user
+// Permission interface is now imported from @/types/user
 
 class SupabaseAuthService {
-  DEFAULT_PERMISSIONS = DEFAULT_PERMISSIONS
-  private isBrowser = typeof window !== "undefined"
-  private supabase = getSupabaseClient()
-  private currentUser: any = null
-  private userPermissions: any = null
+  // DEFAULT_PERMISSIONS is now directly accessible if needed by other modules,
+  // or it can remain here if it's only for this service's internal logic.
+  // For clarity and if it's core to role definitions, it could also live in types/user.ts
+  public static readonly DEFAULT_PERMISSIONS = DEFAULT_PERMISSIONS;
+
+  private isBrowser = typeof window !== "undefined";
+  private supabase = getSupabaseClient();
+  private currentUser: User | null = null; // Now uses the imported User type
 
   constructor() {
-    // Initialize current user from local storage if available
-    if (typeof window !== "undefined") {
-      const storedUser = localStorage.getItem("currentUser")
+    if (this.isBrowser) {
+      const storedUser = localStorage.getItem("currentUser");
       if (storedUser) {
         try {
-          this.currentUser = JSON.parse(storedUser)
+          this.currentUser = JSON.parse(storedUser) as User;
         } catch (e) {
-          console.error("Error parsing stored user:", e)
-          localStorage.removeItem("currentUser")
+          console.error("Error parsing stored user:", e);
+          localStorage.removeItem("currentUser");
         }
       }
     }
   }
 
-  // Authenticate a user with user ID and PIN code
-  async authenticate(userId: string, pinCode: string) {
+  async authenticate(userId: string, pinCode: string): Promise<User | null> {
     try {
-      // Use the API endpoint for authentication
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, pinCode }),
-      })
+      });
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("Authentication error:", errorData)
-        return null
+        const errorData = await response.json();
+        console.error("Authentication error:", errorData);
+        return null;
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success && data.user) {
-        // Store the user in memory and localStorage
-        this.currentUser = data.user
-        if (typeof window !== "undefined") {
-          localStorage.setItem("currentUser", JSON.stringify(data.user))
+        // Ensure the user object conforms to the User type from @/types/user
+        const authenticatedUser: User = {
+            id: data.user.id,
+            name: data.user.name || data.user.first_name || "Unknown",
+            username: data.user.username,
+            email: data.user.email,
+            role: data.user.role as UserRole, // Cast to UserRole
+            pin_code: data.user.pin_code,
+            permissions: data.user.permissions || DEFAULT_PERMISSIONS[data.user.role as UserRole],
+            auth_id: data.user.auth_id,
+            display_name: data.user.display_name || data.user.name,
+            created_at: data.user.created_at,
+            updated_at: data.user.updated_at,
+        };
+        this.currentUser = authenticatedUser;
+        if (this.isBrowser) {
+          localStorage.setItem("currentUser", JSON.stringify(authenticatedUser));
         }
-
-        return data.user
+        return authenticatedUser;
       }
-
-      return null
+      return null;
     } catch (error) {
-      console.error("Authentication error:", error)
-      return null
+      console.error("Authentication error:", error);
+      return null;
     }
   }
 
-  // Get all users - use a fetch API call to bypass RLS issues
-  async getUsers() {
+  async getUsers(): Promise<User[]> {
     try {
-      // Use fetch to call our API endpoint instead of direct Supabase query
-      const response = await fetch("/api/staff/members")
+      const response = await fetch("/api/staff/members");
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`API error: ${response.status}`);
       }
-      const data = await response.json()
+      const data = await response.json();
 
-      // Format users from the API response
-      const formattedUsers = (data || []).map((user: any) => ({
+      const formattedUsers: User[] = (data || []).map((user: any) => ({
         id: user.id,
-        email: user.email || "",
-        username: user.email || user.first_name.toLowerCase().replace(/\s+/g, ""),
-        name: user.first_name,
+        email: user.email || null, // API might return empty string, make it null if so
+        username: user.username || user.email || (user.first_name ? user.first_name.toLowerCase().replace(/\s+/g, "") : undefined),
+        name: user.first_name || "Unknown",
         display_name: user.display_name || user.first_name,
-        role: user.role?.toLowerCase() || "viewer",
+        role: (user.role?.toLowerCase() || "viewer") as UserRole,
         pin_code: user.pin_code,
-        permissions: DEFAULT_PERMISSIONS[user.role?.toLowerCase() || "viewer"],
+        permissions: user.permissions || DEFAULT_PERMISSIONS[(user.role?.toLowerCase() || "viewer") as UserRole],
         created_at: user.created_at,
         updated_at: user.updated_at,
         auth_id: user.auth_id,
-      }))
+      }));
 
-      // Ensure Administrator is always available
-      if (!formattedUsers.some((u) => u.email === "admin@example.com" || u.username === "admin")) {
+      if (!formattedUsers.some((u) => u.role === "admin" && (u.email === "admin@example.com" || u.username === "admin"))) {
         formattedUsers.push({
           id: "admin-" + uuidv4().substring(0, 8),
           email: "admin@example.com",
           username: "admin",
           name: "Administrator",
+          display_name: "Administrator",
           role: "admin",
           pin_code: "2162",
           permissions: DEFAULT_PERMISSIONS.admin,
-        })
+        });
       }
-
-      return formattedUsers
+      return formattedUsers;
     } catch (error) {
-      console.error("Error fetching users:", error)
-
-      // Return default admin user as fallback
+      console.error("Error fetching users:", error);
       return [
         {
           id: "admin-" + uuidv4().substring(0, 8),
           email: "admin@example.com",
           username: "admin",
           name: "Administrator",
+          display_name: "Administrator",
           role: "admin",
           pin_code: "2162",
           permissions: DEFAULT_PERMISSIONS.admin,
         },
-      ]
+      ];
     }
   }
 
-  // The rest of the methods remain the same...
-  // Add a new user
-  async addUser(userData: any) {
+  async addUser(userData: Partial<User>): Promise<User | null> { // Use Partial<User> for input
     try {
-      // Use API endpoint to bypass RLS
       const response = await fetch("/api/staff/members", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
-      })
-
+      });
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
       }
-
-      const data = await response.json()
-
-      // Broadcast user update
-      this.broadcastUserUpdate()
-
-      return data
+      const newUser = await response.json() as User; // Cast to User
+      this.broadcastUserUpdate();
+      return newUser;
     } catch (error) {
-      console.error("Error adding user:", error)
-      throw error
+      console.error("Error adding user:", error);
+      throw error;
     }
   }
 
-  // Update an existing user
-  async updateUser(userId: string, userData: any) {
+  async updateUser(userId: string, userData: Partial<User>): Promise<User | null> { // Use Partial<User>
     try {
-      // Use API endpoint to bypass RLS
       const response = await fetch(`/api/staff/members/${userId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
-      })
-
+      });
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
       }
-
-      const data = await response.json()
-
-      // Broadcast user update
-      this.broadcastUserUpdate()
-
-      return data
+      const updatedUser = await response.json() as User; // Cast to User
+      this.broadcastUserUpdate();
+      return updatedUser;
     } catch (error) {
-      console.error("Error updating user:", error)
-      throw error
+      console.error("Error updating user:", error);
+      throw error;
     }
   }
 
-  // Delete a user
-  async deleteUser(userId: string) {
+  async deleteUser(userId: string): Promise<boolean> {
     try {
-      // Use API endpoint to bypass RLS
       const response = await fetch(`/api/staff/members/${userId}`, {
         method: "DELETE",
-      })
-
+      });
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
       }
-
-      // Broadcast user update
-      this.broadcastUserUpdate()
-
-      return true
+      this.broadcastUserUpdate();
+      return true;
     } catch (error) {
-      console.error("Error deleting user:", error)
-      throw error
+      console.error("Error deleting user:", error);
+      throw error;
     }
   }
 
-  // Get user permissions
-  async getUserPermissions(userId: string) {
+  async getUserPermissions(userId: string): Promise<Permission | null> {
     try {
-      // Use API endpoint to bypass RLS
-      const response = await fetch(`/api/staff/permissions/${userId}`)
-
+      const response = await fetch(`/api/staff/permissions/${userId}`);
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+         const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
       }
-
-      return await response.json()
+      return await response.json() as Permission; // Cast to Permission
     } catch (error) {
-      console.error("Error getting user permissions:", error)
-      return null
+      console.error("Error getting user permissions:", error);
+      return null;
     }
   }
 
-  // Update user permissions
-  async updateUserPermissions(userId: string, permissions: any) {
+  async updateUserPermissions(userId: string, permissions: Partial<Permission>): Promise<Permission | null> { // Use Partial<Permission>
     try {
-      // Use API endpoint to bypass RLS
       const response = await fetch(`/api/staff/permissions/${userId}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(permissions),
-      })
-
+      });
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API error: ${response.status}`);
       }
-
-      return await response.json()
+      const updatedPermissions = await response.json() as Permission; // Cast to Permission
+      this.broadcastUserUpdate(); // Permissions change might affect user object
+      return updatedPermissions;
     } catch (error) {
-      console.error("Error updating permissions:", error)
-      throw error
+      console.error("Error updating permissions:", error);
+      throw error;
     }
   }
 
-  // Get all roles
-  async getRoles() {
+  async getRoles(): Promise<Array<{ id: string; role_name: UserRole; description?: string }>> {
     try {
-      // Use API endpoint to bypass RLS
-      const response = await fetch("/api/staff/roles")
-
+      const response = await fetch("/api/staff/roles");
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+        throw new Error(`API error: ${response.status}`);
       }
-
-      return await response.json()
+      return await response.json();
     } catch (error) {
-      console.error("Error fetching roles:", error)
-      throw error
+      console.error("Error fetching roles:", error);
+      throw error;
     }
   }
 
-  // Check if a user has a specific permission
-  async hasPermission(permission: string): Promise<boolean> {
+  async hasPermission(permissionKey: keyof Permission): Promise<boolean> {
     try {
-      const user = await this.getCurrentUser()
-      if (!user) return false
-
-      // Admin level roles always have all permissions
-      if (ADMIN_LEVEL_ROLES.includes(user.role as UserRole)) {
-        return true
+      const user = await this.getCurrentUser();
+      if (!user) return false;
+      if (ADMIN_LEVEL_ROLES.includes(user.role)) return true;
+      if (user.permissions && permissionKey in user.permissions) {
+        return !!user.permissions[permissionKey];
       }
-
-      // Check user's specific permissions
-      if (user.permissions && permission in user.permissions) {
-        return user.permissions[permission as keyof typeof user.permissions]
-      }
-
-      // Fall back to default permissions for role
-      return DEFAULT_PERMISSIONS[user.role as UserRole][permission as keyof Permission] || false
+      return DEFAULT_PERMISSIONS[user.role]?.[permissionKey] || false;
     } catch (error) {
-      console.error("Error checking permission:", error)
-      return false
+      console.error("Error checking permission:", error);
+      return false;
     }
   }
 
-  // Check if current user is authenticated
-  async isAuthenticated() {
+  isAuthenticated(): boolean { // Made synchronous
+    if (!this.isBrowser) return false;
+    return !!localStorage.getItem("currentUser");
+  }
+
+  getCurrentUser(): User | null { // Made synchronous
+     if (!this.isBrowser) return null;
+    const userJson = localStorage.getItem("currentUser");
+    if (!userJson) return null;
     try {
-      const user = localStorage.getItem("currentUser")
-      return !!user
+      return JSON.parse(userJson) as User;
     } catch (error) {
-      console.error("Error checking authentication:", error)
-      return false
+      console.error("Error getting current user:", error);
+      return null;
     }
   }
 
-  // Get the current user
-  async getCurrentUser() {
+  isAdmin(): boolean { // Made synchronous
+    const user = this.getCurrentUser();
+    return !!user && ADMIN_LEVEL_ROLES.includes(user.role);
+  }
+
+  isServer(): boolean { // Made synchronous
+    const user = this.getCurrentUser();
+    return user?.role === "server";
+  }
+
+  async logout() { // Kept async for Supabase signout
+    if (this.isBrowser) {
+      localStorage.removeItem("currentUser");
+    }
+    this.currentUser = null;
     try {
-      const userJson = localStorage.getItem("currentUser")
-      if (!userJson) return null
-
-      const user = JSON.parse(userJson)
-      return user
+      await this.supabase.auth.signOut();
     } catch (error) {
-      console.error("Error getting current user:", error)
-      return null
+      console.error("Error logging out from Supabase:", error);
     }
   }
 
-  // Check if current user is admin
-  async isAdmin() {
-    try {
-      const user = await this.getCurrentUser()
-      return ADMIN_LEVEL_ROLES.includes(user?.role as UserRole)
-    } catch (error) {
-      console.error("Error checking admin status:", error)
-      return false
-    }
-  }
-
-  // Check if current user is server
-  async isServer() {
-    try {
-      const user = await this.getCurrentUser()
-      return user?.role === "server"
-    } catch (error) {
-      console.error("Error checking server status:", error)
-      return false
-    }
-  }
-
-  // Logout
-  async logout() {
-    try {
-      localStorage.removeItem("currentUser")
-
-      // Also sign out from Supabase Auth
-      await this.supabase.auth.signOut()
-    } catch (error) {
-      console.error("Error logging out:", error)
-    }
-  }
-
-  // Subscribe to user changes
   subscribeToUsers(callback: (users: User[]) => void): () => void {
-    if (!this.isBrowser) {
-      return () => {} // No-op for server-side
-    }
+    if (!this.isBrowser) return () => {};
 
-    // Set up Supabase real-time subscription if available
-    let subscription: { unsubscribe: () => void } | null = null
-    const supabase = getSupabaseClient()
-
+    let subscription: any = null; // Supabase RealtimeChannel
     try {
-      // Try to subscribe to staff_members table
-      subscription = supabase
+      subscription = this.supabase
         .channel("staff-changes")
-        .on("postgres_changes", { event: "*", schema: "public", table: "staff_members" }, () => {
-          this.getUsers().then(callback)
-        })
-        .subscribe()
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "staff_members" },
+          () => { this.getUsers().then(callback); }
+        )
+        .subscribe();
     } catch (error) {
-      console.error("Error setting up Supabase subscription:", error)
+      console.error("Error setting up Supabase subscription for users:", error);
     }
 
-    // Also listen for custom user update events
-    const handleUserUpdate = () => {
-      this.getUsers().then(callback)
-    }
-
-    window.addEventListener("supabase-user-update", handleUserUpdate)
+    const handleUserUpdate = () => { this.getUsers().then(callback); };
+    window.addEventListener("supabase-user-update", handleUserUpdate);
 
     return () => {
       if (subscription) {
-        subscription.unsubscribe()
+        this.supabase.removeChannel(subscription);
       }
-      window.removeEventListener("supabase-user-update", handleUserUpdate)
-    }
+      window.removeEventListener("supabase-user-update", handleUserUpdate);
+    };
   }
 
-  // Helper method to broadcast user updates
   broadcastUserUpdate() {
-    if (!this.isBrowser) return
-    window.dispatchEvent(new CustomEvent("supabase-user-update"))
+    if (!this.isBrowser) return;
+    window.dispatchEvent(new CustomEvent("supabase-user-update"));
   }
 }
 
-const supabaseAuthService = new SupabaseAuthService()
-export default supabaseAuthService
+const supabaseAuthService = new SupabaseAuthService();
+export default supabaseAuthService;

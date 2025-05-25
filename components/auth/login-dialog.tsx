@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { LockIcon, UserIcon, XIcon, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { NumberPad } from "@/components/number-pad"
+import { NumberPad } from "@/components/auth/number-pad"
 
 interface LoginDialogProps {
   open: boolean

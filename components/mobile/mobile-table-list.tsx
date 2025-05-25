@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useRef, useCallback, useMemo } from "react"
-import type { Table } from "@/components/billiards-timer-dashboard"
-import type { Server } from "@/components/billiards-timer-dashboard"
-import type { LogEntry } from "@/components/billiards-timer-dashboard"
+import type { Table } from "@/components/system/billiards-timer-dashboard"
+import type { Server } from "@/components/system/billiards-timer-dashboard"
+import type { LogEntry } from "@/components/system/billiards-timer-dashboard"
 import { useAuth } from "@/contexts/auth-context"
-import { TableCard } from "@/components/table-card"
+import { TableCard } from "@/components/tables/table-card"
 import { hapticFeedback } from "@/utils/haptic-feedback"
 
 interface MobileTableListProps {

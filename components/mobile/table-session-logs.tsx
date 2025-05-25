@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import type { LogEntry } from "@/components/billiards-timer-dashboard"
+import type { LogEntry } from "@/components/system/billiards-timer-dashboard"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatDistanceToNow } from "date-fns"
 

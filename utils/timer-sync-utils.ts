@@ -2,6 +2,11 @@
  * Utility functions for timer synchronization
  */
 
+// Optimize the calculateRemainingTime function with memoization
+// Add this at the top of the file after the imports
+const remainingTimeCache = new Map<string, { value: number; timestamp: number }>()
+const CACHE_TTL = 100 // 100ms cache lifetime
+
 // Broadcast a timer update to all components
 export function broadcastTimerUpdate(tableId: number, remainingTime: number, initialTime: number) {
   window.dispatchEvent(
@@ -29,6 +34,7 @@ export function broadcastTableUpdate(tableId: number, table: any) {
 
 // Calculate remaining time based on start time and initial time
 // Allow negative values for overtime
+// Replace the existing calculateRemainingTime function with this optimized version
 export function calculateRemainingTime(
   timerMinutes: number,
   startTime: string | null,
@@ -38,11 +44,20 @@ export function calculateRemainingTime(
 ): number {
   if (!startTime) return timerMinutes * 60 // Not started yet, return initial time in seconds
 
+  // Create a cache key based on the input parameters
+  const cacheKey = `${timerMinutes}-${startTime}-${isPaused}-${pauseTime}-${accumulatedTime}`
+  const now = Date.now()
+
+  // Check if we have a cached value that's still valid
+  const cached = remainingTimeCache.get(cacheKey)
+  if (cached && now - cached.timestamp < CACHE_TTL) {
+    return cached.value
+  }
+
   const totalSeconds = timerMinutes * 60
 
   // Cache these values to avoid repeated calculations
   const startTimeMs = new Date(startTime).getTime()
-  const now = Date.now()
 
   let elapsedSeconds = 0
 
@@ -57,23 +72,54 @@ export function calculateRemainingTime(
   elapsedSeconds += accumulatedTime
 
   // Allow negative values (remove Math.max)
-  return totalSeconds - elapsedSeconds
+  const result = totalSeconds - elapsedSeconds
+
+  // Cache the result
+  remainingTimeCache.set(cacheKey, { value: result, timestamp: now })
+
+  // Clean up old cache entries periodically
+  if (Math.random() < 0.01) {
+    // 1% chance to clean up on each call
+    for (const [key, entry] of remainingTimeCache.entries()) {
+      if (now - entry.timestamp > CACHE_TTL * 10) {
+        remainingTimeCache.delete(key)
+      }
+    }
+  }
+
+  return result
 }
 
 // Add more efficient throttling for timer updates
 
 // Add a new throttled broadcast function
 
-// Throttled version of broadcastTimerUpdate to prevent too many updates
-let lastTimerUpdateTime = 0
-const TIMER_UPDATE_THROTTLE = 100 // Reduced from 500ms to 100ms for better responsiveness
+// Optimize the throttledBroadcastTimerUpdate function
+// Reduce the throttle time for more responsive updates but batch them more efficiently
+const TIMER_UPDATE_THROTTLE = 100 // 100ms throttle
+const pendingTimerUpdates = new Map<number, { remainingTime: number; initialTime: number; timestamp: number }>()
+let timerUpdateScheduled = false
 
 export function throttledBroadcastTimerUpdate(tableId: number, remainingTime: number, initialTime: number) {
-  const now = Date.now()
-  if (now - lastTimerUpdateTime < TIMER_UPDATE_THROTTLE) return
+  // Store the latest values for this table
+  pendingTimerUpdates.set(tableId, {
+    remainingTime,
+    initialTime,
+    timestamp: Date.now(),
+  })
 
-  lastTimerUpdateTime = now
-  broadcastTimerUpdate(tableId, remainingTime, initialTime)
+  // If we haven't scheduled a batch update yet, schedule one
+  if (!timerUpdateScheduled) {
+    timerUpdateScheduled = true
+    setTimeout(() => {
+      // Process all pending updates
+      for (const [id, update] of pendingTimerUpdates.entries()) {
+        broadcastTimerUpdate(id, update.remainingTime, update.initialTime)
+      }
+      pendingTimerUpdates.clear()
+      timerUpdateScheduled = false
+    }, TIMER_UPDATE_THROTTLE)
+  }
 }
 
 // Optimize the formatTime function for better performance
@@ -203,6 +249,19 @@ export function forceTableStatusUpdate(tableId: number, remainingTime: number, i
         remainingTime,
         initialTime,
         isActive,
+        timestamp: Date.now(),
+      },
+    }),
+  )
+}
+
+// Add a new optimized function for batch timer updates
+export function batchTimerUpdates(updates: Array<{ tableId: number; remainingTime: number; initialTime: number }>) {
+  // Dispatch a single event with all updates
+  window.dispatchEvent(
+    new CustomEvent("batch-timer-update", {
+      detail: {
+        updates,
         timestamp: Date.now(),
       },
     }),

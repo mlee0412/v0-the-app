@@ -1,69 +1,72 @@
-// Table State Manager - Centralized state management for table components
 import { create } from "zustand"
-import { throttle } from "lodash"
+import { debounce } from "lodash"
 import { supabaseTablesService } from "@/services/supabase-tables-service"
-import { calculateRemainingTime } from "@/utils/timer-sync-utils"
 
-// Define the table state interface
-interface TableState {
-  tables: Record<number, TableData>
-  pendingUpdates: Record<number, Partial<TableData>>
-  isUpdating: Record<number, boolean>
-
-  // Actions
-  updateTableLocally: (tableId: number, data: Partial<TableData>, isManualUpdate?: boolean) => void
-  commitUpdatesToSupabase: (tableId: number, updateType?: string) => Promise<void>
-  refreshTable: (tableId: number, data: TableData) => void
-  getTable: (tableId: number) => TableData | null
-  commitUpdatesWithFrequency: (tableId: number) => void
-  handleTimeUpdate: (tableId: number, remainingTime: number, initialTime: number, source: string) => void
+enum UpdateType {
+  All = "all",
+  TimerOnly = "timer-only",
+  NonTimer = "non-timer",
 }
 
-// Define the table data interface
-export interface TableData {
+interface TableData {
   id: number
   name: string
   status: string
   timer_minutes: number
-  start_time: string | null
+  start_time_data: string | null
   end_time: string | null
   is_paused: boolean
   pause_time: string | null
   accumulated_time: number
   table_group_id: number | null
   server_id: number | null
-  manuallyUpdated?: boolean // Track if the table has been manually updated
+  manuallyUpdated?: boolean
+  remaining_time?: number
+  initial_time?: number
+  is_active?: boolean
+  start_time?: string
 }
 
-// Create the store
+interface TableState {
+  tables: Record<number, TableData>
+  pendingUpdates: Record<number, Partial<TableData>>
+  isUpdating: Record<number, boolean>
+  updateTableLocally: (tableId: number, data: Partial<TableData>, isManualUpdate?: boolean) => void
+  commitUpdatesToSupabase: (tableId: number, updateType?: UpdateType) => Promise<void>
+  refreshTable: (tableId: number, data: TableData) => void
+  getTable: (tableId: number) => TableData | null
+  commitUpdatesWithFrequency: (tableId: number) => void
+  handleTimeUpdate: (tableId: number, remainingTime: number, initialTime: number, source: string) => void
+}
+
+const DEFAULT_TABLE_TIME_MINUTES = 60
+
+const validateTableId = (tableId: number): void => {
+  // Modified to allow tableId 0 (used for system-wide logs/operations)
+  if (!Number.isInteger(tableId) || tableId < 0) {
+    throw new Error(`Invalid tableId: ${tableId}`)
+  }
+}
+
 export const useTableStore = create<TableState>((set, get) => ({
   tables: {},
   pendingUpdates: {},
   isUpdating: {},
 
-  // Update table locally without sending to Supabase
   updateTableLocally: (tableId: number, data: Partial<TableData>, isManualUpdate = false) => {
+    validateTableId(tableId)
     set((state) => {
-      // Get current table data or create empty object if it doesn't exist
       const currentTable = state.tables[tableId] || ({} as TableData)
-
-      // Merge the updates with pending updates
       const currentPendingUpdates = state.pendingUpdates[tableId] || {}
       const newPendingUpdates = { ...currentPendingUpdates, ...data }
-
-      // If this is a manual update (like adding/subtracting time), mark it
       if (isManualUpdate) {
         newPendingUpdates.manuallyUpdated = true
       }
 
-      // Create a merged view for the UI (current table + all pending updates)
       const mergedTable = { ...currentTable, ...newPendingUpdates }
 
-      // Handle session end case - ensure complete reset
-      if (data.is_paused === false && data.start_time === null && currentTable.start_time !== null) {
-        // This is a session end event - reset all values to defaults
-        const DEFAULT_TIME = 60 * 60 * 1000
-        mergedTable.timer_minutes = DEFAULT_TIME / 60000
+      if (data.is_paused === false && data.start_time_data === null && currentTable.start_time_data !== null) {
+        mergedTable.timer_minutes = DEFAULT_TABLE_TIME_MINUTES
         mergedTable.accumulated_time = 0
         mergedTable.is_paused = false
         mergedTable.pause_time = null
@@ -78,9 +81,13 @@ export const useTableStore = create<TableState>((set, get) => ({
     })
   },
 
-  // Commit pending updates to Supabase
-  commitUpdatesToSupabase: throttle(
-    async (tableId: number, updateType = "all") => {
+  commitUpdatesToSupabase: debounce(
+    async (tableId: number, updateType = UpdateType.All) => {
+      validateTableId(tableId)
+
+      // Skip Supabase updates for tableId 0 (system table)
+      if (tableId === 0) return
+
       const state = get()
       const pendingUpdates = state.pendingUpdates[tableId]
 
@@ -88,158 +95,112 @@ export const useTableStore = create<TableState>((set, get) => ({
         return
       }
 
-      // Mark as updating
       set((state) => ({
         isUpdating: { ...state.isUpdating, [tableId]: true },
       }))
 
       try {
-        // Filter updates based on type if needed
         let updatesToSend = { ...pendingUpdates }
-
-        if (updateType === "timer-only") {
-          // Only send timer-related updates
-          const { timer_minutes, start_time, is_paused, pause_time, accumulated_time } = pendingUpdates
+        if (updateType === UpdateType.TimerOnly) {
           updatesToSend = {
-            ...(timer_minutes !== undefined ? { timer_minutes } : {}),
-            ...(start_time !== undefined ? { start_time } : {}),
-            ...(is_paused !== undefined ? { is_paused } : {}),
-            ...(pause_time !== undefined ? { pause_time } : {}),
-            ...(accumulated_time !== undefined ? { accumulated_time } : {}),
+            ...(pendingUpdates.timer_minutes !== undefined ? { timer_minutes: pendingUpdates.timer_minutes } : {}),
+            ...(pendingUpdates.start_time_data !== undefined
+              ? { start_time_data: pendingUpdates.start_time_data }
+              : {}),
+            ...(pendingUpdates.is_paused !== undefined ? { is_paused: pendingUpdates.is_paused } : {}),
+            ...(pendingUpdates.pause_time !== undefined ? { pause_time: pendingUpdates.pause_time } : {}),
+            ...(pendingUpdates.accumulated_time !== undefined
+              ? { accumulated_time: pendingUpdates.accumulated_time }
+              : {}),
           }
-        } else if (updateType === "non-timer") {
-          // Only send non-timer updates
-          const { timer_minutes, start_time, is_paused, pause_time, accumulated_time, ...nonTimerUpdates } =
+        } else if (updateType === UpdateType.NonTimer) {
+          const { timer_minutes, start_time_data, is_paused, pause_time, accumulated_time, ...nonTimerUpdates } =
             pendingUpdates
           updatesToSend = nonTimerUpdates
         }
 
         if (Object.keys(updatesToSend).length > 0) {
-          // Send updates to Supabase
           await supabaseTablesService.updateTable(tableId, updatesToSend)
+          notifyTableUpdate(tableId, { type: "commit", id: tableId })
 
-          // Clear only the sent pending updates
           set((state) => {
             const newPendingUpdates = { ...state.pendingUpdates[tableId] }
-            Object.keys(updatesToSend).forEach((key) => {
-              delete newPendingUpdates[key]
-            })
-
+            Object.keys(updatesToSend).forEach((key) => delete newPendingUpdates[key])
             return {
-              pendingUpdates: {
-                ...state.pendingUpdates,
-                [tableId]: newPendingUpdates,
-              },
+              pendingUpdates: { ...state.pendingUpdates, [tableId]: newPendingUpdates },
             }
           })
         }
       } catch (error) {
         console.error("Failed to update table in Supabase:", error)
+        // Consider adding to a retry queue or logging to an external service
       } finally {
-        // Mark as no longer updating
         set((state) => ({
           isUpdating: { ...state.isUpdating, [tableId]: false },
         }))
       }
     },
-    500, // Reduced from 1000ms to 500ms for better responsiveness
-    { leading: true, trailing: true }, // Changed to leading: true to start updates immediately
+    500,
+    { leading: false, trailing: true },
   ),
 
-  // Commit updates with different frequencies based on data type
-  commitUpdatesWithFrequency: (tableId: number) => {
-    const state = get()
-    const pendingUpdates = state.pendingUpdates[tableId]
-
-    if (!pendingUpdates || Object.keys(pendingUpdates).length === 0) {
+  refreshTable: (tableId: number, data: TableData) => {
+    validateTableId(tableId)
+    // Special handling for tableId 0 (system table)
+    if (tableId === 0) {
+      // For system table, just store it without validation
+      set((state) => ({
+        tables: { ...state.tables, [tableId]: { ...data } },
+      }))
       return
     }
 
-    // Check if there are timer-related updates
-    const hasTimerUpdates =
-      pendingUpdates.remainingTime !== undefined ||
-      pendingUpdates.initialTime !== undefined ||
-      pendingUpdates.isActive !== undefined ||
-      pendingUpdates.startTime !== undefined
-
-    // Check if there are non-timer updates
-    const hasNonTimerUpdates = Object.keys(pendingUpdates).some(
-      (key) => !["remainingTime", "initialTime", "isActive", "startTime"].includes(key),
-    )
-
-    // Commit timer updates immediately (real-time)
-    if (hasTimerUpdates) {
-      get().commitUpdatesToSupabase(tableId, "timer-only")
-    }
-
-    // Non-timer updates are committed less frequently by the component
-    // using the periodic interval
-  },
-
-  // Refresh table with data from Supabase
-  refreshTable: (tableId: number, data: TableData) => {
     set((state) => ({
-      tables: { ...state.tables, [tableId]: data },
-      // Keep pending updates that haven't been sent yet
-      pendingUpdates: {
-        ...state.pendingUpdates,
-        [tableId]: state.pendingUpdates[tableId] || {},
-      },
+      tables: { ...state.tables, [tableId]: { ...data } },
     }))
   },
 
-  // Get table data
   getTable: (tableId: number) => {
-    const state = get()
-    return state.tables[tableId] || null
+    validateTableId(tableId)
+    return get().tables[tableId] || null
   },
 
-  // Handle time updates from any source (dialog, card, etc.)
+  commitUpdatesWithFrequency: (tableId: number) => {
+    validateTableId(tableId)
+    // Skip for system table
+    if (tableId === 0) return
+
+    get().commitUpdatesToSupabase(tableId)
+  },
+
   handleTimeUpdate: (tableId: number, remainingTime: number, initialTime: number, source: string) => {
-    // Update locally first
-    get().updateTableLocally(
-      tableId,
-      {
-        remainingTime,
-        initialTime,
-        manuallyUpdated: true,
-      },
-      true,
-    )
+    validateTableId(tableId)
+    // Skip for system table
+    if (tableId === 0) return
 
-    // Commit timer updates immediately for real-time experience
-    get().commitUpdatesToSupabase(tableId, "timer-only")
+    const updates = {
+      remaining_time: remainingTime,
+      initial_time: initialTime,
+    }
+    get().updateTableLocally(tableId, updates, true)
 
-    // Notify all listeners
+    // Notify listeners about the time update
     notifyTableUpdate(tableId, {
-      remainingTime,
-      initialTime,
-      manuallyUpdated: true,
+      type: "update",
+      id: tableId,
+      data: updates,
     })
   },
 }))
 
-// Helper function to calculate remaining time with support for negative values
-export function getRemainingTime(table: TableData | null): number {
-  if (!table) return 0
+// Event system
+type TableEventPayload = { type: "commit"; id: number } | { type: "update"; id: number; data: Partial<TableData> }
 
-  const remainingTime = calculateRemainingTime(
-    table.timer_minutes,
-    table.start_time,
-    table.is_paused,
-    table.pause_time,
-    table.accumulated_time,
-  )
+type TableEventListener = (tableId: number, event: TableEventPayload) => void
 
-  // Allow negative values (don't use Math.max here)
-  return remainingTime
-}
-
-// Event system for table updates
-type TableEventListener = (tableId: number, data: Partial<TableData>) => void
 const listeners: TableEventListener[] = []
 
-export function addTableUpdateListener(listener: TableEventListener) {
+export const addTableUpdateListener = (listener: TableEventListener) => {
   listeners.push(listener)
   return () => {
     const index = listeners.indexOf(listener)
@@ -249,6 +210,13 @@ export function addTableUpdateListener(listener: TableEventListener) {
   }
 }
 
-export function notifyTableUpdate(tableId: number, data: Partial<TableData>) {
-  listeners.forEach((listener) => listener(tableId, data))
+export const notifyTableUpdate = (tableId: number | string, event: TableEventPayload) => {
+  const id = typeof tableId === "string" ? Number.parseInt(tableId, 10) : tableId
+  listeners.forEach((listener) => {
+    try {
+      listener(id, event)
+    } catch (error) {
+      console.error("Error notifying listener:", error)
+    }
+  })
 }

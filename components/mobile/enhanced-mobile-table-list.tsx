@@ -1,662 +1,184 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useRef, useEffect, useCallback, useMemo } from "react"
-import type { Table, Server, LogEntry } from "@/components/billiards-timer-dashboard"
+import { useState, useRef, useCallback, useMemo } from "react"
+import type { Table } from "@/components/system/billiards-timer-dashboard"
+import type { Server } from "@/components/system/billiards-timer-dashboard"
+import type { LogEntry } from "@/components/system/billiards-timer-dashboard"
 import { useAuth } from "@/contexts/auth-context"
-import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card"
-import { RefreshCw, Search, X, ExternalLink } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { TableDialog } from "@/components/table-dialog"
+import { TableCard } from "@/components/tables/table-card"
+import { hapticFeedback } from "@/utils/haptic-feedback"
 
-interface EnhancedMobileTableListProps {
+interface MobileTableListProps {
   tables: Table[]
   servers: Server[]
   logs: LogEntry[]
   onTableClick: (table: Table) => void
-  onRefresh: () => Promise<void>
-  onAddTime: (tableId: number) => void
-  onEndSession: (tableId: number) => void
-  noteTemplates: any[]
-  onStartSession: (tableId: number) => void
-  onUpdateGuestCount: (tableId: number, count: number) => void
-  onAssignServer: (tableId: number, serverId: string | null) => void
-  onGroupTables: (tableIds: number[]) => void
-  onUngroupTable: (tableId: number) => void
-  onMoveTable: (sourceId: number, targetId: number) => void
-  onUpdateNotes: (tableId: number, noteId: string, noteText: string) => void
-  getServerName: (serverId: string | null) => string
-  viewOnlyMode?: boolean
 }
 
-export function EnhancedMobileTableList({
-  tables,
-  servers,
-  logs,
-  onTableClick,
-  onRefresh,
-  onAddTime,
-  onEndSession,
-  noteTemplates,
-  onStartSession,
-  onUpdateGuestCount,
-  onAssignServer,
-  onGroupTables,
-  onUngroupTable,
-  onMoveTable,
-  onUpdateNotes,
-  getServerName,
-  viewOnlyMode = false,
-}: EnhancedMobileTableListProps) {
-  const { isAuthenticated, isServer, currentUser, hasPermission } = useAuth()
+export function EnhancedMobileTableList({ tables, servers, logs, onTableClick }: MobileTableListProps) {
+  const { isAuthenticated, isServer, currentUser } = useAuth()
   const [filterActive, setFilterActive] = useState(false)
   const [filterAssigned, setFilterAssigned] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [refreshProgress, setRefreshProgress] = useState(0)
-  const [isScrolling, setIsScrolling] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedTable, setSelectedTable] = useState<Table | null>(null)
-  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait")
-  const [showAddTimeDialog, setShowAddTimeDialog] = useState(false)
-  const [tableForAddTime, setTableForAddTime] = useState<number | null>(null)
-  const [lastTouchEnd, setLastTouchEnd] = useState(0)
-  const [touchDistance, setTouchDistance] = useState(0)
-  const [scrollEndTime, setScrollEndTime] = useState(0)
-
   const containerRef = useRef<HTMLDivElement>(null)
-  const pullStartY = useRef(0)
-  const pullMoveY = useRef(0)
-  const refreshing = useRef(false)
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const touchStartTime = useRef(0)
-  const touchStartPos = useRef({ x: 0, y: 0 })
-  const touchEndPos = useRef({ x: 0, y: 0 })
-  const isTouchMoveRef = useRef(false)
-  const touchMoveCount = useRef(0)
-  const isScrollingRef = useRef(false)
-  const lastScrollTop = useRef(0)
-  const scrollVelocity = useRef(0)
-  const scrollTimestamp = useRef(0)
-  const scrollCooldownRef = useRef(false)
-  const scrollCooldownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const scrollDirectionRef = useRef<"up" | "down" | null>(null)
+  const [lastTouchEnd, setLastTouchEnd] = useState(0)
 
-  // Detect orientation changes
-  useEffect(() => {
-    const handleOrientationChange = () => {
-      setOrientation(window.innerHeight > window.innerWidth ? "portrait" : "landscape")
-    }
-
-    handleOrientationChange() // Initial check
-    window.addEventListener("resize", handleOrientationChange)
-
-    return () => {
-      window.removeEventListener("resize", handleOrientationChange)
-    }
-  }, [])
-
-  // Set up iOS-specific fixes
-  useEffect(() => {
-    // Check if we're on iOS
-    const isIOS =
-      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-
-    if (isIOS) {
-      // Add iOS-specific class to body
-      document.body.classList.add("ios-device")
-
-      // Set viewport height variable
-      const setVh = () => {
-        const vh = window.innerHeight * 0.01
-        document.documentElement.style.setProperty("--vh", `${vh}px`)
-      }
-
-      // Set initial value
-      setVh()
-
-      // Update on resize and orientation change
-      window.addEventListener("resize", setVh)
-      window.addEventListener("orientationchange", setVh)
-
-      return () => {
-        document.body.classList.remove("ios-device")
-        window.removeEventListener("resize", setVh)
-        window.removeEventListener("orientationchange", setVh)
-      }
-    }
-  }, [])
-
-  // Handle scroll events with improved detection
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleScroll = () => {
-      const now = Date.now()
-      const scrollTop = container.scrollTop
-
-      // Calculate scroll velocity
-      if (now - scrollTimestamp.current > 0) {
-        scrollVelocity.current = Math.abs(scrollTop - lastScrollTop.current) / (now - scrollTimestamp.current)
-      }
-
-      // Determine scroll direction
-      if (scrollTop > lastScrollTop.current) {
-        scrollDirectionRef.current = "down"
-      } else if (scrollTop < lastScrollTop.current) {
-        scrollDirectionRef.current = "up"
-      }
-
-      // Update references
-      lastScrollTop.current = scrollTop
-      scrollTimestamp.current = now
-
-      // Set scrolling state
-      setIsScrolling(true)
-      isScrollingRef.current = true
-
-      // Clear any existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
-
-      // Set a timeout to detect when scrolling stops
-      scrollTimeoutRef.current = setTimeout(() => {
-        setIsScrolling(false)
-        isScrollingRef.current = false
-        setScrollEndTime(Date.now())
-
-        // Set a cooldown period after scrolling ends
-        scrollCooldownRef.current = true
-
-        // The faster the scroll, the longer the cooldown
-        const cooldownTime = Math.min(Math.max(scrollVelocity.current * 1000, 300), 1000)
-
-        if (scrollCooldownTimeoutRef.current) {
-          clearTimeout(scrollCooldownTimeoutRef.current)
-        }
-
-        scrollCooldownTimeoutRef.current = setTimeout(() => {
-          scrollCooldownRef.current = false
-        }, cooldownTime)
-      }, 100)
-    }
-
-    container.addEventListener("scroll", handleScroll, { passive: true })
-
-    return () => {
-      container.removeEventListener("scroll", handleScroll)
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
-      if (scrollCooldownTimeoutRef.current) {
-        clearTimeout(scrollCooldownTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Pull to refresh implementation
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Record touch start time and position for distinguishing between taps and swipes
-    touchStartTime.current = Date.now()
-    touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-    touchMoveCount.current = 0
-    isTouchMoveRef.current = false
-
-    // Only enable pull-to-refresh when at the top of the container
-    if (containerRef.current && containerRef.current.scrollTop === 0) {
-      pullStartY.current = e.touches[0].clientY
-      pullMoveY.current = pullStartY.current
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    isTouchMoveRef.current = true
-    touchMoveCount.current += 1
-    touchEndPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-
-    // Calculate distance moved
-    const dx = touchEndPos.current.x - touchStartPos.current.x
-    const dy = touchEndPos.current.y - touchStartPos.current.y
-    const distance = Math.sqrt(dx * dx + dy * dy)
-    setTouchDistance(distance)
-
-    // If moved more than 5px, consider it a scroll
-    if (distance > 5) {
-      isScrollingRef.current = true
-    }
-
-    if (refreshing.current) return
-
-    pullMoveY.current = e.touches[0].clientY
-
-    // Only allow pull-to-refresh when at the top of the container
-    if (containerRef.current && containerRef.current.scrollTop === 0) {
-      const pullDistance = pullMoveY.current - pullStartY.current
-
-      if (pullDistance > 0 && pullDistance < 100) {
-        setRefreshProgress(pullDistance / 100)
-        setIsRefreshing(true)
-      }
-    }
-  }
-
-  const handleTouchEnd = async (e: React.TouchEvent) => {
-    const now = Date.now()
-    const touchDuration = now - touchStartTime.current
-    const dx = touchEndPos.current.x - touchStartPos.current.x
-    const dy = touchEndPos.current.y - touchStartPos.current.y
-    const distance = Math.sqrt(dx * dx + dy * dy)
-
-    // Detect double-tap (prevent accidental double opens)
-    const isDoubleTap = now - lastTouchEnd < 300
-    setLastTouchEnd(now)
-
-    if (refreshing.current) return
-
-    const pullDistance = pullMoveY.current - pullStartY.current
-
-    if (pullDistance > 70 && containerRef.current && containerRef.current.scrollTop === 0) {
-      // Trigger refresh
-      refreshing.current = true
-      setRefreshProgress(1)
-
-      // Provide haptic feedback
-      if (navigator.vibrate) {
-        navigator.vibrate(20)
-      }
-
-      try {
-        setIsLoading(true)
-        // Make sure onRefresh is a function before calling it
-        if (typeof onRefresh === "function") {
-          await onRefresh()
-        } else {
-          console.error("onRefresh is not a function")
-        }
-      } catch (error) {
-        console.error("Refresh failed:", error)
-      } finally {
-        setIsLoading(false)
-        refreshing.current = false
-        setIsRefreshing(false)
-        setRefreshProgress(0)
-      }
-    } else {
-      setIsRefreshing(false)
-      setRefreshProgress(0)
-    }
-  }
-
-  // Filter tables based on active status, assigned tables, and search query
+  // Filter tables based on active status and assigned tables - memoized for performance
   const filteredTables = useMemo(() => {
-    let filtered = [...tables]
+    let result = [...tables]
 
-    // IMPORTANT: Filter out the System table on mobile
-    filtered = filtered.filter((table) => table.name.toLowerCase() !== "system")
+    // Filter out system tables
+    result = result.filter((table) => !table.name.toLowerCase().includes("system"))
 
     // Filter by active status if needed
     if (filterActive) {
-      filtered = filtered.filter((table) => table.isActive)
+      result = result.filter((table) => table.isActive)
     }
 
     // Filter by assigned server if server is logged in and filter is enabled
     if (isServer && filterAssigned && currentUser) {
-      filtered = filtered.filter((table) => table.server === currentUser.id)
-    }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim()
-      filtered = filtered.filter((table) => {
-        // Search by table name
-        if (table.name.toLowerCase().includes(query)) return true
-
-        // Search by server name
-        const serverName = getServerName(table.server).toLowerCase()
-        if (serverName.includes(query)) return true
-
-        // Search by note text
-        if (table.noteText && table.noteText.toLowerCase().includes(query)) return true
-
-        return false
-      })
+      result = result.filter((table) => table.server === currentUser.id)
     }
 
     // Sort tables numerically by ID
-    filtered.sort((a, b) => a.id - b.id)
+    return result.sort((a, b) => a.id - b.id)
+  }, [tables, filterActive, filterAssigned, isServer, currentUser])
 
-    return filtered
-  }, [tables, filterActive, filterAssigned, isServer, currentUser, searchQuery, getServerName])
+  // Handle filter toggles with haptic feedback
+  const handleFilterActiveToggle = useCallback(() => {
+    hapticFeedback.selection()
+    setFilterActive(!filterActive)
+  }, [filterActive])
 
-  // Check if current user can interact with this table
-  const canInteractWithTable = useCallback(
-    (table: Table) => {
-      if (!isAuthenticated) return false
-      if (!isServer) return true // Admin or viewer can see all tables
+  const handleFilterAssignedToggle = useCallback(() => {
+    hapticFeedback.selection()
+    setFilterAssigned(!filterAssigned)
+  }, [filterAssigned])
 
-      // Server can only interact with their own tables or unassigned tables
-      return !table.server || table.server === currentUser?.id
-    },
-    [isAuthenticated, isServer, currentUser],
-  )
-
-  // Handle table click with improved scroll detection
+  // Handle table click with touch optimizations
   const handleTableClick = useCallback(
     (table: Table) => {
-      // Don't trigger click if we're in the scroll cooldown period
-      if (scrollCooldownRef.current) {
+      // Prevent double tap by checking time since last touch
+      const now = Date.now()
+      if (now - lastTouchEnd < 300) {
         return
       }
+      setLastTouchEnd(now)
 
-      // Don't trigger click if we've detected significant movement or scrolling
-      if (
-        isScrollingRef.current ||
-        touchDistance > 5 ||
-        touchMoveCount.current > 2 ||
-        Date.now() - scrollEndTime < 300
-      ) {
-        return
-      }
-
-      if (canInteractWithTable(table)) {
-        // Add haptic feedback for better UX
-        if (navigator.vibrate) {
-          navigator.vibrate(10)
-        }
-        setSelectedTable(table)
-        onTableClick(table)
-      }
-    },
-    [touchDistance, canInteractWithTable, scrollEndTime, onTableClick],
-  )
-
-  // Handle explicit table open via button
-  const handleExplicitTableOpen = useCallback(
-    (table: Table, e: React.MouseEvent) => {
-      e.stopPropagation()
-      e.preventDefault()
-
-      if (canInteractWithTable(table)) {
-        // Add haptic feedback for better UX
-        if (navigator.vibrate) {
-          navigator.vibrate(10)
-        }
-        setSelectedTable(table)
-        onTableClick(table)
-      }
-    },
-    [canInteractWithTable, onTableClick],
-  )
-
-  // Handle add time swipe action
-  const handleAddTime = useCallback((tableId: number) => {
-    setTableForAddTime(tableId)
-    setShowAddTimeDialog(true)
-  }, [])
-
-  // Handle add time confirmation
-  const confirmAddTime = useCallback(
-    (minutes: number) => {
-      if (tableForAddTime !== null) {
-        onAddTime(tableForAddTime)
-      }
-      setShowAddTimeDialog(false)
-      setTableForAddTime(null)
-    },
-    [tableForAddTime, onAddTime],
-  )
-
-  // Close table dialog
-  const closeTableDialog = useCallback(() => {
-    setSelectedTable(null)
-  }, [])
-
-  // Render skeleton loaders during initial load
-  const renderSkeletons = () => {
-    return Array(5)
-      .fill(0)
-      .map((_, index) => (
-        <div key={`skeleton-${index}`} className="mb-4">
-          <div className="skeleton-loader h-[130px] rounded-lg"></div>
-        </div>
-      ))
-  }
-
-  // Handle manual refresh button click
-  const handleManualRefresh = useCallback(async () => {
-    if (typeof onRefresh !== "function") {
-      console.error("onRefresh is not a function")
-      return
-    }
-
-    try {
-      setIsLoading(true)
       // Provide haptic feedback
-      if (navigator.vibrate) {
-        navigator.vibrate(10)
-      }
-      await onRefresh()
-    } catch (error) {
-      console.error("Manual refresh failed:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [onRefresh])
+      hapticFeedback.medium()
+
+      // Call the click handler
+      onTableClick(table)
+    },
+    [onTableClick, lastTouchEnd],
+  )
+
+  // Handle scroll optimization
+  const handleTouchMove = useCallback(() => {
+    // This helps optimize performance during scrolling
+    // by signaling this is a scroll operation
+    containerRef.current?.classList.add("is-scrolling")
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    // Remove scrolling class when touch ends
+    containerRef.current?.classList.remove("is-scrolling")
+  }, [])
 
   return (
     <div
       ref={containerRef}
-      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto pb-32 mobile-scroll-container ios-momentum-scroll touch-safe-zone improved-scroll min-h-screen"
-      style={{
-        WebkitOverflowScrolling: "touch",
-        overscrollBehavior: "contain",
-        scrollBehavior: "smooth",
-        touchAction: "pan-y",
-        height: "calc(var(--vh, 1vh) * 100 - 120px)",
-        paddingBottom: "120px" /* Ensure enough padding at the bottom */,
-      }}
-      onTouchStart={handleTouchStart}
+      className="space-y-4 max-w-full overflow-x-hidden overflow-y-auto h-full pb-4 mobile-scroll-container smooth-scroll hardware-accelerated notch-aware"
+      style={{ WebkitOverflowScrolling: "touch" }}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Pull to refresh indicator */}
-      <div className={`pull-refresh-indicator ${isRefreshing ? "visible" : ""}`} style={{ opacity: refreshProgress }}>
-        <RefreshCw
-          className="pull-refresh-spinner"
-          size={20}
-          style={{ transform: `rotate(${refreshProgress * 360}deg)` }}
-        />
-        <span>Pull to refresh</span>
-      </div>
-
-      {/* Search and filters */}
-      <div className="flex flex-col gap-2 sticky top-0 z-10 bg-black/80 backdrop-blur-md p-2 rounded-md">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search tables..."
-              className="pl-8 mobile-touch-target"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="mobile-touch-target"
-            onClick={() => setSearchQuery("")}
-            disabled={!searchQuery}
-          >
-            <X size={18} />
-          </Button>
-        </div>
-
+      <div className="flex flex-wrap justify-between items-center gap-2 sticky top-0 z-10 bg-black/80 backdrop-blur-md p-3 rounded-lg notch-aware cosmic-panel">
+        <h2 className="text-xl font-bold text-[#00FFFF] cosmic-text">Tables</h2>
         <div className="flex flex-wrap gap-2">
-          <Button
-            className={`px-3 py-1 rounded-full text-xs touch-feedback ${
-              filterActive ? "bg-[#00FFFF] text-black" : "bg-[#000033] text-[#00FFFF] border border-[#00FFFF]"
+          <button
+            className={`px-4 py-1.5 rounded-full text-xs font-medium elastic-press ios-tap-highlight transition-all duration-300 ${
+              filterActive
+                ? "bg-gradient-to-r from-[#00FFFF] to-[#00CCFF] text-black shadow-glow-cyan"
+                : "bg-black/60 text-[#00FFFF] border border-[#00FFFF]/50 shadow-inner-subtle"
             }`}
-            onClick={() => setFilterActive(!filterActive)}
+            onClick={handleFilterActiveToggle}
           >
-            {filterActive ? "Show All" : "Active Only"}
-          </Button>
+            <span className="flex items-center gap-1">{filterActive ? "Showing Active" : "Show Active Only"}</span>
+          </button>
 
           {isServer && (
-            <Button
-              className={`px-3 py-1 rounded-full text-xs touch-feedback ${
-                filterAssigned ? "bg-[#FF00FF] text-black" : "bg-[#000033] text-[#FF00FF] border border-[#FF00FF]"
+            <button
+              className={`px-4 py-1.5 rounded-full text-xs font-medium elastic-press ios-tap-highlight transition-all duration-300 ${
+                filterAssigned
+                  ? "bg-gradient-to-r from-[#FF00FF] to-[#CC00FF] text-black shadow-glow-magenta"
+                  : "bg-black/60 text-[#FF00FF] border border-[#FF00FF]/50 shadow-inner-subtle"
               }`}
-              onClick={() => setFilterAssigned(!filterAssigned)}
+              onClick={handleFilterAssignedToggle}
             >
-              {filterAssigned ? "Show All" : "My Tables"}
-            </Button>
+              <span className="flex items-center gap-1">{filterAssigned ? "Showing My Tables" : "Show My Tables"}</span>
+            </button>
           )}
-
-          <Button
-            className="px-3 py-1 rounded-full text-xs bg-[#000033] text-[#FFFF00] border border-[#FFFF00] touch-feedback"
-            onClick={handleManualRefresh}
-          >
-            <RefreshCw size={12} className={isLoading ? "animate-spin mr-1" : "mr-1"} />
-            Refresh
-          </Button>
         </div>
       </div>
 
-      {/* Table list */}
-      <div className={`space-y-4 pb-4 ${orientation === "landscape" ? "landscape-grid" : ""}`}>
-        {isLoading && filteredTables.length === 0
-          ? renderSkeletons()
-          : filteredTables.map((table) => {
-              const canInteract = canInteractWithTable(table)
-              const canEnd = canInteract && hasPermission("canEndSession") && !viewOnlyMode
-              const canAddSession = canInteract && hasPermission("canAddTime") && !viewOnlyMode
-
-              return (
-                <div key={table.id} className="mb-4 relative">
-                  <div className="relative">
-                    <div className={`${canInteract ? "" : "opacity-70"} table-card-container no-text-select`}>
-                      <SwipeableTableCard
-                        table={table}
-                        servers={servers}
-                        logs={logs}
-                        onClick={() => handleTableClick(table)}
-                        onAddTime={handleAddTime}
-                        onEndSession={onEndSession}
-                        canEndSession={canEnd}
-                        canAddTime={canAddSession}
-                      />
-                    </div>
-
-                    {/* Redesigned open button that matches the space theme */}
-                    <button
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 z-20 space-open-button"
-                      onClick={(e) => handleExplicitTableOpen(table, e)}
-                      aria-label={`Open ${table.name} details`}
-                    >
-                      <ExternalLink className="h-5 w-5 text-[#00FFFF]" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-
-        {filteredTables.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center p-8 text-center">
-            <div className="text-[#00FFFF] mb-2">No tables found</div>
-            <div className="text-gray-400 text-sm">Try adjusting your filters or search query</div>
+      <div className="space-y-4 pb-20">
+        {filteredTables.length > 0 ? (
+          filteredTables.map((table, index) => (
+            <div
+              key={table.id}
+              className="mb-4 relative touch-target table-card-container"
+              style={{
+                animationDelay: `${index * 50}ms`,
+                transform: "translateY(0)",
+                opacity: 1,
+              }}
+            >
+              <div className="absolute inset-0 z-30 touch-target" onClick={() => handleTableClick(table)}></div>
+              <TableCard table={table} servers={servers} logs={logs} onClick={() => handleTableClick(table)} />
+            </div>
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="text-[#00FFFF] opacity-70 mb-2">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9.09 9C9.3251 8.33167 9.78915 7.76811 10.4 7.40913C11.0108 7.05016 11.7289 6.91894 12.4272 7.03871C13.1255 7.15849 13.7588 7.52152 14.2151 8.06353C14.6713 8.60553 14.9211 9.29152 14.92 10C14.92 12 11.92 13 11.92 13"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12 17H12.01"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p className="text-white/70 text-sm">No tables match your current filters</p>
+            <button
+              onClick={() => {
+                setFilterActive(false)
+                setFilterAssigned(false)
+                hapticFeedback.light()
+              }}
+              className="mt-4 px-4 py-2 bg-[#00FFFF]/10 text-[#00FFFF] rounded-md text-sm font-medium border border-[#00FFFF]/30"
+            >
+              Reset Filters
+            </button>
           </div>
         )}
       </div>
-
-      {/* Scroll indicator - shows when scrolling is active */}
-      {isScrolling && (
-        <div className="fixed bottom-20 right-4 bg-black/50 text-[#00FFFF] text-xs px-2 py-1 rounded-full backdrop-blur-sm border border-[#00FFFF]/30">
-          Scrolling...
-        </div>
-      )}
-
-      {/* Table dialog */}
-      {selectedTable && (
-        <div className="table-dialog">
-          <TableDialog
-            table={selectedTable}
-            servers={servers}
-            allTables={tables.filter((t) => t.name.toLowerCase() !== "system")}
-            noteTemplates={noteTemplates}
-            logs={logs}
-            onClose={closeTableDialog}
-            onStartSession={onStartSession}
-            onEndSession={onEndSession}
-            onAddTime={onAddTime}
-            onSubtractTime={(tableId, minutes) => {
-              // Provide haptic feedback
-              if (navigator.vibrate) {
-                navigator.vibrate(15)
-              }
-              onAddTime(tableId)
-            }}
-            onUpdateGuestCount={onUpdateGuestCount}
-            onAssignServer={onAssignServer}
-            onGroupTables={onGroupTables}
-            onUngroupTable={onUngroupTable}
-            onMoveTable={onMoveTable}
-            onUpdateNotes={onUpdateNotes}
-            getServerName={getServerName}
-            currentUser={currentUser}
-            hasPermission={hasPermission}
-            viewOnlyMode={viewOnlyMode}
-          />
-        </div>
-      )}
-
-      {/* Add Time Dialog */}
-      {showAddTimeDialog && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 table-dialog">
-          <div className="bg-[#000033] border border-[#00FFFF] rounded-lg p-4 w-[90%] max-w-[300px]">
-            <h3 className="text-[#00FFFF] text-lg mb-4 text-center">Add Time</h3>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <Button
-                className="bg-[#00FFFF] text-black hover:bg-[#00CCCC] touch-feedback"
-                onClick={() => confirmAddTime(5)}
-              >
-                +5 min
-              </Button>
-              <Button
-                className="bg-[#00FFFF] text-black hover:bg-[#00CCCC] touch-feedback"
-                onClick={() => confirmAddTime(15)}
-              >
-                +15 min
-              </Button>
-              <Button
-                className="bg-[#00FFFF] text-black hover:bg-[#00CCCC] touch-feedback"
-                onClick={() => confirmAddTime(30)}
-              >
-                +30 min
-              </Button>
-              <Button
-                className="bg-[#00FFFF] text-black hover:bg-[#00CCCC] touch-feedback"
-                onClick={() => confirmAddTime(60)}
-              >
-                +60 min
-              </Button>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full border-gray-500 text-gray-300 touch-feedback"
-              onClick={() => setShowAddTimeDialog(false)}
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -212,10 +212,10 @@ export function useSupabaseData() {
 
         // Use Promise.allSettled to handle partial failures
         const [tablesResult, logsResult, settingsResult, serversResult, templatesResult] = await Promise.allSettled([
-          // Load tables
+          // Load tables - SELECTIVE COLUMNS
           supabase
             .from(TABLE_NAMES.TABLES)
-            .select("*"),
+            .select("id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, updated_by_admin, updated_by, updated_at"),
 
           // Load logs
           supabase
@@ -280,13 +280,13 @@ export function useSupabaseData() {
 
         // Process logs data
         if (logsResult.status === "fulfilled" && !logsResult.value.error) {
-          // Convert from snake_case to camelCase
+          // Convert from snake_case to camelCase and ensure timestamp is a number
           const convertedLogs = logsResult.value.data.map((log: any) => ({
             id: log.id,
             tableId: log.table_id,
             tableName: log.table_name,
             action: log.action,
-            timestamp: log.timestamp,
+            timestamp: typeof log.timestamp === "string" ? new Date(log.timestamp).getTime() : log.timestamp,
             details: log.details || "",
           }))
 
@@ -993,7 +993,7 @@ export function useSupabaseData() {
         tableId,
         tableName,
         action,
-        timestamp: Date.now(),
+        timestamp: Date.now(), // Keep as number for internal use
         details,
       }
 
@@ -1016,13 +1016,25 @@ export function useSupabaseData() {
           return { success: true }
         }
 
-        // Try to add to Supabase
+        // Try to add to Supabase with proper timestamp conversion
         try {
           const supabase = getSupabaseClient()
-          const { error } = await supabase.from(TABLE_NAMES.LOGS).insert(convertLogToSupabase(newLog))
+
+          // Convert timestamp to ISO string for Supabase
+          const logForSupabase = {
+            id: newLog.id,
+            table_id: newLog.tableId,
+            table_name: newLog.tableName,
+            action: newLog.action,
+            timestamp: new Date(newLog.timestamp).toISOString(), // Convert to ISO string
+            details: newLog.details || "",
+          }
+
+          const { error } = await supabase.from(TABLE_NAMES.LOGS).insert(logForSupabase)
 
           if (error) {
             console.error("Error adding log entry to Supabase:", error)
+            console.error("Data sent to Supabase:", logForSupabase)
             setOfflineMode(true)
           }
         } catch (err) {
@@ -1237,7 +1249,8 @@ export function useSupabaseData() {
         { data: templatesData, error: templatesError },
         { data: settingsData, error: settingsError },
       ] = await Promise.all([
-        supabase.from(TABLE_NAMES.TABLES).select("*"),
+        // TABLES - SELECTIVE COLUMNS
+        supabase.from(TABLE_NAMES.TABLES).select("id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, updated_by_admin, updated_by, updated_at"),
         supabase.from(TABLE_NAMES.LOGS).select("*").order("timestamp", { ascending: false }),
         supabase.from(TABLE_NAMES.SERVERS).select("*"),
         supabase.from(TABLE_NAMES.TEMPLATES).select("*"),

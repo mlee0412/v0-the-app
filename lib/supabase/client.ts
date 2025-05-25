@@ -1,169 +1,175 @@
-import { createClient } from "@supabase/supabase-js"
-import type { Database } from "./database.types"
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
-// Ensure we don't recreate the client on every import in a browser environment
-let supabaseClient: ReturnType<typeof createClient> | null = null
-let lastConnectionAttempt = 0
-const CONNECTION_RETRY_DELAY = 5000 // 5 seconds between connection attempts
+let supabaseBrowserClient: SupabaseClient<Database> | null = null;
 
-// Update the getSupabaseClient function to handle missing environment variables better
-export const getSupabaseClient = () => {
-  const now = Date.now()
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-  // Always create a new client in a server context to avoid sharing between requests
-  if (typeof window === "undefined") {
-    return createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-      {
-        auth: {
-          persistSession: false,
-        },
-        // Add more resilient fetch options
-        global: {
-          fetch: (...args) => {
-            return fetch(...args)
-          },
-          headers: {
-            "X-Client-Info": "billiards-timer-app",
-          },
-        },
-      },
-    )
+console.log("SupabaseClient: Initializing. URL defined:", !!supabaseUrl, "Anon Key defined:", !!supabaseAnonKey);
+if (supabaseUrl) {
+  console.log("SupabaseClient: NEXT_PUBLIC_SUPABASE_URL (first 20 chars):", supabaseUrl.substring(0, 20));
+}
+
+
+function createSupabaseClientInstance(): SupabaseClient<Database> { // Renamed to avoid conflict if createSupabaseClient is used elsewhere
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn(
+      "SupabaseClient: createSupabaseClientInstance - Supabase URL or Anon Key is missing. Client may not be fully functional."
+    );
   }
-
-  // In the browser, reuse the client instance but with connection throttling
-  if (!supabaseClient || now - lastConnectionAttempt > CONNECTION_RETRY_DELAY) {
-    lastConnectionAttempt = now
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn("Supabase URL or key is missing. Some features may not work correctly.")
-    }
-
-    // Create client with more resilient options
-    supabaseClient = createClient<Database>(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
+  console.log("SupabaseClient: createSupabaseClientInstance called.");
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 5,
       },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-      // Add more resilient fetch options
-      global: {
-        fetch: (...args) => {
-          const controller = new AbortController()
-          const { signal } = controller
+    },
+    global: {
+      fetch: async (url, options = {}, ...rest) => {
+        const controller = new AbortController();
+        const { signal } = controller;
+        console.log(`SupabaseClient: Fetching ${url} with 20s timeout.`);
+        const timeoutId = setTimeout(() => {
+          console.warn(`SupabaseClient: Fetch request to ${url} aborted due to 20s timeout.`);
+          controller.abort();
+        }, 20000); // Increased general fetch timeout to 20 seconds
 
-          // Set a timeout to abort the request if it takes too long
-          const timeout = setTimeout(() => {
-            controller.abort()
-          }, 10000) // 10 second timeout
-
-          return fetch(...args, { signal })
-            .then((response) => {
-              clearTimeout(timeout)
-              return response
-            })
-            .catch((error) => {
-              clearTimeout(timeout)
-              throw error
-            })
-        },
-        headers: {
-          "X-Client-Info": "billiards-timer-app",
-        },
-      },
-    })
-
-    // Add a property to check if properly configured
-    Object.defineProperty(supabaseClient, "isProperlyConfigured", {
-      value: !!(supabaseUrl && supabaseKey),
-      writable: false,
-    })
-
-    // Only validate connection if we have credentials
-    if (supabaseUrl && supabaseKey) {
-      supabaseClient.auth.getSession().then(({ data, error }) => {
-        if (error) {
-          console.error("Supabase connection error:", error.message)
-          window.dispatchEvent(new CustomEvent("supabase-disconnected"))
-        } else {
-          console.log("Supabase connection established")
-          window.dispatchEvent(new CustomEvent("supabase-connected"))
+        try {
+          // @ts-ignore
+          const response = await fetch(url, { ...options, signal }, ...rest);
+          clearTimeout(timeoutId);
+          console.log(`SupabaseClient: Fetch to ${url} completed with status ${response.status}.`);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          if ((error as Error).name === 'AbortError') {
+            console.warn(`SupabaseClient: Fetch request to ${url} was aborted.`);
+          } else {
+            console.error(`SupabaseClient: Fetch error for ${url}:`, error);
+          }
+          throw error;
         }
-      })
+      },
+      headers: {
+        "X-Client-Info": "billiards-timer-app/v2.2", // Updated version
+      },
+    },
+  });
+}
+
+export const getSupabaseClient = (): SupabaseClient<Database> => {
+  if (typeof window === "undefined") {
+    console.log("SupabaseClient: getSupabaseClient - Creating new client for server-side.");
+    return createSupabaseClientInstance();
+  }
+  if (!supabaseBrowserClient) {
+    console.log("SupabaseClient: getSupabaseClient - Initializing Supabase client for browser.");
+    supabaseBrowserClient = createSupabaseClientInstance();
+    if (isSupabaseConfigured()) { // Check config before attempting connection test
+        console.log("SupabaseClient: getSupabaseClient - Supabase is configured, attempting initial connection check.");
+        checkSupabaseConnection(supabaseBrowserClient)
+            .then(({ connected, error }) => {
+                if (connected) {
+                    console.info("SupabaseClient: getSupabaseClient - Initial connection check successful.");
+                    window.dispatchEvent(new CustomEvent("supabase-connected"));
+                } else {
+                    console.error("SupabaseClient: getSupabaseClient - Initial connection check failed:", error);
+                    window.dispatchEvent(new CustomEvent("supabase-disconnected"));
+                }
+            }).catch(err => {
+                console.error("SupabaseClient: getSupabaseClient - Exception during initial connection check:", err);
+                window.dispatchEvent(new CustomEvent("supabase-disconnected"));
+            });
+    } else {
+        console.warn("SupabaseClient: getSupabaseClient - Supabase not configured, skipping initial connection check.");
     }
   }
+  return supabaseBrowserClient;
+};
 
-  return supabaseClient
-}
+export const isSupabaseConfigured = (): boolean => {
+  const urlDefined = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const keyDefined = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const configured = urlDefined && keyDefined;
+  if (!configured) {
+    console.warn("SupabaseClient: isSupabaseConfigured - Supabase is NOT configured. URL defined:", urlDefined, "Key defined:", keyDefined);
+  }
+  return configured;
+};
 
-// Helper method to check if environment variables are configured
-export const isSupabaseConfigured = () => {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-}
-
-// Helper to check if Supabase is actually connected with timeout
-export const checkSupabaseConnection = async () => {
+export const checkSupabaseConnection = async (
+  client?: SupabaseClient<Database>
+): Promise<{ connected: boolean; error: string | null }> => {
+  console.log("SupabaseClient: checkSupabaseConnection - Starting connection check.");
   if (!isSupabaseConfigured()) {
-    return { connected: false, error: "Supabase not configured" }
+    console.warn("SupabaseClient: checkSupabaseConnection - Supabase not configured. Aborting check.");
+    return { connected: false, error: "Supabase not configured" };
   }
 
+  const supabase = client || getSupabaseClient();
+  let timeoutId: NodeJS.Timeout | null = null;
+
   try {
-    // Create a promise that rejects after a timeout
+    console.log("SupabaseClient: checkSupabaseConnection - Attempting supabase.auth.getUser() with 12s timeout.");
+    const queryPromise = supabase.auth.getUser();
+    
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error("Connection timeout")), 5000)
-    })
+      timeoutId = setTimeout(() => {
+        console.warn("SupabaseClient: checkSupabaseConnection - supabase.auth.getUser() timed out after 12 seconds.");
+        reject(new Error("Connection check timed out after 12 seconds"));
+      }, 12000); // Increased timeout for this specific check
+    });
 
-    // Create the actual query promise
-    const queryPromise = async () => {
-      const supabase = getSupabaseClient()
-      // Try a simple query to check connection
-      const { error } = await supabase.from("system_settings").select("count").limit(1).maybeSingle()
-      return { connected: !error, error: error?.message }
+    // @ts-ignore
+    const { data: userData, error: authError } = await Promise.race([queryPromise, timeoutPromise]);
+
+    if (timeoutId) clearTimeout(timeoutId);
+    timeoutId = null; // Clear timeoutId after use
+
+    if (!authError || (authError && (authError.message === 'Auth session missing!' || authError.message === 'invalid_session'))) {
+      console.info("SupabaseClient: checkSupabaseConnection - supabase.auth.getUser() successful (service reachable). User data:", !!userData);
+      return { connected: true, error: null };
+    } else {
+      console.error("SupabaseClient: checkSupabaseConnection - supabase.auth.getUser() failed:", authError.message);
+      return { connected: false, error: authError.message };
     }
-
-    // Race the query against the timeout
-    return (await Promise.race([queryPromise(), timeoutPromise])) as { connected: boolean; error?: string }
-  } catch (err) {
-    console.error("Error checking Supabase connection:", err)
-    return { connected: false, error: (err as Error).message }
+  } catch (err: any) {
+    if (timeoutId) clearTimeout(timeoutId);
+    console.error("SupabaseClient: checkSupabaseConnection - Exception during supabase.auth.getUser():", err.message);
+    return { connected: false, error: err.message };
   }
-}
+};
 
-// Helper to reset the client (useful for testing and after logout)
-export const resetSupabaseClient = () => {
-  supabaseClient = null
-}
+export const resetSupabaseClient = (): void => {
+  supabaseBrowserClient = null;
+  console.info("SupabaseClient: Supabase browser client has been reset.");
+};
 
-// Helper to ping Supabase to keep connection alive with timeout
-export const pingSupabase = async () => {
-  if (!isSupabaseConfigured()) return false
+export const pingSupabase = async (
+    client?: SupabaseClient<Database>
+): Promise<boolean> => {
+  if (!isSupabaseConfigured()) return false;
+  const supabase = client || getSupabaseClient();
+  let timeoutId: NodeJS.Timeout | null = null;
 
   try {
-    // Create a promise that rejects after a timeout
+    const pingPromise = supabase.auth.getUser(); // Using auth.getUser() as a lightweight ping
     const timeoutPromise = new Promise<boolean>((_, reject) => {
-      setTimeout(() => reject(new Error("Ping timeout")), 3000)
-    })
-
-    // Create the actual ping promise
-    const pingPromise = async () => {
-      const supabase = getSupabaseClient()
-      const { error } = await supabase.from("system_settings").select("count").limit(1).maybeSingle()
-      return !error
-    }
-
-    // Race the ping against the timeout
-    return await Promise.race([pingPromise(), timeoutPromise])
-  } catch (err) {
-    console.error("Error pinging Supabase:", err)
-    return false
+      timeoutId = setTimeout(() => reject(new Error("Ping timeout after 7 seconds")), 7000); // 7s timeout for ping
+    });
+    // @ts-ignore
+    await Promise.race([pingPromise, timeoutPromise]);
+    if (timeoutId) clearTimeout(timeoutId);
+    return true;
+  } catch (err: any) {
+    if (timeoutId) clearTimeout(timeoutId);
+    console.warn("SupabaseClient: Ping failed:", err.message);
+    return false;
   }
-}
+};

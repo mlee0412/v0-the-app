@@ -307,58 +307,135 @@ class SupabaseTablesService {
     try {
       const supabase = getSupabaseClient()
 
+      // Skip if no updates
+      if (updates.length === 0) return
+
       // Process updates in batches of 10 to avoid overwhelming the database
       const batchSize = 10
-      for (let i = 0; i < updates.length; i += batchSize) {
-        const batch = updates.slice(i, i + batchSize)
 
-        // Create upsert data
-        const upsertData = await Promise.all(
-          batch.map(async ({ tableId, remainingTime, initialTime }) => {
-            // Get current table data
-            const { data, error } = await supabase.from(this.tableName).select("*").eq("id", tableId).single()
+      // Group updates by tableId to ensure we only have the latest update for each table
+      const latestUpdates = new Map<number, { remainingTime: number; initialTime: number }>()
+      updates.forEach(({ tableId, remainingTime, initialTime }) => {
+        latestUpdates.set(tableId, { remainingTime, initialTime })
+      })
 
-            if (error || !data) {
-              console.error(`Error fetching table ${tableId} for timer update:`, error)
-              return null
-            }
+      // Convert map back to array
+      const dedupedUpdates = Array.from(latestUpdates.entries()).map(([tableId, data]) => ({
+        tableId,
+        ...data,
+      }))
 
-            // Only update timer fields, preserve other data
-            return {
-              ...data,
-              remaining_time: remainingTime,
-              initial_time: initialTime,
-              updated_at: new Date().toISOString(),
-            }
-          }),
-        )
+      // Create batches
+      for (let i = 0; i < dedupedUpdates.length; i += batchSize) {
+        const batch = dedupedUpdates.slice(i, i + batchSize)
 
-        // Filter out any null values from failed fetches
-        const validUpsertData = upsertData.filter((data) => data !== null)
+        // Prepare upsert data with minimal fields
+        const upsertData = batch.map(({ tableId, remainingTime, initialTime }) => ({
+          id: tableId,
+          remaining_time: remainingTime,
+          initial_time: initialTime,
+          updated_at: new Date().toISOString(),
+        }))
 
-        if (validUpsertData.length > 0) {
-          const { error } = await supabase.from(this.tableName).upsert(validUpsertData, { onConflict: "id" })
+        // Perform the batch update
+        const { error } = await supabase.from(this.tableName).upsert(upsertData, { onConflict: "id" })
 
-          if (error) {
-            console.error("Error batch updating timers:", error)
-          }
+        if (error) {
+          console.error("Error batch updating timers:", error)
         }
-
-        // Dispatch events for each update
-        batch.forEach(({ tableId, remainingTime, initialTime }) => {
-          window.dispatchEvent(
-            new CustomEvent("supabase-timer-update", {
-              detail: {
-                tableId,
-                remainingTime,
-                initialTime,
-              },
-            }),
-          )
-        })
       }
+
+      // Dispatch a single batch event instead of multiple individual events
+      window.dispatchEvent(
+        new CustomEvent("batch-timer-update", {
+          detail: {
+            updates: dedupedUpdates,
+            timestamp: Date.now(),
+          },
+        }),
+      )
     } catch (error) {
       console.error("Error batch updating timers:", error)
+    }
+  }
+
+  // Add a new method for efficient bulk updates
+  async bulkUpdateTables(tableUpdates: Array<{ id: number; updates: Partial<TablesRecord> }>): Promise<void> {
+    try {
+      const supabase = getSupabaseClient()
+
+      // Group updates by fields to update
+      const updatesByFields = new Map<string, Array<{ id: number; updates: Partial<TablesRecord> }>>()
+
+      tableUpdates.forEach((update) => {
+        const fields = Object.keys(update.updates).sort().join(",")
+        if (!updatesByFields.has(fields)) {
+          updatesByFields.set(fields, [])
+        }
+        updatesByFields.get(fields)?.push(update)
+      })
+
+      // Process each group of updates
+      for (const [fields, updates] of updatesByFields.entries()) {
+        const fieldsList = fields.split(",")
+
+        // For small batches with many fields, use upsert
+        if (updates.length <= 5 || fieldsList.length > 3) {
+          const upsertData = updates.map(({ id, updates }) => ({
+            id,
+            ...updates,
+            updated_at: new Date().toISOString(),
+          }))
+
+          const { error } = await supabase.from(this.tableName).upsert(upsertData, { onConflict: "id" })
+
+          if (error) {
+            console.error("Error bulk updating tables:", error)
+          }
+        }
+        // For larger batches with few fields, use more efficient approach
+        else {
+          // Group by values to reduce number of queries
+          const updatesByValues = new Map<string, number[]>()
+
+          updates.forEach(({ id, updates }) => {
+            const valueKey = fieldsList.map((field) => updates[field as keyof typeof updates]).join("|")
+            if (!updatesByValues.has(valueKey)) {
+              updatesByValues.set(valueKey, [])
+            }
+            updatesByValues.get(valueKey)?.push(id)
+          })
+
+          // Execute each group as a single query
+          for (const [valueKey, ids] of updatesByValues.entries()) {
+            const values = valueKey.split("|")
+            const updateObj: any = {}
+
+            fieldsList.forEach((field, index) => {
+              updateObj[field] = values[index]
+            })
+            updateObj.updated_at = new Date().toISOString()
+
+            const { error } = await supabase.from(this.tableName).update(updateObj).in("id", ids)
+
+            if (error) {
+              console.error("Error bulk updating tables with in clause:", error)
+            }
+          }
+        }
+      }
+
+      // Dispatch events for the updates
+      window.dispatchEvent(
+        new CustomEvent("tables-bulk-updated", {
+          detail: {
+            updates: tableUpdates,
+            timestamp: Date.now(),
+          },
+        }),
+      )
+    } catch (error) {
+      console.error("Error in bulkUpdateTables:", error)
     }
   }
 

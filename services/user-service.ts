@@ -335,5 +335,6 @@ class UserService {
   }
 }
 
-const userService = new UserService()
+// Export a single instance
+export const userService = new UserService()
 export default userService

@@ -2,34 +2,33 @@
 
 import { useState, useEffect } from "react"
 
-export function useMobileDetect() {
-  const [isMobile, setIsMobile] = useState(false)
+const MOBILE_BREAKPOINT = 768
+
+// This is the primary, standardized function name
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined)
 
   useEffect(() => {
-    // Function to check if the device is mobile
     const checkMobile = () => {
       const userAgent = typeof window.navigator === "undefined" ? "" : navigator.userAgent
+      // Check for common mobile keywords in userAgent
+      const mobileRegex = /Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i
+      const isMobileUserAgent = mobileRegex.test(userAgent)
+      
+      // Also check screen width for responsiveness
+      const isSmallScreen = window.innerWidth < MOBILE_BREAKPOINT
 
-      const mobile = Boolean(userAgent.match(/Android|BlackBerry|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i))
-
-      // Also check screen width for responsive design
-      const isSmallScreen = window.innerWidth <= 768
-
-      setIsMobile(mobile || isSmallScreen)
+      setIsMobile(isMobileUserAgent || isSmallScreen)
     }
 
-    // Check on mount
-    checkMobile()
+    checkMobile() // Initial check
 
-    // Add event listener for window resize
     window.addEventListener("resize", checkMobile)
-
-    // Cleanup
     return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
-  return isMobile
+  return !!isMobile // Ensure a boolean is always returned
 }
 
-// Add this export for backward compatibility
-export const useMobile = useMobileDetect
+// Export 'useMobile' as an alias for backward compatibility within your project
+export const useMobile = useIsMobile;
