@@ -59,6 +59,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isServer, setIsServer] = useState(false)
   const [users, setUsers] = useState<User[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Load user from localStorage on mount
   useEffect(() => {
@@ -84,15 +86,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           localStorage.removeItem("currentUser")
         }
       }
+      setIsLoading(false)
     } catch (error) {
       console.error("Error parsing stored user:", error)
       localStorage.removeItem("currentUser")
+      setIsLoading(false)
     }
   }, [])
 
   // Fetch users when the component mounts
   useEffect(() => {
     const fetchUsers = async () => {
+      setError(null)
       try {
         const usersList = await supabaseAuthService.getUsers()
         setUsers(
@@ -104,8 +109,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             permissions: user.permissions || DEFAULT_PERMISSIONS[user.role as UserRole],
           })),
         )
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error in fetchUsers:", err)
+        setError(err.message || "Failed to fetch users")
         // Set default admin user as fallback
         setUsers([
           {
@@ -116,6 +122,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             permissions: DEFAULT_PERMISSIONS.admin,
           },
         ])
+      } finally {
+        setIsLoading(false)
       }
     }
 
