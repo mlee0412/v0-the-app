@@ -6,6 +6,7 @@ import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SupabaseInitializer } from "@/components/system/supabase-initializer" // Corrected import path
 import ClientLayout from "./client-layout"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -55,22 +56,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Apple touch icons and startup images - ensure these paths are correct */}
         <link rel="apple-touch-icon" href="/images/apple-icon-180.png" />
-        {/* Add other apple-touch-startup-image links if they are still needed and paths are correct */}
-        {/* Example:
-        <link
-          rel="apple-touch-startup-image"
-          href="/images/apple-splash-2048-2732.png"
-          media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"
-        />
-        */}
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body className={`${inter.className} overflow-hidden bg-background text-foreground`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <SupabaseInitializer>
-            <ClientLayout>{children}</ClientLayout>
-          </SupabaseInitializer>
-        </ThemeProvider>
+        <ErrorBoundary>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+            <SupabaseInitializer>
+              <ClientLayout>{children}</ClientLayout>
+            </SupabaseInitializer>
+          </ThemeProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

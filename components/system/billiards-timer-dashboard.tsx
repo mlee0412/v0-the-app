@@ -282,6 +282,17 @@ function useGlobalTimer() {
 }
 
 export function BilliardsTimerDashboard() {
+  // Add this near the beginning of the BilliardsTimerDashboard function
+  const auth = useAuth()
+  const {
+    isAuthenticated = false,
+    isAdmin = false,
+    isServer = false,
+    currentUser = null,
+    logout = () => {},
+    hasPermission: authHasPermission = () => false,
+  } = auth || {}
+
   const [state, dispatch] = useReducer(dashboardReducer, initialState)
 
   const {
@@ -321,7 +332,6 @@ export function BilliardsTimerDashboard() {
     viewOnlyMode,
   } = state
 
-  const { isAuthenticated, isAdmin, isServer, currentUser, logout, hasPermission: authHasPermission } = useAuth()
   const isMobile = useMobile()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [viewportHeight, setViewportHeight] = useState(typeof window !== "undefined" ? window.innerHeight : 800)

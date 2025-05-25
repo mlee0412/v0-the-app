@@ -1,3 +1,5 @@
+// Deployment trigger: Updated on 2025-05-25 to fix Cloudflare error
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -13,11 +15,11 @@ const nextConfig = {
   },
   eslint: {
     // Recommended: false for production builds to catch errors.
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false, // Changed from true to catch errors
   },
   typescript: {
     // Recommended: false for production builds to catch errors.
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false, // Changed from true to catch errors
   },
 };
 
