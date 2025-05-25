@@ -6,20 +6,18 @@ export function useMobile() {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    const checkMobile = () => {
+    const checkDevice = () => {
       setIsMobile(window.innerWidth < 768)
     }
 
-    checkMobile()
-    window.addEventListener("resize", checkMobile)
+    checkDevice()
+    window.addEventListener("resize", checkDevice)
 
-    return () => {
-      window.removeEventListener("resize", checkMobile)
-    }
+    return () => window.removeEventListener("resize", checkDevice)
   }, [])
 
   return isMobile
 }
 
-// Make sure to also export as default for backward compatibility
+// Default export for compatibility
 export default useMobile
