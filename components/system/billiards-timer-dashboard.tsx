@@ -1,7 +1,5 @@
 "use client"
 
-// components/system/billiards-timer-dashboard.tsx
-
 import { Button } from "@/components/ui/button"
 
 import { useState, useEffect, useCallback, useReducer, useRef, useMemo } from "react"
@@ -36,11 +34,6 @@ import { FunctionsDashboard } from "@/components/system/functions-dashboard"
 import { THRESHOLDS, BUSINESS_HOURS, DEFAULT_SESSION_TIME, TABLE_COUNT } from "@/constants"
 import { useTableActions } from "@/hooks/use-table-actions"
 import type { User as AuthUser } from "@/types/user" // Using the User type from types/user for currentUser
-import {
-  sendTableWarningNotification,
-  sendTableExpiredNotification,
-  sendServerAssignedNotification,
-} from "@/services/notification-service"
 
 // Interfaces (can be moved to a types file if not already)
 export interface Table {
@@ -60,7 +53,6 @@ export interface Table {
   updated_by?: string | null
   updatedAt: string
   sessionStartTime?: number | null // Added this for consistency if used by logs in dialog
-  warningsSent?: string[] // Track which warnings have been sent
 }
 
 export interface Server {
@@ -95,7 +87,6 @@ export interface SystemSettings {
   businessHours: { open: string; close: string }
   dayStarted: boolean
   dayStartTime: number | null
-  enableNotifications?: boolean // Added for push notification control
 }
 
 interface DashboardState {
@@ -158,7 +149,6 @@ const initialTables: Table[] = Array.from({ length: TABLE_COUNT }, (_, i) => ({
   updated_by_admin: false,
   updated_by: null,
   updatedAt: new Date().toISOString(),
-  warningsSent: [],
 }))
 
 const initialState: DashboardState = {
@@ -178,7 +168,6 @@ const initialState: DashboardState = {
     businessHours: { open: BUSINESS_HOURS.OPEN, close: BUSINESS_HOURS.CLOSE },
     dayStarted: false,
     dayStartTime: null,
-    enableNotifications: true, // Default to enabled
   },
   selectedTable: null,
   showLoginDialog: false,
@@ -529,14 +518,8 @@ export function BilliardsTimerDashboard() {
 
   useEffect(() => {
     if (supabaseTables) {
-      // Ensure all tables have warningsSent property
-      const tablesWithWarningsSent = supabaseTables.map((table) => ({
-        ...table,
-        warningsSent: table.warningsSent || [],
-      }))
-
-      dispatch({ type: "SET_TABLES", payload: tablesWithWarningsSent })
-      tablesWithWarningsSent.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any)) // Cast to any if TableData is different
+      dispatch({ type: "SET_TABLES", payload: supabaseTables })
+      supabaseTables.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any)) // Cast to any if TableData is different
     }
   }, [supabaseTables])
 
@@ -577,75 +560,6 @@ export function BilliardsTimerDashboard() {
     window.addEventListener("resize", updateLayoutHeights)
     return () => window.removeEventListener("resize", updateLayoutHeights)
   }, [])
-
-  // Add notification check for active tables
-  useEffect(() => {
-    if (!settings.enableNotifications) return
-
-    const checkTableWarnings = () => {
-      tables.forEach((table) => {
-        if (!table.isActive) return
-
-        const remainingMinutes = table.remainingTime / (60 * 1000)
-
-        // Initialize warningsSent if it doesn't exist
-        const warningsSent = table.warningsSent || []
-
-        // Check for 15-minute warning
-        if (remainingMinutes <= 15 && remainingMinutes > 14 && !warningsSent.includes("15min")) {
-          // Send 15-minute warning notification
-          sendTableWarningNotification(table, 15)
-
-          // Update the table to mark this warning as sent
-          const updatedTable = {
-            ...table,
-            warningsSent: [...warningsSent, "15min"],
-          }
-
-          dispatch({ type: "UPDATE_TABLE", payload: updatedTable })
-          queueTableUpdate(updatedTable)
-        }
-
-        // Check for 5-minute warning
-        if (remainingMinutes <= 5 && remainingMinutes > 4 && !warningsSent.includes("5min")) {
-          // Send 5-minute warning notification
-          sendTableWarningNotification(table, 5)
-
-          // Update the table to mark this warning as sent
-          const updatedTable = {
-            ...table,
-            warningsSent: [...warningsSent, "5min"],
-          }
-
-          dispatch({ type: "UPDATE_TABLE", payload: updatedTable })
-          queueTableUpdate(updatedTable)
-        }
-
-        // Check for expired table
-        if (remainingMinutes <= 0 && !warningsSent.includes("expired")) {
-          // Send expired notification
-          sendTableExpiredNotification(table)
-
-          // Update the table to mark this warning as sent
-          const updatedTable = {
-            ...table,
-            warningsSent: [...warningsSent, "expired"],
-          }
-
-          dispatch({ type: "UPDATE_TABLE", payload: updatedTable })
-          queueTableUpdate(updatedTable)
-        }
-      })
-    }
-
-    // Check for warnings every minute
-    const intervalId = setInterval(checkTableWarnings, 60000)
-
-    // Also check immediately
-    checkTableWarnings()
-
-    return () => clearInterval(intervalId)
-  }, [tables, settings.enableNotifications, dispatch, queueTableUpdate])
 
   useEffect(() => {
     const timerInterval = setInterval(() => {
@@ -952,14 +866,6 @@ export function BilliardsTimerDashboard() {
         const serverName = serverId ? servers.find((s) => s.id === serverId)?.name || "Unknown" : "Unassigned"
         await addLogEntry(tableId, "Server Assigned", `Server: ${serverName}`)
         showNotification(`Assigned ${serverName} to table ${tableId}`, "success")
-
-        // Send push notification for server assignment if enabled
-        if (settings.enableNotifications && serverId) {
-          const server = servers.find((s) => s.id === serverId)
-          if (server) {
-            sendServerAssignedNotification(table, server)
-          }
-        }
       } catch (error) {
         console.error("Failed to assign server:", error)
         showNotification("Failed to assign server", "error")
@@ -978,7 +884,6 @@ export function BilliardsTimerDashboard() {
       showNotification,
       queueTableUpdate,
       dispatch,
-      settings.enableNotifications,
     ],
   )
 
