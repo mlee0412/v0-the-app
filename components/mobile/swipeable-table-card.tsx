@@ -35,6 +35,7 @@ export function SwipeableTableCard({
   const [isSwiping, setIsSwiping] = useState(false)
   const [showLeftAction, setShowLeftAction] = useState(false)
   const [showRightAction, setShowRightAction] = useState(false)
+  const [showSwipeHint, setShowSwipeHint] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const startXRef = useRef(0)
@@ -46,6 +47,27 @@ export function SwipeableTableCard({
   const touchStartedRef = useRef(false)
   const isScrollingVerticallyRef = useRef(false)
   const swipeDirectionDeterminedRef = useRef(false)
+  const swipeHintTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Show swipe hint for active tables on first render
+  useEffect(() => {
+    if (table.isActive && (canEndSession || canAddTime)) {
+      // Show swipe hint after a short delay
+      swipeHintTimeoutRef.current = setTimeout(() => {
+        setShowSwipeHint(true)
+        // Hide hint after 2 seconds
+        setTimeout(() => {
+          setShowSwipeHint(false)
+        }, 2000)
+      }, 500)
+    }
+
+    return () => {
+      if (swipeHintTimeoutRef.current) {
+        clearTimeout(swipeHintTimeoutRef.current)
+      }
+    }
+  }, [table.isActive, canEndSession, canAddTime])
 
   // Reset swipe state
   const resetSwipe = useCallback(() => {
@@ -70,6 +92,9 @@ export function SwipeableTableCard({
     isSwipingRef.current = false
     isScrollingVerticallyRef.current = false
     swipeDirectionDeterminedRef.current = false
+
+    // Hide swipe hint when user starts touching
+    setShowSwipeHint(false)
   }, [])
 
   // Handle touch move
@@ -354,7 +379,7 @@ export function SwipeableTableCard({
       {/* Left action indicator (End Session) */}
       {table.isActive && canEndSession && (
         <div
-          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-10 ${
+          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-10 rounded-l-lg ${
             showLeftAction ? "opacity-100" : "opacity-70"
           }`}
         >
@@ -368,7 +393,7 @@ export function SwipeableTableCard({
       {/* Right action indicator (Add Time) */}
       {table.isActive && canAddTime && (
         <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 rounded-r-lg ${
             showRightAction ? "opacity-100" : "opacity-70"
           }`}
         >
@@ -379,9 +404,22 @@ export function SwipeableTableCard({
         </div>
       )}
 
+      {/* Swipe hint animation */}
+      {showSwipeHint && table.isActive && (
+        <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
+          <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm animate-pulse">
+            {canAddTime && canEndSession
+              ? "Swipe right to add time, left to end"
+              : canAddTime
+                ? "Swipe right to add time"
+                : "Swipe left to end session"}
+          </div>
+        </div>
+      )}
+
       {/* Table card with transform based on swipe */}
       <div
-        className="relative z-20 touch-action-none"
+        className="relative z-20 touch-action-none rounded-lg shadow-lg transition-all duration-300"
         style={{
           transform: `translateX(${swipeOffset}px)`,
           transition: isSwiping ? "none" : "transform 0.3s ease",

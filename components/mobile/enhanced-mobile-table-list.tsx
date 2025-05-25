@@ -43,6 +43,7 @@ export function EnhancedMobileTableList({
   const pullDistance = useRef(0)
   const isPullingRef = useRef(false)
   const lastUpdateTime = useRef(Date.now())
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
 
   // Update local tables when props change
   useEffect(() => {
@@ -187,6 +188,7 @@ export function EnhancedMobileTableList({
       try {
         await onRefresh()
         lastUpdateTime.current = Date.now()
+        setLastRefreshTime(new Date())
         hapticFeedback.success() // Success feedback when refresh completes
         toast({
           title: "Tables refreshed",
@@ -220,7 +222,7 @@ export function EnhancedMobileTableList({
 
   return (
     <div
-      className="relative w-full overflow-y-auto pb-20"
+      className="relative w-full overflow-y-auto pb-20 ios-momentum-scroll"
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -232,7 +234,10 @@ export function EnhancedMobileTableList({
         className="absolute top-0 left-0 right-0 flex justify-center items-center h-16 pointer-events-none z-10 opacity-0"
       >
         {isRefreshing ? (
-          <Loader2 className="h-6 w-6 text-cyan-500 animate-spin" />
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-6 w-6 text-cyan-500 animate-spin" />
+            <span className="text-xs text-cyan-500 mt-1">Refreshing...</span>
+          </div>
         ) : (
           <div className="flex flex-col items-center">
             <ArrowDown className="h-6 w-6 text-cyan-500 refresh-arrow transition-transform duration-200" />
@@ -243,30 +248,91 @@ export function EnhancedMobileTableList({
         )}
       </div>
 
+      {/* Last refresh time indicator */}
+      {lastRefreshTime && (
+        <div className="text-center text-xs text-gray-400 py-2 bg-black/30 backdrop-blur-sm">
+          Last updated: {lastRefreshTime.toLocaleTimeString()}
+        </div>
+      )}
+
       <div className="space-y-4 p-4">
-        {filteredAndSortedTables.map((table) => (
-          <SwipeableTableCard
-            key={table.id}
-            table={table}
-            servers={servers}
-            logs={logs.filter((log) => log.tableId === table.id)}
-            onClick={() => {
-              hapticFeedback.selection() // Light feedback on table selection
-              onTableClick(table.id)
-            }}
-            onAddTime={(tableId) => {
-              hapticFeedback.success() // Success feedback when adding time
-              onAddTime(tableId)
-            }}
-            onEndSession={(tableId) => {
-              hapticFeedback.strong() // Strong feedback for ending session
-              onEndSession(tableId)
-            }}
-            canEndSession={canEndSession}
-            canAddTime={canAddTime}
-            className="mb-4"
-          />
-        ))}
+        {filteredAndSortedTables.length > 0 ? (
+          filteredAndSortedTables.map((table) => (
+            <SwipeableTableCard
+              key={table.id}
+              table={table}
+              servers={servers}
+              logs={logs.filter((log) => log.tableId === table.id)}
+              onClick={() => {
+                hapticFeedback.selection() // Light feedback on table selection
+                onTableClick(table.id)
+              }}
+              onAddTime={(tableId) => {
+                hapticFeedback.success() // Success feedback when adding time
+                onAddTime(tableId)
+              }}
+              onEndSession={(tableId) => {
+                hapticFeedback.strong() // Strong feedback for ending session
+                onEndSession(tableId)
+              }}
+              canEndSession={canEndSession}
+              canAddTime={canAddTime}
+              className="mb-4"
+            />
+          ))
+        ) : (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <div className="text-[#00FFFF] opacity-70 mb-2">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M9.09 9C9.3251 8.33167 9.78915 7.76811 10.4 7.40913C11.0108 7.05016 11.7289 6.91894 12.4272 7.03871C13.1255 7.15849 13.7588 7.52152 14.2151 8.06353C14.6713 8.60553 14.9211 9.29152 14.92 10C14.92 12 11.92 13 11.92 13"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path
+                  d="M12 17H12.01"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <p className="text-white/70 text-sm">No tables available</p>
+            <button
+              onClick={() => {
+                if (onRefresh) {
+                  setIsRefreshing(true)
+                  hapticFeedback.medium()
+                  onRefresh().then(() => {
+                    setIsRefreshing(false)
+                    setLastRefreshTime(new Date())
+                    lastUpdateTime.current = Date.now()
+                  })
+                }
+              }}
+              className="mt-4 px-4 py-2 bg-[#00FFFF]/10 text-[#00FFFF] rounded-md text-sm font-medium border border-[#00FFFF]/30"
+            >
+              {isRefreshing ? (
+                <span className="flex items-center">
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Refreshing...
+                </span>
+              ) : (
+                "Refresh Tables"
+              )}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 import { useState, useEffect } from "react"
 import { useMediaQuery } from "usehooks-ts"
 import {
@@ -80,6 +80,26 @@ export function SettingsDialog({
   // Check if notifications are supported
   const [notificationsSupported, setNotificationsSupported] = useState(false)
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "default">("default")
+
+  // Set dialog height based on viewport
+  const [dialogHeight, setDialogHeight] = useState("80vh")
+
+  // Update dialog height on resize
+  useEffect(() => {
+    const updateDialogHeight = () => {
+      const vh = window.innerHeight
+      // On mobile, use a percentage of viewport height that works well
+      if (isMobile) {
+        setDialogHeight(`${Math.min(85, Math.max(70, 100 - (120 / vh) * 100))}vh`)
+      } else {
+        setDialogHeight("80vh")
+      }
+    }
+
+    updateDialogHeight()
+    window.addEventListener("resize", updateDialogHeight)
+    return () => window.removeEventListener("resize", updateDialogHeight)
+  }, [isMobile])
 
   // Check for notification support on component mount
   useEffect(() => {
@@ -420,7 +440,8 @@ export function SettingsDialog({
   return (
     <Dialog className="settings-dialog" open={open} onOpenChange={onClose}>
       <DialogContent
-        className="dialog-content sm:max-w-[600px] bg-gray-900 text-white border-gray-700 max-h-[80vh] overflow-hidden flex flex-col"
+        className="dialog-content sm:max-w-[600px] bg-gray-900 text-white border-gray-700 overflow-hidden flex flex-col"
+        style={{ maxHeight: dialogHeight }}
         onInteractOutside={(e) => e.preventDefault()} // Prevent closing on outside click
         onEscapeKeyDown={(e) => e.preventDefault()} // Prevent closing on Escape key
       >
@@ -437,7 +458,7 @@ export function SettingsDialog({
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid grid-cols-5 bg-gray-800 h-7">
+          <TabsList className={`grid ${isMobile ? "grid-cols-3" : "grid-cols-5"} bg-gray-800 h-7`}>
             <TabsTrigger value="profile" className="data-[state=active]:bg-gray-700 h-7 text-xs">
               Profile
             </TabsTrigger>
@@ -445,25 +466,32 @@ export function SettingsDialog({
               Servers
             </TabsTrigger>
             <TabsTrigger value="notes" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-              Note Templates
+              Notes
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-              <Bell className="h-3 w-3 mr-1" />
-              Notifications
-            </TabsTrigger>
+            {!isMobile && (
+              <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+                <Bell className="h-3 w-3 mr-1" />
+                Notifications
+              </TabsTrigger>
+            )}
             <TabsTrigger value="manual" className="data-[state=active]:bg-gray-700 h-7 text-xs">
               <BookOpen className="h-3 w-3 mr-1" />
-              User Manual
+              Manual
             </TabsTrigger>
-            <TabsTrigger value="admin" className="data-[state=active]:bg-gray-700 h-7 text-xs">
-              <Users className="h-3 w-3 mr-1" />
-              Admin
-            </TabsTrigger>
+            {showAdminControls && (
+              <TabsTrigger value="admin" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+                <Users className="h-3 w-3 mr-1" />
+                Admin
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <div className="dialog-body overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
+          <div
+            className="dialog-body overflow-y-auto ios-momentum-scroll"
+            style={{ maxHeight: `calc(${dialogHeight} - 120px)` }}
+          >
             <TabsContent value="profile" className="pt-2 pb-0 px-0 overflow-visible">
-              <form onSubmit={onSubmit} className="grid gap-4 py-4">
+              <form onSubmit={onSubmit} className="grid gap-4 py-4 px-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
                     Name
@@ -471,16 +499,20 @@ export function SettingsDialog({
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
                 </div>
                 {/* Push Notification Settings */}
-                {isMobile && (
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-white">Notifications</h3>
-                    <PushNotificationManager />
-                  </div>
-                )}
+                <div className="space-y-2 mt-4">
+                  <h3 className="text-lg font-semibold text-white">Notifications</h3>
+                  <PushNotificationManager />
+                </div>
+
+                <div className="flex justify-end mt-4">
+                  <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700">
+                    Save Profile
+                  </Button>
+                </div>
               </form>
             </TabsContent>
 
-            <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
+            <TabsContent value="servers" className="pt-2 pb-0 px-4 overflow-visible">
               <div className="space-y-2">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-sm font-medium text-fuchsia-400">Server Management</h3>
@@ -559,7 +591,7 @@ export function SettingsDialog({
               </div>
             </TabsContent>
 
-            <TabsContent value="notes" className="pt-2 pb-0 px-0 overflow-visible">
+            <TabsContent value="notes" className="pt-2 pb-0 px-4 overflow-visible">
               <div className="space-y-2">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="text-sm font-medium text-yellow-400">Note Templates</h3>
@@ -688,7 +720,7 @@ export function SettingsDialog({
                       </TabsTrigger>
                     </TabsList>
 
-                    <div className="mt-2">
+                    <div className="mt-2 px-4">
                       {adminSubTab === "userList" ? (
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
@@ -705,7 +737,7 @@ export function SettingsDialog({
                               size="sm"
                               onClick={fetchUsers}
                               disabled={loading}
-                              className="border-cyan-500 text-cyan-500 hover:bg-cyan-950 h-7 text-xs"
+                              className="border-cyan-500 text-cyan-500 hover:bg-cyan-950 h-7 text-xs ml-2"
                             >
                               <RefreshCw className={`h-3 w-3 mr-1 ${loading ? "animate-spin" : ""}`} />
                               Refresh
@@ -718,7 +750,7 @@ export function SettingsDialog({
                             </div>
                           )}
 
-                          <ScrollArea className="h-[300px] rounded-md border border-gray-700 bg-gray-800 p-2">
+                          <ScrollArea className="h-[200px] rounded-md border border-gray-700 bg-gray-800 p-2">
                             {loading && !users.length ? (
                               <div className="flex justify-center items-center h-full">
                                 <div className="animate-pulse text-gray-400 text-xs">Loading users...</div>
