@@ -1,23 +1,11 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install --force",
   "regions": ["iad1"],
   "functions": {
     "app/api/*/route.ts": {
       "maxDuration": 30
     }
-  },
-  "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
-  },
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "https://your-actual-supabase-url.supabase.co",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "your-actual-anon-key",
-    "SUPABASE_SERVICE_ROLE_KEY": "your-actual-service-role-key"
   }
 }
