@@ -122,7 +122,7 @@ export function EnhancedMobileTableList({ tables, servers, logs, onTableClick }:
         </div>
       </div>
 
-      <div className="space-y-4 pb-20">
+      <div className="space-y-4 pb-20 px-1">
         {filteredTables.length > 0 ? (
           filteredTables.map((table, index) => (
             <div

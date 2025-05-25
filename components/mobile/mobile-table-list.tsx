@@ -115,7 +115,7 @@ export function MobileTableList({ tables, servers, logs, onTableClick }: MobileT
         </div>
       </div>
 
-      <div className="space-y-4 pb-16">
+      <div className="space-y-4 pb-20 px-1">
         {filteredTables.map((table) => (
           <div key={table.id} className="mb-4 relative touch-target">
             <div className="absolute inset-0 z-30 touch-target" onClick={() => handleTableClick(table)}></div>

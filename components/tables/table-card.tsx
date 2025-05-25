@@ -543,7 +543,7 @@ const TableCardComponent = function TableCard({
       <style>{showAnimations ? animationStyles : ""}</style>
       <div
         ref={cardRef}
-        className={`relative rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.03] active:scale-[0.98] h-[150px] sm:h-[170px] table-card ios-touch-fix shadow-2xl animate-scale-in
+        className={`relative rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.03] active:scale-[0.98] h-auto min-h-[160px] sm:h-[170px] table-card ios-touch-fix shadow-2xl animate-scale-in
             ${borderStyles.animationClassName} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-500 focus-visible:ring-opacity-75`}
         style={{ ...borderStyles.style, WebkitTapHighlightColor: "transparent" }}
         role="button"
@@ -617,19 +617,18 @@ const TableCardComponent = function TableCard({
               </div>
             </div>
 
-            <div className={`flex justify-center items-center my-2 ${showAnimations ? "animate-float" : ""}`}>
+            <div className={`flex justify-center items-center my-1 sm:my-2 ${showAnimations ? "animate-float" : ""}`}>
               <div
-                className={`text-2xl sm:text-3xl font-bold py-1 px-3 rounded-md border bg-black/50 backdrop-blur-sm shadow-inner ${getTimerBorder()} transition-all duration-300`}
+                className={`text-xl sm:text-2xl md:text-3xl font-bold py-1 px-3 rounded-md border bg-black/50 backdrop-blur-sm shadow-inner ${getTimerBorder()} transition-all duration-300 ${Math.abs(timer.remainingTime % 60000) < 1000 ? "animate-pulse-highlight" : ""}`}
                 style={{ color: getTimerTextColor(), textShadow: getTimerTextShadow() }}
                 key={timer.remainingTime} // This will trigger a re-render and animation when time changes
                 data-value={timer.remainingTime}
-                className={`text-2xl sm:text-3xl font-bold py-1 px-3 rounded-md border bg-black/50 backdrop-blur-sm shadow-inner ${getTimerBorder()} transition-all duration-300 ${Math.abs(timer.remainingTime % 60000) < 1000 ? "animate-pulse-highlight" : ""}`}
               >
                 {timer.formattedRemainingTime}
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm">
+            <div className="flex flex-col gap-1 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm overflow-hidden">
               <div className="flex justify-between items-center animate-fade-in">
                 <div className="flex items-center gap-1.5">
                   <div className="bg-[#FF00FF]/30 p-1 rounded-full">
@@ -645,7 +644,7 @@ const TableCardComponent = function TableCard({
                       <ServerIcon className="h-3.5 w-3.5 text-[#00FF00]" />
                     </div>
                     <span
-                      className="font-semibold truncate max-w-[70px] sm:max-w-[90px] text-white"
+                      className="font-semibold truncate max-w-[60px] xs:max-w-[70px] sm:max-w-[90px] text-white"
                       style={{ textShadow: "0 0 5px rgba(0, 255, 0, 0.7)" }}
                     >
                       {servers && servers.length > 0
