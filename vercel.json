@@ -10,6 +10,11 @@
       "maxDuration": 30
     }
   },
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
   "env": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://your-actual-supabase-url.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "your-actual-anon-key",
