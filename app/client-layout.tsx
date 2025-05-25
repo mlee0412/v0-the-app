@@ -11,6 +11,7 @@ import { PWAInit } from "@/components/pwa-init"
 import { IOSViewportFix } from "@/components/ios-viewport-fix"
 import { IOSTouchOptimizations } from "@/components/ios-touch-optimizations"
 import { DirectTouchHandler } from "@/components/direct-touch-handler"
+import { SpaceBackgroundAnimation } from "@/components/animations/space-background-animation"
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
@@ -32,6 +33,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <IOSTouchOptimizations />
           <DirectTouchHandler />
           <PWAInit />
+          {/* Add the space background animation */}
+          <SpaceBackgroundAnimation intensity={1.5} />
           <BilliardsTimerDashboard />
         </AuthProvider>
       </SupabaseAuthProvider>
