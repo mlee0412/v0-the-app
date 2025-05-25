@@ -543,7 +543,7 @@ const TableCardComponent = function TableCard({
       <style>{showAnimations ? animationStyles : ""}</style>
       <div
         ref={cardRef}
-        className={`relative rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.03] active:scale-[0.98] h-auto min-h-[160px] sm:h-[170px] table-card ios-touch-fix shadow-2xl animate-scale-in
+        className={`relative rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.03] active:scale-[0.98] h-auto min-h-[160px] sm:min-h-[200px] table-card ios-touch-fix shadow-2xl animate-scale-in
             ${borderStyles.animationClassName} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-500 focus-visible:ring-opacity-75`}
         style={{ ...borderStyles.style, WebkitTapHighlightColor: "transparent" }}
         role="button"
@@ -628,7 +628,7 @@ const TableCardComponent = function TableCard({
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm overflow-hidden">
+            <div className="flex flex-col gap-1.5 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm overflow-visible mb-1">
               <div className="flex justify-between items-center animate-fade-in">
                 <div className="flex items-center gap-1.5">
                   <div className="bg-[#FF00FF]/30 p-1 rounded-full">
@@ -644,7 +644,7 @@ const TableCardComponent = function TableCard({
                       <ServerIcon className="h-3.5 w-3.5 text-[#00FF00]" />
                     </div>
                     <span
-                      className="font-semibold truncate max-w-[60px] xs:max-w-[70px] sm:max-w-[90px] text-white"
+                      className="font-semibold truncate max-w-[60px] xs:max-w-[70px] sm:max-w-[120px] text-white"
                       style={{ textShadow: "0 0 5px rgba(0, 255, 0, 0.7)" }}
                     >
                       {servers && servers.length > 0
@@ -659,7 +659,10 @@ const TableCardComponent = function TableCard({
                   <div className="bg-[#FFFF00]/30 p-1 rounded-full">
                     <MessageSquareIcon className="h-3 w-3 flex-shrink-0 text-[#FFFF00]" />
                   </div>
-                  <span className="truncate w-full text-white" style={{ textShadow: "0 0 4px rgba(255, 255, 0, 0.7)" }}>
+                  <span
+                    className="truncate w-full text-white text-[10px] sm:text-xs"
+                    style={{ textShadow: "0 0 4px rgba(255, 255, 0, 0.7)" }}
+                  >
                     {localTable.noteText}
                   </span>
                 </div>

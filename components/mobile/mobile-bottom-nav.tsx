@@ -46,12 +46,12 @@ export function MobileBottomNav({
     setShowFab(canAddSession && activeTab === "tables")
   }, [isAuthenticated, isAdmin, hasPermission, dayStarted, activeTab])
 
-  // Provide haptic feedback on tab change if supported
+  // Update the handleTabClick function to use our enhanced haptic feedback
   const handleTabClick = (tab: string) => {
     // Prevent default behavior to avoid any browser issues
     if (typeof window !== "undefined") {
       // Provide haptic feedback when changing tabs
-      hapticFeedback.light() // Using light haptic feedback for tab changes
+      hapticFeedback.selection() // Using selection haptic feedback for tab changes
 
       // Small delay to ensure UI feedback before tab change
       setTimeout(() => {
@@ -62,18 +62,18 @@ export function MobileBottomNav({
     }
   }
 
-  // Handle FAB click with haptic feedback
+  // Update the handleFabClick function for better haptic feedback
   const handleFabClick = () => {
     // Provide stronger haptic feedback for important actions
-    hapticFeedback.success()
+    hapticFeedback.medium()
     onAddSession()
   }
 
-  // Handle settings click
+  // Update the handleSettingsClick function
   const handleSettingsClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    hapticFeedback.medium() // Using medium haptic feedback for settings
+    hapticFeedback.selection() // Using selection haptic feedback for settings
 
     // Small delay to ensure UI feedback
     setTimeout(() => {
@@ -81,11 +81,11 @@ export function MobileBottomNav({
     }, 10)
   }
 
-  // Handle login/logout click
+  // Update the handleAuthClick function
   const handleAuthClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    hapticFeedback.medium() // Using medium haptic feedback for auth actions
+    hapticFeedback.selection() // Using selection haptic feedback for auth actions
 
     // Small delay to ensure UI feedback
     setTimeout(() => {
@@ -97,15 +97,7 @@ export function MobileBottomNav({
     }, 10)
   }
 
-  // Add swipe gesture handlers
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX
-  }
-
+  // Update the handleTouchEnd function for better swipe experience
   const handleTouchEnd = () => {
     if (!touchStartX.current || !touchEndX.current) return
 
@@ -118,16 +110,24 @@ export function MobileBottomNav({
       if (swipeDistance > 0 && currentTabIndex < availableTabs.length - 1) {
         // Swipe left - go to next tab
         handleTabClick(availableTabs[currentTabIndex + 1])
-        hapticFeedback.light()
+        hapticFeedback.selection()
       } else if (swipeDistance < 0 && currentTabIndex > 0) {
         // Swipe right - go to previous tab
         handleTabClick(availableTabs[currentTabIndex - 1])
-        hapticFeedback.light()
+        hapticFeedback.selection()
       }
     }
 
     touchStartX.current = null
     touchEndX.current = null
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
   }
 
   return (

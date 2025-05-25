@@ -1,5 +1,6 @@
 /**
- * Utility for providing haptic feedback on mobile devices
+ * Enhanced utility for providing haptic feedback on mobile devices
+ * with fallbacks and better patterns
  */
 export const hapticFeedback = {
   /**
@@ -11,6 +12,9 @@ export const hapticFeedback = {
     try {
       if ("vibrate" in navigator) {
         navigator.vibrate(10)
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate(10)
       }
     } catch (error) {
       console.error("Haptic feedback error:", error)
@@ -25,7 +29,10 @@ export const hapticFeedback = {
 
     try {
       if ("vibrate" in navigator) {
-        navigator.vibrate(15)
+        navigator.vibrate(20)
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate(20)
       }
     } catch (error) {
       console.error("Haptic feedback error:", error)
@@ -40,7 +47,10 @@ export const hapticFeedback = {
 
     try {
       if ("vibrate" in navigator) {
-        navigator.vibrate([20, 30, 20])
+        navigator.vibrate([30, 30, 30])
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate([30, 30, 30])
       }
     } catch (error) {
       console.error("Haptic feedback error:", error)
@@ -48,14 +58,17 @@ export const hapticFeedback = {
   },
 
   /**
-   * Error haptic feedback pattern
+   * Error haptic feedback pattern - distinctive pattern for errors
    */
   error: () => {
     if (typeof navigator === "undefined") return
 
     try {
       if ("vibrate" in navigator) {
-        navigator.vibrate([20, 40, 30, 40, 20])
+        navigator.vibrate([20, 40, 20, 40, 20, 40, 20])
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate([20, 40, 20, 40, 20, 40, 20])
       }
     } catch (error) {
       console.error("Haptic feedback error:", error)
@@ -63,14 +76,72 @@ export const hapticFeedback = {
   },
 
   /**
-   * Success haptic feedback pattern
+   * Success haptic feedback pattern - pleasant pattern for success
    */
   success: () => {
     if (typeof navigator === "undefined") return
 
     try {
       if ("vibrate" in navigator) {
-        navigator.vibrate([10, 20, 40])
+        navigator.vibrate([10, 20, 40, 80])
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate([10, 20, 40, 80])
+      }
+    } catch (error) {
+      console.error("Haptic feedback error:", error)
+    }
+  },
+
+  /**
+   * Warning haptic feedback pattern
+   */
+  warning: () => {
+    if (typeof navigator === "undefined") return
+
+    try {
+      if ("vibrate" in navigator) {
+        navigator.vibrate([30, 50, 30])
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate([30, 50, 30])
+      }
+    } catch (error) {
+      console.error("Haptic feedback error:", error)
+    }
+  },
+
+  /**
+   * Selection change haptic feedback - very subtle
+   */
+  selection: () => {
+    if (typeof navigator === "undefined") return
+
+    try {
+      if ("vibrate" in navigator) {
+        navigator.vibrate(5)
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate(5)
+      }
+    } catch (error) {
+      console.error("Haptic feedback error:", error)
+    }
+  },
+
+  /**
+   * Custom pattern haptic feedback
+   * @param pattern Array of numbers representing vibration durations in ms
+   */
+  custom: (pattern: number | number[]) => {
+    if (typeof navigator === "undefined") return
+
+    try {
+      if ("vibrate" in navigator) {
+        navigator.vibrate(pattern)
+      } else if ("Vibration" in window) {
+        // @ts-ignore - Fallback for some older devices
+        window.Vibration.vibrate(pattern)
       }
     } catch (error) {
       console.error("Haptic feedback error:", error)

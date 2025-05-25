@@ -103,7 +103,7 @@ function TableGridComponent({ tables = [], servers = [], logs = [], onTableClick
   return (
     <div className="w-full">
       <div
-        className="grid gap-2 mt-2 mb-2 grid-cols-2 sm:grid-cols-6"
+        className="grid gap-3 mt-2 mb-2 grid-cols-2 sm:grid-cols-6"
         style={{
           gridTemplateRows: "repeat(3, auto)",
         }}

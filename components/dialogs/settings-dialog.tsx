@@ -1,6 +1,13 @@
 "use client"
 
+import type React from "react"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
 import { useState, useEffect } from "react"
+import { useMediaQuery } from "usehooks-ts"
 import {
   PlusIcon,
   Trash2Icon,
@@ -12,27 +19,27 @@ import {
   UserPlus,
   Edit,
   RefreshCw,
+  Bell,
 } from "lucide-react"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { UserManual } from "@/components/system/user-manual"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { USER_ROLE_LABELS, type UserRole } from "@/types/user"
 import supabaseAuthService from "@/services/supabase-auth-service"
-import { useToast } from "@/hooks/use-toast"
-import type { Server, NoteTemplate } from "@/components/system/billiards-timer-dashboard"
 import { useAuth } from "@/contexts/auth-context"
 import { AddUserDialog } from "@/components/admin/add-user-dialog"
+import { Switch } from "@/components/ui/switch"
+
+// Import the PushNotificationManager
+import { PushNotificationManager } from "@/components/notifications/push-notification-manager"
 
 interface SettingsDialogProps {
   open: boolean
   onClose: () => void
-  servers: Server[]
-  noteTemplates: NoteTemplate[]
-  onUpdateServers: (servers: Server[]) => void
-  onUpdateNoteTemplates: (templates: NoteTemplate[]) => void
+  servers: any[]
+  noteTemplates: any[]
+  onUpdateServers: (servers: any[]) => void
+  onUpdateNoteTemplates: (templates: any[]) => void
   onShowUserManagement: () => void
   onShowLogs: () => void
   onLogout: () => void
@@ -52,12 +59,15 @@ export function SettingsDialog({
   showAdminControls,
 }: SettingsDialogProps) {
   const { toast } = useToast()
-  const { currentUser } = useAuth()
-  const [selectedTab, setSelectedTab] = useState("servers")
-  const [editedServers, setEditedServers] = useState<Server[]>([...servers])
+  const { user: currentUser } = useAuth()
+  const [name, setName] = useState(currentUser?.firstName || "")
+  const [selectedTab, setSelectedTab] = useState("profile")
+  const [editedServers, setEditedServers] = useState([...servers])
   const [newServerName, setNewServerName] = useState("")
-  const [editedTemplates, setEditedTemplates] = useState<NoteTemplate[]>([...noteTemplates])
+  const [editedTemplates, setEditedTemplates] = useState([...noteTemplates])
   const [newTemplateText, setNewTemplateText] = useState("")
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
   // User management state
   const [users, setUsers] = useState<any[]>([])
@@ -67,11 +77,129 @@ export function SettingsDialog({
   const [adminSubTab, setAdminSubTab] = useState("userList")
   const [searchTerm, setSearchTerm] = useState("")
 
+  // Check if notifications are supported
+  const [notificationsSupported, setNotificationsSupported] = useState(false)
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "default">("default")
+
+  // Check for notification support on component mount
+  useEffect(() => {
+    const checkNotificationSupport = () => {
+      const supported = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window
+      setNotificationsSupported(supported)
+
+      if (supported && Notification.permission) {
+        setNotificationPermission(Notification.permission)
+        setNotificationsEnabled(Notification.permission === "granted")
+      }
+    }
+
+    checkNotificationSupport()
+  }, [])
+
+  // Handle notification permission request
+  const requestNotificationPermission = async () => {
+    try {
+      const permission = await Notification.requestPermission()
+      setNotificationPermission(permission)
+      setNotificationsEnabled(permission === "granted")
+
+      if (permission === "granted") {
+        // Subscribe to push notifications
+        await subscribeToPushNotifications()
+        toast({
+          title: "Notifications enabled",
+          description: "You will now receive push notifications",
+        })
+      } else {
+        toast({
+          title: "Notifications disabled",
+          description: "You will not receive push notifications",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error requesting notification permission:", error)
+      toast({
+        title: "Error",
+        description: "Failed to request notification permission",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Subscribe to push notifications
+  const subscribeToPushNotifications = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready
+
+      // Get the server's public key
+      const response = await fetch("/api/notifications/public-key")
+      const { publicKey } = await response.json()
+
+      // Subscribe the user to push notifications
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: publicKey,
+      })
+
+      // Send the subscription to the server
+      await fetch("/api/notifications/subscribe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subscription,
+          userId: currentUser?.id,
+        }),
+      })
+    } catch (error) {
+      console.error("Error subscribing to push notifications:", error)
+    }
+  }
+
+  // Toggle notifications
+  const toggleNotifications = async () => {
+    if (notificationsEnabled) {
+      // Unsubscribe from push notifications
+      try {
+        const registration = await navigator.serviceWorker.ready
+        const subscription = await registration.pushManager.getSubscription()
+
+        if (subscription) {
+          await subscription.unsubscribe()
+
+          // Notify the server
+          await fetch("/api/notifications/unsubscribe", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              endpoint: subscription.endpoint,
+              userId: currentUser?.id,
+            }),
+          })
+        }
+
+        setNotificationsEnabled(false)
+        toast({
+          title: "Notifications disabled",
+          description: "You will no longer receive push notifications",
+        })
+      } catch (error) {
+        console.error("Error unsubscribing from push notifications:", error)
+      }
+    } else {
+      await requestNotificationPermission()
+    }
+  }
+
   // Predefined server list
   const predefinedServers = ["Mike", "Ji", "Gun", "Alex", "Lucy", "Tanya", "Ian", "Rolando", "Alexa", "Diego", "BB"]
 
   // Initialize servers if empty
-  useState(() => {
+  useEffect(() => {
     if (editedServers.length === 0) {
       const initialServers = predefinedServers.map((name, index) => ({
         id: `server-${index + 1}`,
@@ -80,7 +208,7 @@ export function SettingsDialog({
       }))
       setEditedServers(initialServers)
     }
-  })
+  }, [editedServers])
 
   // Fetch users when admin tab is selected
   useEffect(() => {
@@ -114,7 +242,7 @@ export function SettingsDialog({
   // Add new server
   const addServer = () => {
     if (newServerName.trim()) {
-      const newServer: Server = {
+      const newServer = {
         id: Date.now().toString(),
         name: newServerName.trim(),
         enabled: true,
@@ -144,7 +272,7 @@ export function SettingsDialog({
   // Add new template
   const addTemplate = () => {
     if (newTemplateText.trim()) {
-      const newTemplate: NoteTemplate = {
+      const newTemplate = {
         id: Date.now().toString(),
         text: newTemplateText.trim(),
       }
@@ -269,6 +397,26 @@ export function SettingsDialog({
     }
   }
 
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    try {
+      await currentUser?.update({
+        firstName: name,
+      })
+
+      toast({
+        title: "Profile updated.",
+      })
+    } catch (error) {
+      toast({
+        title: "Something went wrong.",
+        description: "There was an error updating your profile. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <Dialog className="settings-dialog" open={open} onOpenChange={onClose}>
       <DialogContent
@@ -289,12 +437,19 @@ export function SettingsDialog({
         </div>
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-          <TabsList className="grid grid-cols-4 bg-gray-800 h-7">
+          <TabsList className="grid grid-cols-5 bg-gray-800 h-7">
+            <TabsTrigger value="profile" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+              Profile
+            </TabsTrigger>
             <TabsTrigger value="servers" className="data-[state=active]:bg-gray-700 h-7 text-xs">
               Servers
             </TabsTrigger>
             <TabsTrigger value="notes" className="data-[state=active]:bg-gray-700 h-7 text-xs">
               Note Templates
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="data-[state=active]:bg-gray-700 h-7 text-xs">
+              <Bell className="h-3 w-3 mr-1" />
+              Notifications
             </TabsTrigger>
             <TabsTrigger value="manual" className="data-[state=active]:bg-gray-700 h-7 text-xs">
               <BookOpen className="h-3 w-3 mr-1" />
@@ -307,6 +462,24 @@ export function SettingsDialog({
           </TabsList>
 
           <div className="dialog-body overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
+            <TabsContent value="profile" className="pt-2 pb-0 px-0 overflow-visible">
+              <form onSubmit={onSubmit} className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" />
+                </div>
+                {/* Push Notification Settings */}
+                {isMobile && (
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-white">Notifications</h3>
+                    <PushNotificationManager />
+                  </div>
+                )}
+              </form>
+            </TabsContent>
+
             <TabsContent value="servers" className="pt-2 pb-0 px-0 overflow-visible">
               <div className="space-y-2">
                 <div className="flex justify-between items-center mb-2">
@@ -446,6 +619,51 @@ export function SettingsDialog({
                       <SaveIcon className="h-3 w-3" />
                       Save Changes
                     </Button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="notifications" className="pt-4 pb-0 px-4 overflow-visible">
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-cyan-400">Push Notifications</h3>
+
+                {notificationsSupported ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between space-x-2">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="notifications">Enable Push Notifications</Label>
+                        <p className="text-xs text-gray-400">
+                          Receive alerts about table status changes and important events
+                        </p>
+                      </div>
+                      <Switch
+                        id="notifications"
+                        checked={notificationsEnabled}
+                        onCheckedChange={toggleNotifications}
+                        disabled={notificationPermission === "denied"}
+                      />
+                    </div>
+
+                    {notificationPermission === "denied" && (
+                      <div className="bg-red-900/30 border border-red-700 text-red-200 p-2 rounded-md text-xs">
+                        <p>Notifications are blocked. Please enable them in your browser settings.</p>
+                      </div>
+                    )}
+
+                    <div className="bg-gray-800 p-3 rounded-md">
+                      <h4 className="text-xs font-medium mb-2">You will receive notifications for:</h4>
+                      <ul className="text-xs space-y-1 text-gray-300">
+                        <li>• Table time warnings (5 minutes remaining)</li>
+                        <li>• Table session ended</li>
+                        <li>• New table assignments</li>
+                        <li>• System alerts</li>
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-900/30 border border-yellow-700 text-yellow-200 p-3 rounded-md text-xs">
+                    <p>Push notifications are not supported in your browser or device.</p>
                   </div>
                 )}
               </div>

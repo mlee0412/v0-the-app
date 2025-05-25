@@ -1,135 +1,204 @@
-const CACHE_NAME = "space-billiards-cache-v1"
+// This is a simplified service worker for the billiards timer app
+// It handles caching, offline support, and push notifications
 
-// Add URLs of resources you want to cache
-const urlsToCache = [
+const CACHE_NAME = "billiards-timer-cache-v1"
+const OFFLINE_URL = "/offline"
+
+// Assets to cache immediately on install
+const PRECACHE_ASSETS = [
   "/",
-  "/index.html",
-  "/manifest.json",
+  "/offline",
   "/images/space-billiard-logo.png",
-  "/images/space-billiard-logo-512.png",
-  "/sounds/success.mp3",
-  "/sounds/error.mp3",
+  "/cosmic-core.png",
+  "/cosmic-cyan-magenta.png",
+  "/cosmic-dance.png",
+  "/cyan-nebula-dream.png",
+  "/pixel-starfield.png",
 ]
 
-// Install event - cache resources
+// Install event - precache key resources
 self.addEventListener("install", (event) => {
+  console.log("[Service Worker] Installing Service Worker...")
+
+  // Skip waiting to ensure the new service worker activates immediately
+  self.skipWaiting()
+
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => {
-        console.log("Cache opened")
-        return cache.addAll(urlsToCache)
-      })
-      .then(() => self.skipWaiting()),
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log("[Service Worker] Precaching app shell")
+      return cache.addAll(PRECACHE_ASSETS)
+    }),
   )
 })
 
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  const cacheWhitelist = [CACHE_NAME]
+  console.log("[Service Worker] Activating Service Worker...")
+
+  // Claim clients to ensure the SW is in control immediately
+  event.waitUntil(self.clients.claim())
+
+  // Clean up old caches
   event.waitUntil(
-    caches
-      .keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheWhitelist.indexOf(cacheName) === -1) {
-              return caches.delete(cacheName)
-            }
-          }),
-        )
-      })
-      .then(() => self.clients.claim()),
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log("[Service Worker] Removing old cache:", cacheName)
+            return caches.delete(cacheName)
+          }
+        }),
+      )
+    }),
   )
 })
 
-// Fetch event - serve from cache or network
+// Fetch event - network-first strategy with fallback to cache
 self.addEventListener("fetch", (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return
-  }
+  // Skip non-GET requests
+  if (event.request.method !== "GET") return
 
-  // Skip Supabase API requests
-  if (event.request.url.includes("supabase.co")) {
+  // Skip browser extensions and analytics
+  const url = new URL(event.request.url)
+  if (
+    !url.origin.includes(self.location.origin) ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/_next/webpack-hmr")
+  ) {
     return
   }
 
   event.respondWith(
-    caches
-      .match(event.request)
+    fetch(event.request)
       .then((response) => {
-        // Cache hit - return the response from cache
-        if (response) {
-          return response
-        }
-
-        // Clone the request because it's a one-time use stream
-        const fetchRequest = event.request.clone()
-
-        return fetch(fetchRequest).then((response) => {
-          // Check if we received a valid response
-          if (!response || response.status !== 200 || response.type !== "basic") {
-            return response
-          }
-
-          // Clone the response because it's a one-time use stream
-          const responseToCache = response.clone()
-
-          caches.open(CACHE_NAME).then((cache) => {
-            // Don't cache API requests
-            if (!event.request.url.includes("/api/")) {
-              cache.put(event.request, responseToCache)
-            }
-          })
-
-          return response
+        // Cache the response for future use
+        const responseClone = response.clone()
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseClone)
         })
+        return response
       })
       .catch(() => {
-        // If both cache and network fail, serve an offline fallback
-        if (event.request.mode === "navigate") {
-          return caches.match("/offline.html")
-        }
+        // If network fails, try to serve from cache
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse
+          }
+          // If not in cache, serve the offline page for navigation requests
+          if (event.request.mode === "navigate") {
+            return caches.match(OFFLINE_URL)
+          }
+          // For other requests, just return a simple response
+          return new Response("Network error", { status: 408, headers: { "Content-Type": "text/plain" } })
+        })
       }),
   )
 })
 
-// Background sync for offline actions
+// Push event - handle incoming push notifications
+self.addEventListener("push", (event) => {
+  console.log("[Service Worker] Push Received:", event)
+
+  let notificationData = {}
+
+  try {
+    if (event.data) {
+      notificationData = event.data.json()
+    }
+  } catch (e) {
+    console.error("[Service Worker] Error parsing push data:", e)
+  }
+
+  const title = notificationData.title || "Billiards Timer"
+  const options = {
+    body: notificationData.body || "Something important happened!",
+    icon: "/images/space-billiard-logo.png",
+    badge: "/images/space-billiard-logo.png",
+    vibrate: [100, 50, 100],
+    data: {
+      url: notificationData.url || "/",
+      tableId: notificationData.tableId,
+      timestamp: new Date().getTime(),
+    },
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// Notification click event - handle user interaction with notifications
+self.addEventListener("notificationclick", (event) => {
+  console.log("[Service Worker] Notification click:", event)
+
+  event.notification.close()
+
+  const urlToOpen = event.notification.data?.url || "/"
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clientList) => {
+      // Check if there's already a window open
+      for (const client of clientList) {
+        if (client.url === urlToOpen && "focus" in client) {
+          return client.focus()
+        }
+      }
+      // If no window is open, open a new one
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen)
+      }
+    }),
+  )
+})
+
+// Sync event - handle background sync
 self.addEventListener("sync", (event) => {
+  console.log("[Service Worker] Background Sync:", event.tag)
+
   if (event.tag === "sync-tables") {
     event.waitUntil(syncTables())
   }
 })
 
-// Push notification event handler
-self.addEventListener("push", (event) => {
-  const data = event.data.json()
-
-  const options = {
-    body: data.body,
-    icon: "/images/space-billiard-logo.png",
-    badge: "/images/notification-badge.png",
-    vibrate: [100, 50, 100],
-    data: {
-      url: data.url || "/",
-    },
-  }
-
-  event.waitUntil(self.registration.showNotification(data.title, options))
-})
-
-// Notification click event
-self.addEventListener("notificationclick", (event) => {
-  event.notification.close()
-
-  event.waitUntil(clients.openWindow(event.notification.data.url))
-})
-
-// Helper function for background sync
+// Function to sync tables data
 async function syncTables() {
-  // Get all pending actions from IndexedDB
-  // Implement your IndexedDB logic here
-  // For each pending action, send to server
-  // If successful, remove from pending actions
+  try {
+    // Get data from IndexedDB that needs to be synced
+    const dataToSync = await getDataToSync()
+
+    if (dataToSync && dataToSync.length > 0) {
+      // Send data to server
+      const response = await fetch("/api/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ data: dataToSync }),
+      })
+
+      if (response.ok) {
+        // Clear synced data from IndexedDB
+        await clearSyncedData()
+      }
+    }
+  } catch (error) {
+    console.error("[Service Worker] Sync failed:", error)
+  }
 }
+
+// Placeholder functions for IndexedDB operations
+async function getDataToSync() {
+  // In a real app, this would get data from IndexedDB
+  return []
+}
+
+async function clearSyncedData() {
+  // In a real app, this would clear synced data from IndexedDB
+}
+
+// Log when the service worker is ready
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting()
+  }
+})
+
+console.log("[Service Worker] Service Worker Registered")

@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/tables/table-card"
 import { Clock, X } from "lucide-react"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
+import { hapticFeedback } from "@/lib/utils"
 
 interface SwipeableTableCardProps {
   table: Table
@@ -157,6 +158,7 @@ export function SwipeableTableCard({
     if (isTap) {
       // This was a tap, not a swipe
       resetSwipe()
+      hapticFeedback.selection() // Light feedback for tap
       onClick()
       return
     }
@@ -167,21 +169,16 @@ export function SwipeableTableCard({
     if (isSwipeComplete && isSwipingRef.current) {
       if (distance < 0 && table.isActive && canEndSession) {
         // Complete left swipe - end session
+        hapticFeedback.strong() // Strong feedback for ending session
         onEndSession(table.id)
-
-        // Provide haptic feedback if available
-        if (navigator.vibrate) {
-          navigator.vibrate(20)
-        }
       } else if (distance > 0 && table.isActive && canAddTime) {
         // Complete right swipe - add time
+        hapticFeedback.success() // Success feedback for adding time
         onAddTime(table.id)
-
-        // Provide haptic feedback if available
-        if (navigator.vibrate) {
-          navigator.vibrate(20)
-        }
       }
+    } else {
+      // Swipe was not complete, provide feedback
+      hapticFeedback.light()
     }
 
     // Reset swipe state with animation
