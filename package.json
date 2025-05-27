@@ -67,7 +67,6 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "latest",
     "use-sync-external-store": "latest",
-    "usehooks-ts": "latest",
     "uuid": "latest",
     "vaul": "^0.9.6",
     "web-push": "latest",
