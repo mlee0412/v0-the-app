@@ -80,17 +80,17 @@
 @import "./animations.css";
 @import "./cursor.css";
 @import "./mobile.css";
-@import "./mobile-fixes.css";
+@import "./mobile-fixes.css"; /* This is our consolidated file */
 @import "./bottom-nav.css";
 @import "./space-animations.css";
 @import "./logo-effects.css";
 @import "./pull-up-panel.css";
-@import "./ios-touch-fixes.css";
+/* @import "./ios-touch-fixes.css"; /* REMOVED */
 @import "./dialog-fixes.css";
 @import "./mobile-optimizations.css";
 @import "./pwa.css";
 @import "./ipad.css";
-@import "./touch-improvements.css";
+/* @import "./touch-improvements.css"; /* REMOVED */
 
 :root {
   --foreground-rgb: 255, 255, 255;
