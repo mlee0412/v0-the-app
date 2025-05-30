@@ -1,25 +1,25 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState, useEffect, useCallback, useRef } from "react"
-import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card"
-import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
-import { useTableStore } from "@/utils/table-state-manager"
-import { hapticFeedback } from "@/utils/haptic-feedback"
-import { toast } from "@/hooks/use-toast"
-import { ArrowDown, Loader2 } from "lucide-react"
+import type React from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card"; // Corrected path
+import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
+import { useTableStore } from "@/utils/table-state-manager";
+import { hapticFeedback } from "@/utils/haptic-feedback";
+import { toast } from "@/hooks/use-toast";
+import { ArrowDown, Loader2 } from "lucide-react";
 
 interface EnhancedMobileTableListProps {
-  tables: Table[]
-  servers: Server[]
-  logs: LogEntry[]
-  onTableClick: (tableId: number) => void
-  onAddTime: (tableId: number) => void
-  onEndSession: (tableId: number) => void
-  canEndSession: boolean
-  canAddTime: boolean
-  onRefresh?: () => Promise<void>
+  tables: Table[];
+  servers: Server[];
+  logs: LogEntry[];
+  onTableClick: (tableId: number) => void;
+  onAddTime: (tableId: number) => void;
+  onEndSession: (tableId: number) => void;
+  canEndSession: boolean;
+  canAddTime: boolean;
+  onRefresh?: () => Promise<void>;
+  showAnimations?: boolean; // Added from BilliardsTimerDashboard
 }
 
 export function EnhancedMobileTableList({
@@ -32,193 +32,189 @@ export function EnhancedMobileTableList({
   canEndSession,
   canAddTime,
   onRefresh,
+  showAnimations = true, // Default from BilliardsTimerDashboard
 }: EnhancedMobileTableListProps) {
-  const [localTables, setLocalTables] = useState<Table[]>(tables)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [showRefreshHint, setShowRefreshHint] = useState(false)
-  const refreshStartY = useRef(0)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const refreshThreshold = 80 // pixels to pull down to trigger refresh
-  const refreshIndicatorRef = useRef<HTMLDivElement>(null)
-  const pullDistance = useRef(0)
-  const isPullingRef = useRef(false)
-  const lastUpdateTime = useRef(Date.now())
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
+  const [localTables, setLocalTables] = useState<Table[]>(tables);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  // const [showRefreshHint, setShowRefreshHint] = useState(false); // We can simplify this if pull-to-refresh is too aggressive
+  const refreshStartY = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const refreshThreshold = 80; // pixels to pull down to trigger refresh
+  const refreshIndicatorRef = useRef<HTMLDivElement>(null);
+  const pullDistance = useRef(0);
+  const isPullingRef = useRef(false);
+  const lastUpdateTime = useRef(Date.now());
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
-  // Update local tables when props change
   useEffect(() => {
-    setLocalTables(tables)
-  }, [tables])
+    setLocalTables(tables);
+  }, [tables]);
 
-  // Subscribe to table updates from the store
   useEffect(() => {
     const unsubscribe = useTableStore.subscribe((state) => {
-      const tableIds = tables.map((t) => t.id)
-      const updatedTables = tableIds.map((id) => state.tables[id] || tables.find((t) => t.id === id)!)
-
-      // Only update if there are actual changes
+      const tableIds = tables.map((t) => t.id);
+      const updatedTables = tableIds.map((id) => state.tables[id] || tables.find((t) => t.id === id)!);
       if (JSON.stringify(updatedTables) !== JSON.stringify(localTables)) {
-        setLocalTables(updatedTables)
+        setLocalTables(updatedTables);
       }
-    })
+    });
+    return () => unsubscribe();
+  }, [tables, localTables]);
 
-    return () => unsubscribe()
-  }, [tables, localTables])
-
-  // Subscribe to real-time updates
   useEffect(() => {
     const handleTimerUpdate = (event: CustomEvent) => {
-      const { tableId, remainingTime, initialTime } = event.detail
-
+      const { tableId, remainingTime, initialTime } = event.detail;
       setLocalTables((prevTables) =>
         prevTables.map((table) => (table.id === tableId ? { ...table, remainingTime, initialTime } : table)),
-      )
-    }
-
+      );
+    };
     const handleBatchUpdate = (event: CustomEvent) => {
-      const { updates } = event.detail
-
+      const { updates } = event.detail;
       if (updates && updates.length > 0) {
         setLocalTables((prevTables) =>
           prevTables.map((table) => {
-            const update = updates.find((u: any) => u.tableId === table.id)
-            if (update) {
-              return { ...table, remainingTime: update.remainingTime, initialTime: update.initialTime }
-            }
-            return table
+            const update = updates.find((u: any) => u.tableId === table.id);
+            return update ? { ...table, remainingTime: update.remainingTime, initialTime: update.initialTime } : table;
           }),
-        )
+        );
       }
-    }
-
-    const handleTableUpdate = (event: CustomEvent) => {
-      const { table } = event.detail
-
+    };
+    const handleTableUpdateEvent = (event: CustomEvent) => { // Renamed to avoid conflict
+      const { table } = event.detail;
       if (table) {
-        setLocalTables((prevTables) => prevTables.map((t) => (t.id === table.id ? { ...t, ...table } : t)))
+        setLocalTables((prevTables) => prevTables.map((t) => (t.id === table.id ? { ...t, ...table } : t)));
       }
-    }
+    };
 
-    window.addEventListener("supabase-timer-update", handleTimerUpdate as EventListener)
-    window.addEventListener("batch-timer-update", handleBatchUpdate as EventListener)
-    window.addEventListener("supabase-tables-update", handleTableUpdate as EventListener)
+    window.addEventListener("supabase-timer-update", handleTimerUpdate as EventListener);
+    window.addEventListener("batch-timer-update", handleBatchUpdate as EventListener);
+    window.addEventListener("supabase-tables-update", handleTableUpdateEvent as EventListener); // Changed name
 
-    // Set up periodic refresh for active tables
     const refreshInterval = setInterval(() => {
-      // Only refresh if it's been more than 30 seconds since the last update
       if (Date.now() - lastUpdateTime.current > 30000) {
         if (onRefresh && !isRefreshing) {
           onRefresh().then(() => {
-            lastUpdateTime.current = Date.now()
-          })
+            lastUpdateTime.current = Date.now();
+          });
         }
       }
-    }, 60000) // Check every minute
+    }, 60000);
 
     return () => {
-      window.removeEventListener("supabase-timer-update", handleTimerUpdate as EventListener)
-      window.removeEventListener("batch-timer-update", handleBatchUpdate as EventListener)
-      window.removeEventListener("supabase-tables-update", handleTableUpdate as EventListener)
-      clearInterval(refreshInterval)
-    }
-  }, [onRefresh, isRefreshing])
+      window.removeEventListener("supabase-timer-update", handleTimerUpdate as EventListener);
+      window.removeEventListener("batch-timer-update", handleBatchUpdate as EventListener);
+      window.removeEventListener("supabase-tables-update", handleTableUpdateEvent as EventListener); // Changed name
+      clearInterval(refreshInterval);
+    };
+  }, [onRefresh, isRefreshing]);
 
-  // Handle pull-to-refresh
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Only enable pull-to-refresh when at the top of the container
-    if (containerRef.current && containerRef.current.scrollTop <= 0) {
-      refreshStartY.current = e.touches[0].clientY
-      isPullingRef.current = true
-      setShowRefreshHint(true)
-    }
-  }, [])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isPullingRef.current) return
-
-    const currentY = e.touches[0].clientY
-    pullDistance.current = Math.max(0, currentY - refreshStartY.current)
-
-    if (pullDistance.current > 0) {
-      // Prevent default to disable native scroll while pulling
-      e.preventDefault()
-    }
-
-    // Apply resistance to make the pull feel more natural
-    const resistance = 0.4
-    const pullWithResistance = Math.min(refreshThreshold * 1.5, pullDistance.current * resistance)
-
-    if (refreshIndicatorRef.current) {
-      refreshIndicatorRef.current.style.transform = `translateY(${pullWithResistance}px)`
-      refreshIndicatorRef.current.style.opacity = Math.min(1, pullWithResistance / refreshThreshold).toString()
-
-      // Rotate the arrow based on pull distance
-      const rotation = Math.min(180, (pullWithResistance / refreshThreshold) * 180)
-      const arrowElement = refreshIndicatorRef.current.querySelector(".refresh-arrow")
-      if (arrowElement) {
-        arrowElement.setAttribute("style", `transform: rotate(${rotation}deg)`)
+  const handlePullToRefresh = useCallback(async () => {
+    if (onRefresh && !isRefreshing) {
+      setIsRefreshing(true);
+      hapticFeedback.medium();
+      try {
+        await onRefresh();
+        lastUpdateTime.current = Date.now();
+        setLastRefreshTime(new Date());
+        hapticFeedback.success();
+        toast({ title: "Tables refreshed", duration: 2000 });
+      } catch (error) {
+        console.error("Error refreshing tables:", error);
+        hapticFeedback.error();
+        toast({ title: "Refresh failed", variant: "destructive", duration: 3000 });
+      } finally {
+        setIsRefreshing(false);
       }
     }
-  }, [])
+  }, [onRefresh, isRefreshing]);
 
-  const handleTouchEnd = useCallback(async () => {
-    if (!isPullingRef.current) return
 
-    isPullingRef.current = false
-
-    // Reset the indicator position with animation
-    if (refreshIndicatorRef.current) {
-      refreshIndicatorRef.current.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out"
-      refreshIndicatorRef.current.style.transform = "translateY(0)"
-      refreshIndicatorRef.current.style.opacity = "0"
-
-      // Reset the transition after animation completes
-      setTimeout(() => {
-        if (refreshIndicatorRef.current) {
-          refreshIndicatorRef.current.style.transition = ""
-        }
-      }, 300)
-    }
-
-    // If pulled enough, trigger refresh
-    if (pullDistance.current >= refreshThreshold && onRefresh) {
-      setIsRefreshing(true)
-      hapticFeedback.medium() // Provide haptic feedback when refresh is triggered
-
-      try {
-        await onRefresh()
-        lastUpdateTime.current = Date.now()
-        setLastRefreshTime(new Date())
-        hapticFeedback.success() // Success feedback when refresh completes
-        toast({
-          title: "Tables refreshed",
-          description: "Latest table data has been loaded",
-          duration: 2000,
-        })
-      } catch (error) {
-        console.error("Error refreshing tables:", error)
-        hapticFeedback.error() // Error feedback
-        toast({
-          title: "Refresh failed",
-          description: "Could not refresh table data",
-          variant: "destructive",
-          duration: 3000,
-        })
-      } finally {
-        setIsRefreshing(false)
-        setShowRefreshHint(false)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (containerRef.current && containerRef.current.scrollTop === 0) {
+      isPullingRef.current = true;
+      refreshStartY.current = e.touches[0].clientY;
+      pullDistance.current = 0; // Reset pull distance
+      if (refreshIndicatorRef.current) {
+          refreshIndicatorRef.current.style.transition = 'none'; // Disable transition during pull
       }
     } else {
-      setShowRefreshHint(false)
+      isPullingRef.current = false;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPullingRef.current || !containerRef.current || containerRef.current.scrollTop !== 0) {
+        // If scrolling down, ensure pull-to-refresh is not active
+        if (containerRef.current && containerRef.current.scrollTop > 0) {
+            isPullingRef.current = false;
+            if (refreshIndicatorRef.current) {
+                refreshIndicatorRef.current.style.transform = `translateY(0px)`;
+                refreshIndicatorRef.current.style.opacity = '0';
+            }
+        }
+        return;
     }
 
-    pullDistance.current = 0
-  }, [onRefresh])
+    const currentY = e.touches[0].clientY;
+    let newPullDistance = currentY - refreshStartY.current;
 
-  // Filter out system tables and sort numerically by ID
+    if (newPullDistance < 0) { // User is scrolling up, stop pull-to-refresh
+        isPullingRef.current = false;
+        if (refreshIndicatorRef.current) {
+            refreshIndicatorRef.current.style.transform = `translateY(0px)`;
+            refreshIndicatorRef.current.style.opacity = '0';
+        }
+        return;
+    }
+    
+    // Prevent default page scroll only when actively pulling down at the top
+    if (newPullDistance > 0 && containerRef.current.scrollTop === 0) {
+        e.preventDefault();
+    }
+
+
+    pullDistance.current = newPullDistance;
+    const resistance = 0.4;
+    const pullWithResistance = Math.min(refreshThreshold * 1.5, pullDistance.current * resistance);
+
+    if (refreshIndicatorRef.current) {
+      refreshIndicatorRef.current.style.transform = `translateY(${pullWithResistance}px)`;
+      refreshIndicatorRef.current.style.opacity = Math.min(1, pullWithResistance / refreshThreshold).toString();
+      const rotation = Math.min(180, (pullWithResistance / refreshThreshold) * 180);
+      const arrowElement = refreshIndicatorRef.current.querySelector(".refresh-arrow");
+      if (arrowElement) {
+        arrowElement.setAttribute("style", `transform: rotate(${rotation}deg)`);
+      }
+    }
+  }, [refreshThreshold]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isPullingRef.current) return;
+
+    const wasPulling = pullDistance.current > 0;
+    isPullingRef.current = false; // Reset pulling state immediately
+
+    if (refreshIndicatorRef.current) {
+      refreshIndicatorRef.current.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out";
+      refreshIndicatorRef.current.style.transform = "translateY(0)";
+      refreshIndicatorRef.current.style.opacity = "0";
+      setTimeout(() => {
+        if (refreshIndicatorRef.current) {
+          refreshIndicatorRef.current.style.transition = "";
+        }
+      }, 300);
+    }
+
+    if (wasPulling && pullDistance.current >= refreshThreshold) {
+      handlePullToRefresh();
+    }
+    pullDistance.current = 0; // Reset pull distance
+  }, [handlePullToRefresh, refreshThreshold]);
+
+
   const filteredAndSortedTables = [...localTables]
-    .filter((table) => !table.name.toLowerCase().includes("system")) // Filter out system tables
-    .sort((a, b) => a.id - b.id) // Sort numerically by ID
+    .filter((table) => !table.name.toLowerCase().includes("system"))
+    .sort((a, b) => a.id - b.id);
 
   return (
     <div
@@ -227,11 +223,12 @@ export function EnhancedMobileTableList({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      style={{ touchAction: 'pan-y' }} // Explicitly allow vertical panning
     >
-      {/* Pull-to-refresh indicator */}
       <div
         ref={refreshIndicatorRef}
-        className="absolute top-0 left-0 right-0 flex justify-center items-center h-16 pointer-events-none z-10 opacity-0"
+        className="absolute top-0 left-0 right-0 flex justify-center items-center h-16 pointer-events-none z-10 opacity-0" // Starts invisible
+        style={{ transform: 'translateY(0px)' }} // Initial position
       >
         {isRefreshing ? (
           <div className="flex flex-col items-center">
@@ -248,14 +245,14 @@ export function EnhancedMobileTableList({
         )}
       </div>
 
-      {/* Last refresh time indicator */}
       {lastRefreshTime && (
-        <div className="text-center text-xs text-gray-400 py-2 bg-black/30 backdrop-blur-sm">
+        <div className="text-center text-xs text-gray-400 py-2 bg-black/30 backdrop-blur-sm sticky top-0 z-20">
           Last updated: {lastRefreshTime.toLocaleTimeString()}
         </div>
       )}
 
-      <div className="space-y-4 p-4">
+      {/* Added mobile-table-card-list class here */}
+      <div className="space-y-4 p-4 mobile-table-card-list">
         {filteredAndSortedTables.length > 0 ? (
           filteredAndSortedTables.map((table) => (
             <SwipeableTableCard
@@ -264,20 +261,20 @@ export function EnhancedMobileTableList({
               servers={servers}
               logs={logs.filter((log) => log.tableId === table.id)}
               onClick={() => {
-                hapticFeedback.selection() // Light feedback on table selection
-                onTableClick(table.id)
+                hapticFeedback.selection();
+                onTableClick(table.id);
               }}
               onAddTime={(tableId) => {
-                hapticFeedback.success() // Success feedback when adding time
-                onAddTime(tableId)
+                hapticFeedback.success();
+                onAddTime(tableId);
               }}
               onEndSession={(tableId) => {
-                hapticFeedback.strong() // Strong feedback for ending session
-                onEndSession(tableId)
+                hapticFeedback.strong();
+                onEndSession(tableId);
               }}
               canEndSession={canEndSession}
               canAddTime={canAddTime}
-              className="mb-4"
+              // className="mb-4" // Removed individual margin, handled by space-y-4 on parent
             />
           ))
         ) : (
@@ -286,38 +283,20 @@ export function EnhancedMobileTableList({
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 />
                 <path
                   d="M9.09 9C9.3251 8.33167 9.78915 7.76811 10.4 7.40913C11.0108 7.05016 11.7289 6.91894 12.4272 7.03871C13.1255 7.15849 13.7588 7.52152 14.2151 8.06353C14.6713 8.60553 14.9211 9.29152 14.92 10C14.92 12 11.92 13 11.92 13"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 />
-                <path
-                  d="M12 17H12.01"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d="M12 17H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
             <p className="text-white/70 text-sm">No tables available</p>
             <button
               onClick={() => {
                 if (onRefresh) {
-                  setIsRefreshing(true)
-                  hapticFeedback.medium()
-                  onRefresh().then(() => {
-                    setIsRefreshing(false)
-                    setLastRefreshTime(new Date())
-                    lastUpdateTime.current = Date.now()
-                  })
+                  handlePullToRefresh(); // Use the existing refresh handler
                 }
               }}
               className="mt-4 px-4 py-2 bg-[#00FFFF]/10 text-[#00FFFF] rounded-md text-sm font-medium border border-[#00FFFF]/30"
@@ -335,5 +314,5 @@ export function EnhancedMobileTableList({
         )}
       </div>
     </div>
-  )
+  );
 }

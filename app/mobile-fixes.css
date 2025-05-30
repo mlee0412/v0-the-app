@@ -1,161 +1,22 @@
-/* app/mobile-fixes.css */
-/* CONSOLIDATED Mobile, iOS Specific Fixes, and Touch Enhancements */
+/* Mobile-specific fixes */
 
-/* -------------------------------------------------------------------------- */
-/* Global & iOS Viewport/Scrolling Fixes
-/* -------------------------------------------------------------------------- */
-:root {
-  --vh: 1vh; /* Fallback for JS-driven vh unit */
-}
-
-/* Fix for iOS Safari 100vh issue and general full height */
-.h-screen-ios-fix {
-  height: 100vh; /* Fallback */
-  height: -webkit-fill-available; /* iOS specific */
-  height: calc(var(--vh, 1vh) * 100); /* Dynamic viewport height */
-}
-
-/* Apply to main scrollable containers. Define --header-height and --footer-height in your layout or JS */
-.mobile-scroll-container-ios-fix {
-  height: -webkit-fill-available;
-  height: calc(var(--vh, 1vh) * 100 - var(--header-height, 0px) - var(--footer-height, 0px));
-  padding-bottom: calc(var(--footer-height, 0px) + env(safe-area-inset-bottom, 20px)) !important;
-}
-
-/* Global iOS touch behavior improvements */
-body.ios-device, /* Assuming 'ios-device' class is added via JS for iOS detection */
-.ios-device-optimizations {
-  touch-action: manipulation;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
-}
-
-/* Specific class for elements where momentum scrolling is desired */
-.ios-momentum-scroll,
-.scroll-container { /* Consolidating .scroll-container from touch-improvements */
-  -webkit-overflow-scrolling: touch;
-  overflow-y: auto;
-  touch-action: pan-y;
-  overscroll-behavior-y: contain;
-}
-
-/* Fix for dialog scrolling on mobile from touch-improvements.css */
-.dialog-scroll-area {
-  max-height: 50vh; /* Or adjust as needed, could be a CSS variable */
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* -------------------------------------------------------------------------- */
-/* General Mobile Touch Enhancements
-/* -------------------------------------------------------------------------- */
-
-/* Remove tap highlight color globally */
-* {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Default touch action for common interactive elements */
-button,
-a[href],
-[role="button"],
-.interactive-touch { /* Generic class for other tappable elements */
-  touch-action: manipulation;
-}
-
-/* Prevent text selection on interactive elements */
-.no-text-select,
-button,
-.interactive-touch,
-.table-card { /* Added .table-card from touch-improvements.css */
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none; /* Disable callouts on long press (iOS) */
-}
-
-/* Minimum touch target size for better usability */
-.mobile-touch-target, /* Generic class if needed */
-button, a[href], [role="button"], .interactive-touch { /* Apply to common elements */
-  min-height: 44px;
-  min-width: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Visual feedback for touch interactions */
-.touch-feedback-subtle:active {
-  opacity: 0.8;
-  transition: opacity 0.1s ease-out;
-}
-
-/* Standardized active state for buttons from touch-improvements.css */
-button:active,
-[role="button"]:active,
-.touch-feedback-scale:active {
-  transform: scale(0.97); /* Standardized from 0.98 and 0.97 */
-  opacity: 0.9; /* Added opacity for consistency */
-  transition: transform 0.1s ease-out, opacity 0.1s ease-out;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Specific iOS Safari Fixes (from the new ios-touch-fixes.css)
-/* -------------------------------------------------------------------------- */
-
-/* Fix for iOS dialog issues related to stacking/interaction */
-dialog, /* HTML5 dialog element */
-.dialog, /* Common class for dialogs */
-.modal,
-.popup {
-  transform: translateZ(0); /* Force hardware acceleration for rendering/interaction */
-}
-
-/* Fix for iOS swipe detection (if using custom swipe on elements) */
-.swipeable {
-  touch-action: pan-y; /* Allow vertical scrolling but capture horizontal swipes */
-  -webkit-user-drag: none; /* Prevent dragging page elements */
-}
-
-/* Specific iOS Safari fixes using @supports */
+/* Fix for iOS Safari 100vh issue */
 @supports (-webkit-touch-callout: none) {
-  .table-card {
-    /* z-index: 1; /* Already in original table-card css, ensure it's appropriate */
-    /* position: relative; /* Already in original table-card css */
-    cursor: pointer;
-    will-change: transform; /* Hint for browser to optimize tap feedback */
-    /* -webkit-tap-highlight-color: transparent; /* Covered globally */
-    /* -webkit-touch-callout: none; /* Covered by .no-text-select or direct .table-card styling */
-    /* touch-action: manipulation; /* Covered by general interactive element styling */
+  .h-screen {
+    height: -webkit-fill-available;
   }
 
-  /* Specific active state for table cards on iOS, if different from general button:active */
-  .table-card:active {
-    transform: scale(0.98); /* Keeping this specific one if it was intentional */
+  .mobile-container {
+    height: -webkit-fill-available;
   }
 
-  /*
-    Crucial for making the entire card tappable on iOS Safari.
-    Re-evaluate if child elements *inside* .table-card need to be interactive.
-    If so, those specific children will need `pointer-events: auto;`.
-  */
-  .table-card * {
-    pointer-events: none;
-  }
-
-  .dialog-container { /* Assuming this class is used for your dialog wrappers */
-    z-index: 9999;
-    position: fixed; /* Usually fixed for modals */
-    touch-action: none;
-    -webkit-overflow-scrolling: touch;
+  .mobile-scroll-container {
+    height: calc(var(--vh, 1vh) * 100 - 120px);
+    padding-bottom: 120px !important;
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Mobile UI Elements (Bottom Nav & FAB - from your original mobile-fixes.css)
-/* -------------------------------------------------------------------------- */
-
+/* Enhanced space-themed bottom navigation */
 .mobile-bottom-nav {
   display: flex;
   position: fixed;
@@ -166,10 +27,10 @@ dialog, /* HTML5 dialog element */
   border-top: 1px solid rgba(0, 255, 255, 0.4);
   padding: 10px 8px;
   padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  z-index: 50; /* Consistent with other z-indexes */
+  z-index: 50;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: none; /* Firefox */
   box-shadow: 0 -4px 20px rgba(0, 200, 255, 0.2);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -177,7 +38,7 @@ dialog, /* HTML5 dialog element */
 }
 
 .mobile-bottom-nav::-webkit-scrollbar {
-  display: none;
+  display: none; /* Chrome, Safari, Edge */
 }
 
 .mobile-bottom-nav-item {
@@ -195,8 +56,16 @@ dialog, /* HTML5 dialog element */
   overflow: hidden;
 }
 
-.mobile-bottom-nav-item:active { /* General active state from above will apply */
-  opacity: 0.7; /* Keep specific opacity if desired */
+/* Improve touch target size for mobile navigation */
+.mobile-bottom-nav-item {
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Add active state visual feedback */
+.mobile-bottom-nav-item:active {
+  opacity: 0.7;
 }
 
 .mobile-bottom-nav-item::before {
@@ -215,7 +84,6 @@ dialog, /* HTML5 dialog element */
 .mobile-bottom-nav-item.active {
   color: #00ffff;
   text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
-  /* animation: cosmic-pulse 3s infinite; /* Removed from here, apply via Tailwind if needed */
 }
 
 .mobile-bottom-nav-item.active::before {
@@ -242,6 +110,7 @@ dialog, /* HTML5 dialog element */
   white-space: nowrap;
 }
 
+/* Floating action button */
 .mobile-fab {
   position: fixed;
   bottom: 80px;
@@ -273,31 +142,405 @@ dialog, /* HTML5 dialog element */
   font-weight: bold;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Utilities from touch-improvements.css
-/* -------------------------------------------------------------------------- */
-
-/* Faster transitions for specific UI elements if needed */
-.ui-transition-fast { /* Renamed for clarity */
-  transition-duration: 150ms !important;
+/* Touch feedback */
+.touch-feedback {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s;
 }
 
-/* Accessibility: Reduce motion */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+.touch-feedback:active {
+  transform: scale(0.95);
+}
+
+.touch-feedback::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(0, 255, 255, 0.7);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1) translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.touch-feedback:active::after {
+  animation: touch-ripple 0.6s ease-out;
+}
+
+@keyframes touch-ripple {
+  0% {
+    transform: scale(0) translate(-50%, -50%);
+    opacity: 0.5;
   }
-  .animate-motion { /* Existing class from touch-improvements */
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  100% {
+    transform: scale(20) translate(-50%, -50%);
+    opacity: 0;
   }
 }
 
-/* Safe area padding for bottom nav - already included above */
-/* Specific media query fixes for notch models and landscape also included above */
+/* Special styling for action buttons */
+.mobile-bottom-nav-item .text-red-500 {
+  color: #ff5555;
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+.mobile-bottom-nav-item .text-green-500 {
+  color: #55ff7f;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
+/* Improved iOS scrolling */
+.ios-touch-fix {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Add more bottom padding to the mobile scroll container to prevent content from being hidden */
+.mobile-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 120px !important; /* Increase padding to ensure content isn't hidden behind nav */
+}
+
+/* Ensure content is scrollable on iOS */
+.mobile-scroll-container {
+  height: calc(100vh - 120px); /* Adjust based on your header/footer height */
+  height: calc(var(--vh, 1vh) * 100 - 120px); /* iOS-specific height */
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+  padding-bottom: 80px; /* Add padding at the bottom to ensure content is reachable */
+}
+
+/* Fix for iOS momentum scrolling */
+.ios-momentum-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+/* Improved touch targets for mobile */
+.mobile-touch-target {
+  min-height: 44px; /* Apple's recommended minimum touch target size */
+}
+
+/* Prevent text selection on mobile */
+.no-text-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Safe zone for iOS devices with notches */
+.touch-safe-zone {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Pull to refresh indicator */
+.pull-refresh-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #00ffff;
+  font-size: 14px;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pull-refresh-indicator.visible {
+  transform: translateY(0);
+}
+
+.pull-refresh-spinner {
+  margin-right: 8px;
+  color: #00ffff;
+}
+
+/* Improved scrolling for iOS */
+@media (pointer: coarse) {
+  .improved-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .improved-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
+  }
+
+  /* Landscape mode grid layout */
+  .landscape-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+}
+
+/* Space-themed open button */
+.space-open-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(0, 0, 30, 0.7);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  transition: all 0.2s ease;
+}
+
+.space-open-button:active {
+  transform: translate(-50%, -50%) scale(0.9);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.8);
+}
+
+/* Fix for iOS viewport height issues */
+:root {
+  --vh: 1vh;
+}
+
+/* Add this new class for safe area bottom padding */
+.safe-area-bottom {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Use the custom vh variable for height calculations */
+.min-h-screen {
+  min-height: 100vh; /* Fallback */
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+
+.h-screen {
+  height: 100vh; /* Fallback */
+  height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Fix for iOS scrolling issues */
+.ios-device {
+  touch-action: manipulation;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Enable scrolling in containers */
+.overflow-y-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+/* Fix for iOS touch handling */
+.ios-touch-fix {
+  touch-action: manipulation;
+}
+
+/* Ensure content is properly sized */
+.mobile-content-container {
+  height: calc(var(--vh, 1vh) * 100 - 120px); /* Adjust for header and footer */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix for iOS bottom nav positioning */
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+
+/* Fix for iOS safe areas */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Fix for table card server info */
+.table-card .server-info {
+  z-index: 5;
+  position: relative;
+}
+
+/* Ensure action buttons don't overlap */
+.swipeable-action-left,
+.swipeable-action-right {
+  z-index: 10;
+}
+
+.swipeable-card-content {
+  z-index: 20;
+}
+
+/* Fix for swipeable cards */
+.table-card-container {
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Table card container needs more bottom margin on mobile */
+@media (max-width: 768px) {
+  .table-card-container {
+    margin-bottom: 16px;
+  }
+
+  /* Add extra padding at the bottom of the table list */
+  .mobile-scroll-container > div:last-child {
+    margin-bottom: 120px;
+  }
+}
+
+/* Add cosmic glow to active nav items */
+@keyframes cosmic-pulse {
+  0% {
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.6), 0 0 15px rgba(255, 0, 255, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+  }
+}
+
+.mobile-bottom-nav-item.active {
+  animation: cosmic-pulse 3s infinite;
+}
+
+/* Add these new styles at the end of the file to improve bottom nav on iOS */
+
+/* Improved bottom navigation for iOS */
+@supports (-webkit-touch-callout: none) {
+  .mobile-bottom-nav {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    height: auto;
+  }
+
+  /* Add extra padding to the bottom of the content to prevent it from being hidden behind the nav */
+  .mobile-scroll-container {
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  /* Ensure the nav items are properly spaced */
+  .mobile-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Fix for iPhone notch models */
+@media (max-height: 812px) and (max-width: 375px) {
+  .mobile-bottom-nav {
+    padding: 6px 0;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-bottom-nav-item {
+    min-width: 50px;
+  }
+}
+
+/* Fix for iPhone Plus/Max models */
+@media (min-width: 414px) and (max-width: 428px) {
+  .mobile-bottom-nav-item {
+    min-width: 65px;
+    max-width: 85px;
+  }
+}
+
+/* Ensure content doesn't get hidden behind the nav */
+.table-card-container:last-child {
+  margin-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
+}
+
+/* Fix for the bottom nav on rotation */
+@media (orientation: landscape) {
+  .mobile-bottom-nav {
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+    min-height: 50px;
+  }
+
+  .mobile-bottom-nav-label {
+    font-size: 9px;
+  }
+}
+
+/* Ensure buttons have proper touch behavior */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Fix for iOS touch delay */
+@media (pointer: coarse) {
+  .mobile-bottom-nav-item,
+  button,
+  [role="button"] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+}
+/* -------------------------------------------------------------------------- */
+/* Mobile Table Card Layout Fixes
+/* -------------------------------------------------------------------------- */
+
+.mobile-table-card-list .table-card-container {
+  display: flex; /* Use flex to ensure consistent height handling */
+  flex-direction: column;
+  margin-bottom: 16px; /* Consistent spacing */
+}
+
+.mobile-table-card-list .table-card { /* Targeting the inner card from TableCard.tsx */
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* Allow card to grow to fill container */
+  min-height: 180px; /* Adjust as needed for your content, was 160px/200px in TableCard.tsx */
+  /* Consider removing fixed min-height if content varies too much,
+     and rely on flexbox + internal padding for consistency.
+     Alternatively, ensure all content sections have predictable heights.
+  */
+}
+
+/* Ensure inner content of table card respects flex layout */
+.table-card > div:first-child { /* Assuming the main wrapper inside TableCard */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.table-card .mt-auto { /* Ensure the bottom info section pushes correctly */
+  margin-top: auto;
+}
+
+/* Optional: If text overflow is an issue within cards */
+.table-card .truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
