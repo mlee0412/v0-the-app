@@ -1,23 +1,23 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState, useRef, useEffect, useCallback } from "react"
-import { TableCard } from "@/components/tables/table-card"
-import { Clock, X } from "lucide-react"
-import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
-import { hapticFeedback } from "@/utils/haptic-feedback"
+import type React from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { TableCard } from "@/components/tables/table-card";
+import { Clock, X } from "lucide-react";
+import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
+import { hapticFeedback } from "@/utils/haptic-feedback";
 
 interface SwipeableTableCardProps {
-  table: Table
-  servers: Server[]
-  logs: LogEntry[]
-  onClick: () => void
-  onAddTime: (tableId: number) => void
-  onEndSession: (tableId: number) => void
-  canEndSession: boolean
-  canAddTime: boolean
-  className?: string
+  table: Table;
+  servers: Server[];
+  logs: LogEntry[];
+  onClick: () => void;
+  onAddTime: (tableId: number) => void;
+  onEndSession: (tableId: number) => void;
+  canEndSession: boolean;
+  canAddTime: boolean;
+  className?: string;
+  showAnimations?: boolean; // Added prop
 }
 
 export function SwipeableTableCard({
@@ -30,358 +30,207 @@ export function SwipeableTableCard({
   canEndSession,
   canAddTime,
   className = "",
+  showAnimations = true, // Default value
 }: SwipeableTableCardProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0)
-  const [isSwiping, setIsSwiping] = useState(false)
-  const [showLeftAction, setShowLeftAction] = useState(false)
-  const [showRightAction, setShowRightAction] = useState(false)
-  const [showSwipeHint, setShowSwipeHint] = useState(false)
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwipingHorizontal, setIsSwipingHorizontal] = useState(false); // Differentiate horizontal swipe
+  const [showLeftAction, setShowLeftAction] = useState(false);
+  const [showRightAction, setShowRightAction] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  const startXRef = useRef(0)
-  const startYRef = useRef(0)
-  const currentXRef = useRef(0)
-  const startTimeRef = useRef(0)
-  const swipeThreshold = 80 // Minimum distance to trigger action
-  const isSwipingRef = useRef(false)
-  const touchStartedRef = useRef(false)
-  const isScrollingVerticallyRef = useRef(false)
-  const swipeDirectionDeterminedRef = useRef(false)
-  const swipeHintTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartCoords = useRef<{ x: number; y: number } | null>(null);
+  const currentXRef = useRef(0); // Only for horizontal tracking
+  const startTimeRef = useRef(0);
+  const swipeThreshold = 60; // Slightly reduced threshold for easier activation
+  const verticalScrollThreshold = 10; // Pixels to move vertically before considering it a scroll
+  const tapMaxMovement = 10; // Max pixels moved for it to be considered a tap
+  const tapMaxDuration = 200; // Max ms for a tap
 
-  // Show swipe hint for active tables on first render
+  const swipeHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
-    if (table.isActive && (canEndSession || canAddTime)) {
-      // Show swipe hint after a short delay
+    if (table.isActive && (canEndSession || canAddTime) && showAnimations) {
       swipeHintTimeoutRef.current = setTimeout(() => {
-        setShowSwipeHint(true)
-        // Hide hint after 2 seconds
-        setTimeout(() => {
-          setShowSwipeHint(false)
-        }, 2000)
-      }, 500)
+        setShowSwipeHint(true);
+        setTimeout(() => setShowSwipeHint(false), 2000);
+      }, 500);
     }
-
     return () => {
-      if (swipeHintTimeoutRef.current) {
-        clearTimeout(swipeHintTimeoutRef.current)
-      }
-    }
-  }, [table.isActive, canEndSession, canAddTime])
+      if (swipeHintTimeoutRef.current) clearTimeout(swipeHintTimeoutRef.current);
+    };
+  }, [table.isActive, canEndSession, canAddTime, showAnimations]);
 
-  // Reset swipe state
-  const resetSwipe = useCallback(() => {
-    setSwipeOffset(0)
-    setIsSwiping(false)
-    isSwipingRef.current = false
-    setShowLeftAction(false)
-    setShowRightAction(false)
-    isScrollingVerticallyRef.current = false
-    swipeDirectionDeterminedRef.current = false
-  }, [])
+  const resetSwipeState = useCallback(() => {
+    setSwipeOffset(0);
+    setIsSwipingHorizontal(false);
+    setShowLeftAction(false);
+    setShowRightAction(false);
+    touchStartCoords.current = null;
+    currentXRef.current = 0;
+  }, []);
 
-  // Handle touch start
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    // Store the initial touch position
-    startXRef.current = e.touches[0].clientX
-    startYRef.current = e.touches[0].clientY
-    currentXRef.current = e.touches[0].clientX
-    startTimeRef.current = Date.now()
-    touchStartedRef.current = true
-    setIsSwiping(false)
-    isSwipingRef.current = false
-    isScrollingVerticallyRef.current = false
-    swipeDirectionDeterminedRef.current = false
+    if (e.touches.length > 1) return; // Ignore multi-touch
+    touchStartCoords.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    currentXRef.current = e.touches[0].clientX; // Initialize currentXRef
+    startTimeRef.current = Date.now();
+    setIsSwipingHorizontal(false); // Reset horizontal swipe state
+    //setShowSwipeHint(false); // Hide hint on any touch start
+  }, []);
 
-    // Hide swipe hint when user starts touching
-    setShowSwipeHint(false)
-  }, [])
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStartCoords.current || e.touches.length > 1) return;
 
-  // Handle touch move
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!touchStartedRef.current) return
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStartCoords.current.x;
+    const deltaY = currentY - touchStartCoords.current.y;
 
-      // Update current position
-      const currentX = e.touches[0].clientX
-      const currentY = e.touches[0].clientY
-      currentXRef.current = currentX
+    if (!isSwipingHorizontal) { // If not already determined to be a horizontal swipe
+      if (Math.abs(deltaY) > verticalScrollThreshold && Math.abs(deltaY) > Math.abs(deltaX)) {
+        // It's primarily a vertical scroll, release control for native scrolling
+        touchStartCoords.current = null; // Invalidate current swipe attempt
+        return;
+      }
+      if (Math.abs(deltaX) > tapMaxMovement) { // Moved enough horizontally to be a swipe
+        setIsSwipingHorizontal(true);
+      }
+    }
 
-      // Calculate horizontal and vertical distances
-      const deltaX = currentX - startXRef.current
-      const deltaY = currentY - startYRef.current
-      const absX = Math.abs(deltaX)
-      const absY = Math.abs(deltaY)
+    if (isSwipingHorizontal) {
+      e.preventDefault(); // Prevent vertical scroll if we are swiping horizontally
+      currentXRef.current = currentX; // Update currentXRef for handleTouchEnd
+      const resistance = 0.5;
+      const newOffset = deltaX * resistance;
 
-      // If we haven't determined the swipe direction yet, do it now
-      if (!swipeDirectionDeterminedRef.current) {
-        // If we've moved enough to determine direction
-        if (absX > 5 || absY > 5) {
-          // If moving more vertically than horizontally, mark as vertical scrolling
-          if (absY > absX) {
-            isScrollingVerticallyRef.current = true
-            // Don't prevent default - allow normal scrolling
-            e.stopPropagation() // Stop propagation but allow default behavior
-          } else {
-            // Horizontal swipe - prevent default to handle our custom swipe
-            isSwipingRef.current = true
-            setIsSwiping(true)
-            e.preventDefault() // Prevent default to handle our custom swipe
-          }
-          swipeDirectionDeterminedRef.current = true
+      if (table.isActive) {
+        if (canEndSession && newOffset < 0) { // Swiping left
+          setSwipeOffset(newOffset);
+          const isThresholdActive = Math.abs(newOffset) > swipeThreshold / 2;
+          if (isThresholdActive !== showLeftAction && isThresholdActive) hapticFeedback.light();
+          setShowLeftAction(isThresholdActive);
+          setShowRightAction(false);
+        } else if (canAddTime && newOffset > 0) { // Swiping right
+          setSwipeOffset(newOffset);
+          const isThresholdActive = newOffset > swipeThreshold / 2;
+          if (isThresholdActive !== showRightAction && isThresholdActive) hapticFeedback.light();
+          setShowRightAction(isThresholdActive);
+          setShowLeftAction(false);
+        } else {
+           setSwipeOffset(0); // Don't allow swipe if permission is missing for that direction
+           setShowLeftAction(false);
+           setShowRightAction(false);
         }
       }
+    }
+  }, [table.isActive, canEndSession, canAddTime, swipeThreshold, verticalScrollThreshold, tapMaxMovement, showLeftAction, showRightAction, isSwipingHorizontal]);
 
-      // If we're scrolling vertically, don't handle the swipe
-      if (isScrollingVerticallyRef.current) {
-        return
-      }
-
-      // If we're swiping horizontally, handle the swipe
-      if (isSwipingRef.current) {
-        // Calculate swipe distance
-        const distance = deltaX
-
-        // Update swipe offset with some resistance for better feel
-        const resistance = 0.5
-        const newOffset = distance * resistance
-
-        // Only allow swiping if the table is active and the appropriate permission exists
-        if (table.isActive && canEndSession && distance < 0) {
-          // Left swipe (end session)
-          setSwipeOffset(newOffset)
-          const isThresholdCrossed = Math.abs(newOffset) > swipeThreshold / 2
-
-          // Provide subtle haptic feedback when crossing threshold
-          if (isThresholdCrossed !== showLeftAction) {
-            if (isThresholdCrossed) hapticFeedback.light()
-          }
-
-          setShowLeftAction(isThresholdCrossed)
-        } else if (table.isActive && canAddTime && distance > 0) {
-          // Right swipe (add time)
-          setSwipeOffset(newOffset)
-          const isThresholdCrossed = newOffset > swipeThreshold / 2
-
-          // Provide subtle haptic feedback when crossing threshold
-          if (isThresholdCrossed !== showRightAction) {
-            if (isThresholdCrossed) hapticFeedback.light()
-          }
-
-          setShowRightAction(isThresholdCrossed)
-        }
-      }
-    },
-    [table.isActive, canEndSession, canAddTime, swipeThreshold, showLeftAction, showRightAction],
-  )
-
-  // Handle touch end
   const handleTouchEnd = useCallback(() => {
-    if (!touchStartedRef.current) return
-    touchStartedRef.current = false
-
-    // If we were scrolling vertically, just reset and return
-    if (isScrollingVerticallyRef.current) {
-      resetSwipe()
-      return
+    if (!touchStartCoords.current) { // If invalidated (e.g., due to vertical scroll)
+      resetSwipeState();
+      return;
     }
 
-    // Calculate swipe distance and duration
-    const distance = currentXRef.current - startXRef.current
-    const duration = Date.now() - startTimeRef.current
-    const velocity = Math.abs(distance) / duration
+    const deltaX = currentXRef.current - touchStartCoords.current.x;
+    const deltaY = touchStartCoords.current.y - (touchStartCoords.current.y + (currentXRef.current - touchStartCoords.current.x)); // Re-calculate deltaY if needed, or just use X
+    const duration = Date.now() - startTimeRef.current;
 
-    // Check if this was a tap rather than a swipe - use stricter criteria
-    const isTap = Math.abs(distance) < 5 && duration < 200
+    const isHorizontalSwipe = isSwipingHorizontal; // Capture state before reset
+    const currentSwipeOffset = swipeOffset; // Capture before reset
 
-    if (isTap) {
-      // This was a tap, not a swipe
-      resetSwipe()
-      hapticFeedback.selection() // Light feedback for tap
-      onClick()
-      return
+    resetSwipeState(); // Reset visually first
+
+    if (Math.abs(deltaX) < tapMaxMovement && Math.abs(deltaY) < tapMaxMovement && duration < tapMaxDuration) {
+      hapticFeedback.selection();
+      onClick();
+      return;
     }
 
-    // Determine if swipe should trigger action
-    const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
+    if (isHorizontalSwipe) {
+      const velocity = Math.abs(deltaX) / duration;
+      const isActionTriggered = Math.abs(currentSwipeOffset) > swipeThreshold || velocity > 0.4;
 
-    if (isSwipeComplete && isSwipingRef.current) {
-      if (distance < 0 && table.isActive && canEndSession) {
-        // Complete left swipe - end session
-        hapticFeedback.strong() // Strong feedback for ending session
-        onEndSession(table.id)
-      } else if (distance > 0 && table.isActive && canAddTime) {
-        // Complete right swipe - add time
-        hapticFeedback.success() // Success feedback for adding time
-        onAddTime(table.id)
+
+      if (isActionTriggered) {
+        if (currentSwipeOffset < 0 && table.isActive && canEndSession) {
+          hapticFeedback.strong();
+          onEndSession(table.id);
+        } else if (currentSwipeOffset > 0 && table.isActive && canAddTime) {
+          hapticFeedback.success();
+          onAddTime(table.id);
+        }
+      } else {
+        hapticFeedback.light(); // Feedback for incomplete swipe
       }
-    } else {
-      // Swipe was not complete, provide feedback
-      hapticFeedback.light()
     }
+  }, [table.id, table.isActive, canEndSession, canAddTime, onClick, onEndSession, onAddTime, resetSwipeState, swipeThreshold, tapMaxMovement, tapMaxDuration, isSwipingHorizontal, swipeOffset]);
 
-    // Reset swipe state with animation
-    resetSwipe()
-  }, [
-    table.id,
-    table.isActive,
-    canEndSession,
-    canAddTime,
-    onClick,
-    onEndSession,
-    onAddTime,
-    resetSwipe,
-    swipeThreshold,
-  ])
 
-  // Add event listeners for mouse events (for desktop testing)
+  // Desktop mouse events for testing (simplified, no vertical scroll consideration here)
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    const el = containerRef.current;
+    if (!el || typeof window === 'undefined' || !('ontouchstart' in window)) { // Only add mouse if not a touch device
+        const onMouseDown = (e: MouseEvent) => {
+            touchStartCoords.current = { x: e.clientX, y: e.clientY };
+            currentXRef.current = e.clientX;
+            startTimeRef.current = Date.now();
+            setIsSwipingHorizontal(true); // Assume horizontal for mouse
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
 
-    const handleMouseDown = (e: MouseEvent) => {
-      startXRef.current = e.clientX
-      startYRef.current = e.clientY
-      currentXRef.current = e.clientX
-      startTimeRef.current = Date.now()
-      setIsSwiping(false)
-      isSwipingRef.current = false
-      isScrollingVerticallyRef.current = false
-      swipeDirectionDeterminedRef.current = false
+        const onMouseMove = (e: MouseEvent) => {
+            if (!touchStartCoords.current || !isSwipingHorizontal) return;
+            const deltaX = e.clientX - touchStartCoords.current.x;
+            currentXRef.current = e.clientX;
+            setSwipeOffset(deltaX * 0.5); // Apply resistance
+             if (table.isActive) {
+                setShowLeftAction(canEndSession && deltaX < -swipeThreshold / 2);
+                setShowRightAction(canAddTime && deltaX > swipeThreshold / 2);
+            }
+        };
 
-      // Add temporary event listeners for mouse move and up
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
+        const onMouseUp = (e: MouseEvent) => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            if (!touchStartCoords.current) return;
+
+            const deltaX = e.clientX - touchStartCoords.current.x;
+            const duration = Date.now() - startTimeRef.current;
+
+            if (Math.abs(deltaX) < tapMaxMovement && duration < tapMaxDuration) {
+                onClick();
+            } else if (isSwipingHorizontal && Math.abs(swipeOffset) > swipeThreshold / 2) {
+                 if (swipeOffset < 0 && table.isActive && canEndSession) onEndSession(table.id);
+                 else if (swipeOffset > 0 && table.isActive && canAddTime) onAddTime(table.id);
+            }
+            resetSwipeState();
+        };
+        el.addEventListener('mousedown', onMouseDown);
+        return () => {
+            el.removeEventListener('mousedown', onMouseDown);
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+        };
     }
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!touchStartedRef.current) return
-
-      const currentX = e.clientX
-      const currentY = e.clientY
-      currentXRef.current = currentX
-
-      // Calculate horizontal and vertical distances
-      const deltaX = currentX - startXRef.current
-      const deltaY = currentY - startYRef.current
-      const absX = Math.abs(deltaX)
-      const absY = Math.abs(deltaY)
-
-      // If we haven't determined the swipe direction yet, do it now
-      if (!swipeDirectionDeterminedRef.current) {
-        // If we've moved enough to determine direction
-        if (absX > 5 || absY > 5) {
-          // If moving more vertically than horizontally, mark as vertical scrolling
-          if (absY > absX) {
-            isScrollingVerticallyRef.current = true
-          } else {
-            // Horizontal swipe
-            isSwipingRef.current = true
-            setIsSwiping(true)
-          }
-          swipeDirectionDeterminedRef.current = true
-        }
-      }
-
-      // If we're scrolling vertically, don't handle the swipe
-      if (isScrollingVerticallyRef.current) {
-        return
-      }
-
-      // If we're swiping horizontally, handle the swipe
-      if (isSwipingRef.current) {
-        const distance = deltaX
-        const resistance = 0.5
-        const newOffset = distance * resistance
-
-        if (table.isActive && canEndSession && distance < 0) {
-          setSwipeOffset(newOffset)
-          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
-        } else if (table.isActive && canAddTime && distance > 0) {
-          setSwipeOffset(newOffset)
-          setShowRightAction(newOffset > swipeThreshold / 2)
-        }
-      }
-    }
-
-    const handleMouseUp = () => {
-      if (!touchStartedRef.current) return
-
-      // If we were scrolling vertically, just reset and return
-      if (isScrollingVerticallyRef.current) {
-        resetSwipe()
-        return
-      }
-
-      const distance = currentXRef.current - startXRef.current
-      const duration = Date.now() - startTimeRef.current
-      const velocity = Math.abs(distance) / duration
-
-      const isTap = Math.abs(distance) < 10 && duration < 300
-
-      if (isTap) {
-        resetSwipe()
-        onClick()
-        return
-      }
-
-      const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
-
-      if (isSwipeComplete && isSwipingRef.current) {
-        if (distance < 0 && table.isActive && canEndSession) {
-          onEndSession(table.id)
-        } else if (distance > 0 && table.isActive && canAddTime) {
-          onAddTime(table.id)
-        }
-      }
-
-      resetSwipe()
-
-      // Remove temporary event listeners
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-
-    container.addEventListener("mousedown", handleMouseDown)
-
-    return () => {
-      container.removeEventListener("mousedown", handleMouseDown)
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [
-    table.id,
-    table.isActive,
-    canEndSession,
-    canAddTime,
-    onClick,
-    onEndSession,
-    onAddTime,
-    resetSwipe,
-    swipeThreshold,
-  ])
-
-  const handleClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    onClick()
-  }
+  }, [onClick, onAddTime, onEndSession, resetSwipeState, table.isActive, canAddTime, canEndSession, swipeThreshold, tapMaxMovement, tapMaxDuration, isSwipingHorizontal, swipeOffset]); // Added isSwipingHorizontal and swipeOffset
 
   return (
     <div
       className={`relative swipeable-card-container ${className}`}
-      style={{ touchAction: "pan-y" }}
+      style={{ touchAction: "pan-y" }} // Allow vertical scroll by default
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Left action indicator (End Session) */}
       {table.isActive && canEndSession && (
         <div
-          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-10 rounded-l-lg ${
-            showLeftAction ? "opacity-100" : "opacity-70"
+          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-0 rounded-l-lg transition-opacity duration-200 ${
+            showLeftAction && swipeOffset < 0 ? "opacity-100" : "opacity-0" // Changed for smoother visual cue
           }`}
+          style={{ transform: `translateX(${Math.max(0, swipeOffset + swipeThreshold/1.5)}px)` }} // Follow gesture slightly
         >
           <div className="flex flex-col items-center">
             <X size={24} />
@@ -390,12 +239,12 @@ export function SwipeableTableCard({
         </div>
       )}
 
-      {/* Right action indicator (Add Time) */}
       {table.isActive && canAddTime && (
         <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 rounded-r-lg ${
-            showRightAction ? "opacity-100" : "opacity-70"
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-l from-green-600 to-green-500 text-white z-0 rounded-r-lg transition-opacity duration-200 ${
+            showRightAction && swipeOffset > 0 ? "opacity-100" : "opacity-0" // Changed for smoother visual cue
           }`}
+          style={{ transform: `translateX(${Math.min(0, swipeOffset - swipeThreshold/1.5)}px)` }} // Follow gesture slightly
         >
           <div className="flex flex-col items-center">
             <Clock size={24} />
@@ -404,33 +253,36 @@ export function SwipeableTableCard({
         </div>
       )}
 
-      {/* Swipe hint animation */}
       {showSwipeHint && table.isActive && (
         <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
           <div className="bg-black/70 text-white px-4 py-2 rounded-full text-sm animate-pulse">
             {canAddTime && canEndSession
               ? "Swipe right to add time, left to end"
               : canAddTime
-                ? "Swipe right to add time"
-                : "Swipe left to end session"}
+              ? "Swipe right to add time"
+              : canEndSession ? "Swipe left to end session" : ""}
           </div>
         </div>
       )}
 
-      {/* Table card with transform based on swipe */}
       <div
-        className="relative z-20 touch-action-none rounded-lg shadow-lg transition-all duration-300"
+        className="relative z-10 touch-action-none rounded-lg shadow-lg" // Ensure this is above action indicators
         style={{
           transform: `translateX(${swipeOffset}px)`,
-          transition: isSwiping ? "none" : "transform 0.3s ease",
+          transition: isSwipingHorizontal ? "none" : "transform 0.3s ease-out",
         }}
-        onClick={handleClick}
+        // onClick={onClick} // Main click handled by touch/mouse end logic for tap detection
       >
-        <TableCard table={table} servers={servers} logs={logs} onClick={onClick} />
+        <TableCard
+          table={table}
+          servers={servers}
+          logs={logs}
+          onClick={onClick} // Pass original onClick for accessibility/fallback
+          showAnimations={showAnimations}
+        />
       </div>
     </div>
-  )
+  );
 }
 
-// Add a default export that re-exports the named export for compatibility
-export default SwipeableTableCard
+export default SwipeableTableCard;
