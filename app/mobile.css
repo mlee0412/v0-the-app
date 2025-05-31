@@ -1,9 +1,6 @@
-/* File: billiards-timer (31)/app/mobile.css */
-/* Add CSS for improved focus states and animations */
-/* Enhanced focus states for better accessibility */
-:focus-visible {
-  outline: 2px solid #00ffff; /* !important removed */
-  outline-offset: 2px;
+/* Add CSS for improved focus states and animations /* Enhanced focus states for better accessibility */ :focus-visible {
+  outline: 2px solid #00ffff !important;
+  outline-offset: 2px !important;
 }
 
 /* Improved mobile bottom navigation */
@@ -14,14 +11,21 @@
   right: 0;
   display: flex;
   justify-content: space-around;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.85));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(0, 255, 255, 0.15);
-  padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0, 10, 30, 0.85); /* Slightly different from mobile.css gradient */
+  border-top: 1px solid rgba(0, 255, 255, 0.4); /* Different from mobile.css */
+  padding: 10px 8px; /* Different from mobile.css */
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); /* Different from mobile.css */
   z-index: 50;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.7);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  box-shadow: 0 -4px 20px rgba(0, 200, 255, 0.2); /* Different from mobile.css */
+  backdrop-filter: blur(10px); /* Slightly different from mobile.css */
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.mobile-bottom-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .mobile-bottom-nav-item {
@@ -29,12 +33,35 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 6px 0;
-  color: rgba(255, 255, 255, 0.6);
+  padding: 6px 12px; /* Different from mobile.css */
+  min-width: 70px; /* New property */
+  color: rgba(160, 160, 200, 0.7); /* Different from mobile.css */
+  border: none;
+  background: transparent;
   transition: all 0.2s ease;
   position: relative;
-  width: 20%; /* Distributes items evenly if there are 5 items */
+  width: 20%;
+  overflow: hidden;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.mobile-bottom-nav-item:active {
+  opacity: 0.7;
+}
+
+.mobile-bottom-nav-item::before {
+  /* New active indicator style */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #00ffff, #ff00ff);
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
+  opacity: 0;
 }
 
 .nav-icon-container {
@@ -49,58 +76,44 @@
 
 .mobile-bottom-nav-item.active {
   color: #00ffff;
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
 }
-
-.mobile-bottom-nav-item.active .nav-icon-container::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 32px; /* Or scale based on icon size */
-  height: 32px;
-  background: rgba(0, 255, 255, 0.15);
-  border-radius: 50%;
-  z-index: -1; /* Behind the icon */
-  animation: pulseGlow 2s infinite;
-}
-
-.mobile-bottom-nav-item.active::after {
-  content: "";
-  position: absolute;
-  bottom: -8px; /* Adjust if padding of nav changes */
-  left: 30%;
-  width: 40%;
-  height: 3px;
-  background: linear-gradient(to right, rgba(0, 255, 255, 0.3), rgba(0, 255, 255, 1), rgba(0, 255, 255, 0.3));
-  border-radius: 3px 3px 0 0;
-  box-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
-  animation: fadeIn 0.3s ease-out;
+.mobile-bottom-nav-item.active::before {
+  /* For the new indicator */
+  width: 70%;
+  opacity: 1;
 }
 
 .mobile-bottom-nav-icon {
   transition: transform 0.2s ease;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 2px rgba(0, 200, 255, 0.3));
 }
 
 .mobile-bottom-nav-item:active .mobile-bottom-nav-icon {
   transform: scale(0.9);
 }
 
+.mobile-bottom-nav-item.active .mobile-bottom-nav-icon {
+  filter: drop-shadow(0 0 5px rgba(0, 255, 255, 0.7));
+  transform: scale(1.1);
+}
+
 .mobile-bottom-nav-label {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px; /* Different from mobile.css */
+  font-weight: 500; /* Different from mobile.css */
   letter-spacing: 0.5px;
   margin-top: 2px;
 }
 
-/* Improved bottom navigation (alternative styling, if .mobile-bottom-nav-improved is used) */
+/* Improved bottom navigation */
 .mobile-bottom-nav-improved {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   display: flex;
-  justify-content: space-between; /* or space-around */
+  justify-content: space-between;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.85));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -110,12 +123,12 @@
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.7);
 }
 
-.nav-button { /* Class for items within .mobile-bottom-nav-improved */
+.nav-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1; /* Distribute space evenly */
+  flex: 1;
   margin: 0 4px;
   padding: 6px 0;
   color: rgba(255, 255, 255, 0.6);
@@ -127,7 +140,7 @@
 
 .nav-button.active {
   color: #00ffff;
-  background-color: rgba(0, 255, 255, 0.08); /* Subtle background for active tab */
+  background-color: rgba(0, 255, 255, 0.08);
 }
 
 .nav-icon-wrapper {
@@ -170,20 +183,21 @@
 /* Improved mobile FAB */
 .mobile-fab {
   position: fixed;
-  bottom: calc(76px + env(safe-area-inset-bottom, 0px) / 2); /* Adjusted for safe area */
-  right: 20px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #00ffff, #0088ff);
-  color: #000; /* Text color for FAB icon */
+  bottom: 80px; /* Different from mobile.css (76px) */
+  right: 20px; /* Same as mobile.css */
+  width: 60px; /* Different from mobile.css (56px) */
+  height: 60px; /* Different from mobile.css (56px) */
+  border-radius: 30px; /* Different from mobile.css (50% or 28px) */
+  background: linear-gradient(135deg, #00ffff, #ff00ff); /* Different from mobile.css */
+  color: #000; /* Same as mobile.css */
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
-  z-index: 51; /* Above bottom nav */
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), 0 0 30px rgba(255, 0, 255, 0.3); /* Different from mobile.css */
+  z-index: 100; /* Different from mobile.css (51 or 999) */
   border: none;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 28px; /* New property */
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Different from mobile.css */
   animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-tap-highlight-color: transparent;
 }
@@ -196,18 +210,17 @@
   background: transparent;
   border: 2px solid rgba(0, 255, 255, 0.7);
   animation: pulseFab 2s infinite;
-  z-index: -1; /* Ensure it's behind the FAB icon */
 }
 
 .mobile-fab:active {
-  transform: scale(0.92);
-  box-shadow: 0 2px 8px rgba(0, 255, 255, 0.3);
+  transform: scale(0.9) rotate(5deg); /* Different from mobile.css */
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 0 0 20px rgba(255, 0, 255, 0.4); /* Different from mobile.css */
 }
 
-/* Fixed FAB button (ensure this is distinct from .mobile-fab if used separately) */
+/* Fixed FAB button */
 .fab-button {
   position: fixed;
-  bottom: calc(80px + env(safe-area-inset-bottom, 0px) / 2); /* Adjusted for safe area */
+  bottom: 80px;
   right: 20px;
   width: 56px;
   height: 56px;
@@ -218,7 +231,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 15px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
-  z-index: 999; /* Ensure high z-index */
+  z-index: 999;
   border: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-tap-highlight-color: transparent;
@@ -234,7 +247,7 @@
 
 .cosmic-glow {
   position: relative;
-  overflow: visible; /* Allow glow to extend */
+  overflow: visible;
 }
 
 .cosmic-glow::after {
@@ -244,9 +257,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: 50%; /* Or match parent's border-radius */
+  border-radius: 50%;
   box-shadow: 0 0 15px 2px rgba(0, 255, 255, 0.7);
-  z-index: -1; /* Behind the element */
+  z-index: -1;
 }
 
 .shadow-glow-cyan {
@@ -262,22 +275,35 @@
 }
 
 /* Enhanced Table List */
-.cosmic-panel { /* Generic panel styling */
+.cosmic-panel {
   border: 1px solid rgba(0, 255, 255, 0.15);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 255, 255, 0.05);
 }
 
-.cosmic-text { /* Generic text glow */
+.cosmic-text {
   text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
 }
 
-.table-card-container { /* Used for animating table cards in */
+.table-card-container {
+  touch-action: pan-y; /* Allows vertical scroll on parent, horizontal swipe handled by component */
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  z-index: 1; /* Default stacking context */
+  cursor: pointer; /* From mobile-optimizations.css */
+  -webkit-tap-highlight-color: transparent; /* From mobile-optimizations.css */
   animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity; /* Performance hint */
+  will-change: transform, opacity;
+}
+.table-card-container:active {
+  /* From mobile-optimizations.css */
+  opacity: 0.8;
+  transform: scale(0.98);
+  transition: transform 0.1s ease, opacity 0.1s ease;
 }
 
 /* Animations */
-@keyframes pulseGlow { /* For active nav item highlight */
+@keyframes pulseGlow {
   0% {
     opacity: 0.7;
     transform: translate(-50%, -50%) scale(0.8);
@@ -292,7 +318,7 @@
   }
 }
 
-@keyframes pulseFab { /* For FAB pulse ring */
+@keyframes pulseFab {
   0% {
     transform: scale(1);
     opacity: 0.7;
@@ -307,7 +333,7 @@
   }
 }
 
-@keyframes fadeInUp { /* For FAB appearing */
+@keyframes fadeInUp {
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -318,7 +344,7 @@
   }
 }
 
-@keyframes fadeIn { /* Generic fade in */
+@keyframes fadeIn {
   from {
     opacity: 0;
   }
@@ -327,7 +353,7 @@
   }
 }
 
-@keyframes slideInUp { /* For table cards appearing */
+@keyframes slideInUp {
   from {
     transform: translateY(20px);
     opacity: 0;
@@ -338,8 +364,8 @@
   }
 }
 
-/* Ensure proper spacing for notch devices (Duplicate from mobile-fixes, ensure one source of truth) */
-/* @supports (padding-bottom: env(safe-area-inset-bottom)) {
+/* Ensure proper spacing for notch devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
   .mobile-bottom-nav {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
@@ -347,10 +373,10 @@
   .mobile-fab {
     bottom: calc(76px + env(safe-area-inset-bottom) / 2);
   }
-} */
+}
 
-/* This handles .mobile-bottom-nav-improved if used */
-/* @supports (padding-bottom: env(safe-area-inset-bottom)) {
+/* Ensure proper spacing for notch devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
   .mobile-bottom-nav-improved {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
@@ -358,4 +384,652 @@
   .fab-button {
     bottom: calc(80px + env(safe-area-inset-bottom) / 2);
   }
+}
+
+/* === Consolidated from app/mobile-fixes.css & app/mobile-optimizations.css === */
+
+/* Fix for iOS Safari 100vh issue & scroll container adjustments */
+@supports (-webkit-touch-callout: none) {
+  .h-screen,
+  .mobile-container {
+    height: -webkit-fill-available;
+  }
+  .mobile-scroll-container {
+    /* Ensure this height calculation is correct for your layout, 120px is an example */
+    height: calc(var(--vh, 1vh) * 100 - 120px);
+    /* Increased padding to ensure content isn't hidden behind nav, adjust as needed */
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 20px)) !important;
+  }
+}
+
+/* Floating action button (from mobile-fixes.css, potentially overriding parts of existing mobile.css if more specific) */
+
+.plus-icon {
+  /* From mobile-fixes.css, also in mobile-optimizations.css */
+  background: linear-gradient(135deg, #fff, #a0f0ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: bold;
+  font-size: 24px; /* From mobile-optimizations.css */
+}
+
+/* Touch feedback (from mobile-fixes.css & mobile-optimizations.css) */
+.touch-feedback {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease, opacity 0.15s ease; /* from mobile-optimizations.css */
+}
+.touch-feedback:active {
+  transform: scale(0.95);
+  opacity: 0.8; /* from mobile-optimizations.css */
+}
+.touch-feedback::after {
+  /* Ripple effect from mobile-fixes.css */
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(0, 255, 255, 0.7);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1) translate(-50%, -50%);
+  pointer-events: none;
+}
+.touch-feedback:active::after {
+  animation: touch-ripple 0.6s ease-out;
+}
+@keyframes touch-ripple {
+  0% {
+    transform: scale(0) translate(-50%, -50%);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(20) translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+/* Special styling for action buttons in nav (from mobile-fixes.css) */
+.mobile-bottom-nav-item .text-red-500 {
+  color: #ff5555;
+  text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+.mobile-bottom-nav-item .text-green-500 {
+  color: #55ff7f;
+  text-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+}
+
+/* iOS scrolling and touch fixes (consolidated) */
+.ios-touch-fix,
+.ios-device {
+  /* .ios-device from mobile-fixes.css */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* Good for preventing overscroll effects on specific elements */
+  /* touch-action: pan-y; /* This might be too broad, apply to scroll containers */
+  -webkit-tap-highlight-color: transparent; /* Good general rule */
+}
+.ios-momentum-scroll {
+  /* from mobile-fixes.css */
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll; /* or auto */
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+/* General scroll container for mobile */
+.mobile-scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  flex: 1; /* If used in a flex layout */
+  /* padding-bottom is handled by the @supports rule above for iOS, and generally below */
+  /* Add a general padding-bottom for non-iOS or as a fallback */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 20px)); /* Default padding, adjust 80px based on nav height */
+  position: relative; /* For z-index context if needed */
+  z-index: 1; /* Default stacking context */
+}
+
+/* Prevent text selection (from mobile-fixes.css & mobile-optimizations.css) */
+.no-text-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Safe zone for iOS devices with notches (from mobile-fixes.css & mobile-optimizations.css .notch-aware) */
+.notch-aware,
+.touch-safe-zone {
+  /* .touch-safe-zone from mobile-fixes.css */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* Base padding, specific components might add more */
+}
+/* .touch-safe-zone from mobile-fixes.css also had padding-bottom: env(safe-area-inset-bottom, 20px); */
+/* The one from mobile-optimizations.css .notch-aware is more generic. */
+
+/* Pull to refresh indicator (from mobile-fixes.css & mobile-optimizations.css) */
+.pull-refresh-indicator {
+  position: absolute; /* Relative to scroll container */
+  top: 0; /* Adjusted from -60px or similar to be hidden by default via opacity/transform */
+  left: 0;
+  right: 0;
+  height: 60px; /* from mobile-fixes.css, mobile-optimizations.css had 50px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #00ffff;
+  font-size: 14px; /* from mobile-fixes.css, mobile-optimizations.css had 12px */
+  transform: translateY(-100%); /* Hidden by default */
+  transition: transform 0.3s ease, opacity 0.3s ease; /* Added opacity transition */
+  z-index: 100; /* from mobile-fixes.css, mobile-optimizations.css had 10 */
+  pointer-events: none;
+  opacity: 0; /* Hidden by default */
+}
+.pull-refresh-indicator.visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+.pull-refresh-spinner {
+  margin-right: 8px;
+  color: #00ffff;
+  /* animation: spin 1s linear infinite; /* From mobile-optimizations.css, ensure spin is defined or use Lucide's animate-spin */
+}
+
+/* Improved scrolling for pointer:coarse (from mobile-fixes.css) */
+@media (pointer: coarse) {
+  .improved-scroll {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .improved-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .landscape-grid {
+    /* Also in mobile-optimizations.css */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* mobile-fixes.css */
+    /* mobile-optimizations.css had minmax(200px, 1fr) and gap 10px */
+    gap: 16px; /* mobile-fixes.css */
+  }
+}
+
+/* Space-themed open button (from mobile-fixes.css & mobile-optimizations.css) */
+.space-open-button {
+  width: 40px; /* mobile-fixes.css, mobile-optimizations.css had 36px */
+  height: 40px; /* mobile-fixes.css, mobile-optimizations.css had 36px */
+  border-radius: 50%;
+  background: rgba(0, 0, 30, 0.7); /* mobile-fixes.css, mobile-optimizations.css had rgba(0,0,20,0.7) */
+  border: 1px solid rgba(0, 255, 255, 0.3); /* mobile-fixes.css, mobile-optimizations.css had 2px and different color/opacity */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); /* mobile-fixes.css */
+  /* mobile-optimizations.css had: 0 0 10px rgba(0,255,255,0.7), inset 0 0 5px rgba(0,255,255,0.5); backdrop-filter: blur(4px); animation: pulseGlow 2s infinite alternate; */
+  transition: all 0.2s ease;
+}
+.space-open-button:active {
+  /* transform: translate(-50%, -50%) scale(0.9); /* from mobile-fixes.css, complex if not absolutely positioned */
+  transform: scale(0.9); /* Simplified from mobile-optimizations.css */
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.8); /* mobile-fixes.css */
+  /* mobile-optimizations.css had: 0 0 15px rgba(0,255,255,0.9), inset 0 0 8px rgba(0,255,255,0.7); */
+}
+
+/* Fix for iOS viewport height issues (from mobile-fixes.css & mobile-optimizations.css .full-height) */
+:root {
+  --vh: 1vh;
+}
+.min-h-screen-vh {
+  /* New class to avoid conflict with Tailwind's min-h-screen */
+  min-height: 100vh; /* Fallback */
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+.h-screen-vh {
+  /* New class to avoid conflict with Tailwind's h-screen */
+  height: 100vh; /* Fallback */
+  height: calc(var(--vh, 1vh) * 100);
+}
+.full-height {
+  /* From mobile-optimizations.css */
+  height: 100vh;
+  height: -webkit-fill-available;
+}
+
+/* Table card specific z-indexing and touch action (from mobile-fixes.css) */
+.table-card .server-info {
+  z-index: 5;
+  position: relative;
+}
+.swipeable-action-left,
+.swipeable-action-right {
+  z-index: 10;
+}
+.swipeable-card-content {
+  z-index: 20;
+}
+
+.table-card-container {
+  /* Also in mobile-optimizations.css */
+  touch-action: pan-y; /* Allows vertical scroll on parent, horizontal swipe handled by component */
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  z-index: 1; /* Default stacking context */
+  cursor: pointer; /* From mobile-optimizations.css */
+  -webkit-tap-highlight-color: transparent; /* From mobile-optimizations.css */
+}
+.table-card-container:active {
+  /* From mobile-optimizations.css */
+  opacity: 0.8;
+  transform: scale(0.98);
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+/* Table card container margin on mobile (from mobile-fixes.css) */
+@media (max-width: 768px) {
+  .table-card-container {
+    margin-bottom: 16px;
+  }
+  /* This rule was very broad, general padding on .mobile-scroll-container is preferred.
+.mobile-scroll-container > div:last-child {
+  margin-bottom: 120px;
+}
+*/
+}
+
+/* Cosmic pulse for active nav items (from mobile-fixes.css) */
+/* This animation might be too much for an "active" state, consider if needed or use a more subtle effect from mobile.css */
+/*
+@keyframes cosmic-pulse {
+0% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.3); }
+50% { box-shadow: 0 0 10px rgba(0, 255, 255, 0.6), 0 0 15px rgba(255, 0, 255, 0.3); }
+100% { box-shadow: 0 0 5px rgba(0, 255, 255, 0.3); }
+}
+.mobile-bottom-nav-item.active {
+animation: cosmic-pulse 3s infinite;
+}
+*/
+
+/* Fixes for specific iPhone models (from mobile-fixes.css) */
+@media (max-height: 812px) and (max-width: 375px) {
+  /* iPhone X/XS/11 Pro/12 Mini/13 Mini */
+  .mobile-bottom-nav {
+    /* This selector is already in mobile.css, review properties */
+    padding: 6px 0; /* Overwrites previous padding */
+    padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  .mobile-bottom-nav-item {
+    /* This selector is already in mobile.css, review properties */
+    min-width: 50px; /* Overwrites previous min-width */
+  }
+}
+@media (min-width: 414px) and (max-width: 428px) {
+  /* iPhone Plus/Max sizes */
+  .mobile-bottom-nav-item {
+    /* This selector is already in mobile.css, review properties */
+    min-width: 65px; /* Overwrites previous min-width */
+    max-width: 85px;
+  }
+}
+
+/* Ensure content doesn't get hidden behind nav (from mobile-fixes.css) */
+/* This is better handled by padding-bottom on the main scrollable container */
+/*
+.table-card-container:last-child {
+margin-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
+}
+*/
+
+/* Fix for bottom nav on rotation (from mobile-fixes.css) */
+@media (orientation: landscape) {
+  .mobile-bottom-nav {
+    /* This selector is already in mobile.css, review properties */
+    padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+    min-height: 50px;
+  }
+  .mobile-bottom-nav-label {
+    /* This selector is already in mobile.css, review properties */
+    font-size: 9px; /* Overwrites previous font-size */
+  }
+  .landscape-grid {
+    /* From mobile-optimizations.css, different from mobile-fixes.css */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+}
+
+/* Ensure buttons have proper touch behavior (from mobile-fixes.css) */
+/* This is a very broad selector, prefer applying touch-action to specific interactive components or classes */
+/* button {
+-webkit-tap-highlight-color: transparent;
+touch-action: manipulation;
 } */
+
+/* Mobile Table Card Layout Fixes (from mobile-fixes.css) */
+.mobile-table-card-list .table-card-container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+.mobile-table-card-list .table-card {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 180px; /* Consistent min-height */
+}
+.table-card > div:first-child {
+  /* Assuming shadcn/ui <Card> structure */
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.table-card .mt-auto {
+  margin-top: auto;
+}
+.table-card .truncate {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* === From mobile-optimizations.css === */
+.mobile-touch-target {
+  /* Already defined in mobile-fixes.css, ensure consistency or remove one */
+  min-height: 44px;
+  min-width: 44px;
+}
+.mobile-spacing > * {
+  margin: 8px 0; /* Consider using Tailwind gap utilities instead */
+}
+
+/* Card swipe actions (from mobile-optimizations.css) - .swipeable-action-left/right already in mobile-fixes.css */
+.swipe-action-container {
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y; /* Good for allowing vertical scroll on parent */
+}
+.swipe-action-content {
+  transition: transform 0.3s ease;
+  position: relative;
+  z-index: 1; /* Above actions */
+  touch-action: pan-y; /* Allow vertical scroll on card content itself */
+}
+.swipe-action-left,
+.swipe-action-right {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 0; /* Behind content */
+}
+.swipe-action-left {
+  background: linear-gradient(90deg, #ff3300, #ff6600);
+}
+.swipe-action-right {
+  background: linear-gradient(90deg, #00cc00, #00ff33);
+}
+
+.skeleton-loader {
+  background: linear-gradient(90deg, rgba(0, 30, 60, 0.8), rgba(0, 40, 80, 0.8), rgba(0, 30, 60, 0.8));
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background-color: rgba(255, 0, 0, 0.8);
+  color: white;
+  text-align: center;
+  font-size: 14px;
+  z-index: 1000;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+}
+.offline-indicator.visible {
+  transform: translateY(0);
+}
+
+.collapsible-section {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+}
+.collapsible-content {
+  padding: 0 10px;
+}
+
+.high-contrast-text {
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+}
+.large-text {
+  font-size: 120%;
+}
+.vibrate-on-click {
+  /* JS marker class */
+}
+
+.swipe-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 15px;
+  background-color: rgba(255, 255, 255, 0.2);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.swipe-indicator.left {
+  left: 10px;
+}
+.swipe-indicator.right {
+  right: 10px;
+}
+.swipe-indicator.visible {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .dialog-container {
+    /* Custom dialog wrapper */
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: none; /* Prevent scrolling behind dialog */
+  }
+
+  /* General interactive element touch target sizing */
+  /* This is very broad. Prefer applying to specific components or using utility classes. */
+  /* button, [role="button"], a, input, select, .interactive {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px;
+  touch-action: manipulation;
+} */
+
+  .dialog-content {
+    /* Generic dialog content class, ensure it matches your actual dialogs */
+    max-height: 85vh; /* Was 80vh with !important */
+    padding: 12px; /* Was 12px with !important */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabs-list {
+    flex-wrap: wrap;
+  } /* For shadcn TabsList */
+  .dialog-content .overflow-y-auto {
+    /* Nested scroll areas */
+    max-height: 60vh; /* Was 50vh with !important */
+    -webkit-overflow-scrolling: touch;
+  }
+  .dialog-content .grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  } /* Force single column */
+  .dialog-content .space-y-4 {
+    margin-top: 0.5rem;
+  }
+  .dialog-footer-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* FAB positioning with safe area (already in mobile.css, ensure consistency) */
+  /* .mobile-fab {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  right: 16px;
+  z-index: 100;
+} */
+}
+
+/* Global tap highlight removal - this is good */
+/* * { -webkit-tap-highlight-color: transparent; } /* Already in TouchInteractionManager JS, and selectively in CSS */
+
+.table-dialog {
+  /* Custom class for table dialog container */
+  z-index: 1000;
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+.table-dialog-content {
+  /* Custom class for table dialog scrollable content */
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.prevent-scroll-while-swiping {
+  touch-action: pan-x; /* Or pan-y if swipe is vertical */
+}
+.enhanced-touch-target {
+  /* Apply to small custom controls */
+  min-height: 48px;
+  min-width: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scroll-cooldown-active {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #00ffff;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.scroll-direction-indicator {
+  position: fixed;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 90;
+}
+.scroll-direction-indicator.visible {
+  opacity: 0.7;
+}
+.scroll-direction-up {
+  bottom: 80px; /* Adjust based on FAB/Nav */
+}
+.scroll-direction-down {
+  bottom: 120px; /* Adjust based on FAB/Nav */
+}
+
+/* Make text inputs easier to interact with - prevent iOS zoom */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+textarea {
+  font-size: 16px !important; /* Use with caution due to !important */
+}
+
+.elastic-press {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.elastic-press:active {
+  transform: scale(0.95);
+}
+
+.btn-press {
+  transform: translateY(0);
+  transition: transform 0.1s ease-out;
+}
+.btn-press:active {
+  transform: translateY(2px);
+}
+
+@media (max-width: 768px) {
+  .fixed-dialog {
+    /* Generic class for dialogs, ensure it applies */
+    width: 92vw !important;
+    max-width: 92vw !important;
+    margin: 4vh auto !important;
+    max-height: 88vh !important;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.hardware-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}

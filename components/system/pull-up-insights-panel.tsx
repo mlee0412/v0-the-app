@@ -1,4 +1,3 @@
-// File: billiards-timer (31)/components/system/pull-up-insights-panel.tsx
 "use client"
 
 import type React from "react"
@@ -144,7 +143,7 @@ export function PullUpInsightsPanel({ tables, logs, servers }: PullUpInsightsPan
       const height = getCurrentHeight()
       panelRef.current.style.height = `${height}px`
     }
-  }, [panelState, partialHeight, fullHeight]) // Added partialHeight and fullHeight as dependencies
+  }, [panelState])
 
   return (
     <div
@@ -153,8 +152,8 @@ export function PullUpInsightsPanel({ tables, logs, servers }: PullUpInsightsPan
       style={{
         height: `${getCurrentHeight()}px`,
         boxShadow: "0 -4px 20px rgba(0, 255, 255, 0.3)",
-        width: "100%", // Changed from 1152px
-        maxWidth: "1152px", // Max width for larger screens, was calc(100% - 2rem) which is also fine
+        width: "1152px", // 12 inches at 96 DPI (standard web resolution)
+        maxWidth: "calc(100% - 2rem)", // Ensure it doesn't overflow on small screens
       }}
     >
       {/* Handle for dragging */}

@@ -1,9 +1,8 @@
-// File: billiards-timer (31)/components/mobile/swipeable-table-card.tsx
 "use client";
 
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { TableCard } from "@/components/tables/table-card"; 
+import { TableCard } from "@/components/tables/table-card"; // Adjusted path if necessary
 import { Clock, X } from "lucide-react";
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
 import { hapticFeedback } from "@/utils/haptic-feedback";
@@ -21,10 +20,12 @@ interface SwipeableTableCardProps {
   showAnimations?: boolean;
 }
 
-const TAP_MAX_MOVEMENT = 12; // Increased from 8
-const TAP_MAX_DURATION = 250; // Kept original, can be tuned
-const SWIPE_ACTION_THRESHOLD = 70; // Increased from 60
-const VERTICAL_SCROLL_LOCK_THRESHOLD = 12; // Increased from 8
+// MODIFICATION: Slightly reduced thresholds for more sensitivity in distinguishing tap from scroll/swipe.
+// If issues persist, these can be tuned further. Start with original values if preferred.
+const TAP_MAX_MOVEMENT = 8; // Max pixels moved for it to be considered a tap (was 10)
+const TAP_MAX_DURATION = 200; // Max ms for a tap (was 250)
+const SWIPE_ACTION_THRESHOLD = 60; // Threshold to trigger a swipe action
+const VERTICAL_SCROLL_LOCK_THRESHOLD = 8; // How much Y movement before we decide it's a vertical scroll (was 10)
 
 
 export function SwipeableTableCard({
@@ -45,8 +46,11 @@ export function SwipeableTableCard({
   const [showSwipeHint, setShowSwipeHint] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
+  // Store initial touch X, Y, time, and the window's scrollY position at touch start
   const touchStartDetails = useRef<{ x: number; y: number; time: number; scrollY: number } | null>(null);
+  // Determines the type of gesture being performed on this card
   const gestureType = useRef<"tap" | "horizontal_swipe" | "vertical_scroll" | null>(null);
+
   const swipeHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -68,21 +72,22 @@ export function SwipeableTableCard({
     touchStartDetails.current = null;
     gestureType.current = null;
     if (cardRef.current) {
+      // Ensure smooth transition back after a swipe gesture ends
       cardRef.current.style.transition = 'transform 0.3s ease-out';
     }
   }, []);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length > 1) return; 
+    if (e.touches.length > 1) return; // Ignore multi-touch gestures
     touchStartDetails.current = {
       x: e.touches[0].clientX,
       y: e.touches[0].clientY,
       time: Date.now(),
-      scrollY: window.scrollY, 
+      scrollY: window.scrollY, // Store initial window scrollY
     };
-    gestureType.current = null; 
+    gestureType.current = null; // Reset gesture type for new touch
     if (cardRef.current) {
-      cardRef.current.style.transition = 'none'; 
+      cardRef.current.style.transition = 'none'; // Remove transition during active swipe for direct manipulation
     }
   }, []);
 
@@ -94,17 +99,18 @@ export function SwipeableTableCard({
     const deltaX = currentX - touchStartDetails.current.x;
     const deltaY = currentY - touchStartDetails.current.y;
 
+    // Determine gesture type if not already set
     if (gestureType.current === null) {
       if (Math.abs(deltaY) > VERTICAL_SCROLL_LOCK_THRESHOLD && Math.abs(deltaY) > Math.abs(deltaX)) {
         gestureType.current = "vertical_scroll";
-      } else if (Math.abs(deltaX) > TAP_MAX_MOVEMENT) { 
+      } else if (Math.abs(deltaX) > TAP_MAX_MOVEMENT) { // Use TAP_MAX_MOVEMENT to decide if it's not a tap
         gestureType.current = "horizontal_swipe";
       }
     }
 
     if (gestureType.current === "horizontal_swipe") {
-      e.preventDefault(); 
-      const resistance = 0.6; 
+      e.preventDefault(); // Prevent page scroll if we are swiping horizontally on the card
+      const resistance = 0.6; // Make swipe feel a bit heavier
       const newOffset = deltaX * resistance;
       setSwipeOffset(newOffset);
 
@@ -121,12 +127,15 @@ export function SwipeableTableCard({
         setShowLeftAction(leftThresholdActive);
         setShowRightAction(rightThresholdActive);
         
+        // Prevent swiping further if action not allowed
         if (!canShowLeft && newOffset < 0) setSwipeOffset(0);
         if (!canShowRight && newOffset > 0) setSwipeOffset(0);
       } else {
-        setSwipeOffset(0); 
+        setSwipeOffset(0); // Don't allow swipe on inactive tables
       }
     } else if (gestureType.current === "vertical_scroll") {
+      // If it's a vertical scroll, let the parent (EnhancedMobileTableList) handle it.
+      // No e.preventDefault() here for vertical scroll on card.
       return;
     }
   }, [table.isActive, canEndSession, canAddTime, showLeftAction, showRightAction]);
@@ -136,10 +145,11 @@ export function SwipeableTableCard({
     const currentGesture = gestureType.current;
     const currentSwipeOffset = swipeOffset;
 
+    // Reset visual swipe state smoothly
     if (cardRef.current) {
         cardRef.current.style.transition = 'transform 0.3s ease-out';
     }
-    setSwipeOffset(0); 
+    setSwipeOffset(0); // Snap back
     setShowLeftAction(false);
     setShowRightAction(false);
     touchStartDetails.current = null;
@@ -153,8 +163,11 @@ export function SwipeableTableCard({
     const deltaY = endY - startDetails.y;
     const duration = Date.now() - startDetails.time;
 
+    // MODIFICATION: Removed `documentScrolledSignificantly` check.
+    // Tap detection now relies on the gestureType not being identified as scroll/swipe
+    // and small movement deltas on the card itself.
     if (
-      currentGesture === null && 
+      currentGesture === null && // Gesture was not determined as swipe or scroll
       Math.abs(deltaX) < TAP_MAX_MOVEMENT &&
       Math.abs(deltaY) < TAP_MAX_MOVEMENT &&
       duration < TAP_MAX_DURATION
@@ -164,6 +177,7 @@ export function SwipeableTableCard({
       return;
     }
 
+    // Horizontal SWIPE ACTION detection:
     if (currentGesture === "horizontal_swipe") {
       const velocity = Math.abs(deltaX) / duration;
       const isActionTriggered = Math.abs(currentSwipeOffset) > SWIPE_ACTION_THRESHOLD || velocity > 0.3;
@@ -177,25 +191,29 @@ export function SwipeableTableCard({
           onAddTime(table.id);
         }
       } else {
+        // If swipe was not enough to trigger action, but was a swipe
         hapticFeedback.light();
       }
     }
-  }, [table.id, table.isActive, canEndSession, canAddTime, onClick, onEndSession, onAddTime, swipeOffset]); 
+  }, [table.id, table.isActive, canEndSession, canAddTime, onClick, onEndSession, onAddTime, swipeOffset]); // Added swipeOffset to dependency list
 
   return (
     <div
       className={`relative swipeable-card-container ${className}`}
-      style={{ touchAction: "pan-y" }} 
+      style={{ touchAction: "pan-y" }} // Allows parent vertical scroll, horizontal swipe managed here
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Action Indicators */}
       {table.isActive && canEndSession && (
         <div
           className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-0 rounded-l-lg transition-opacity duration-200 ${
             showLeftAction && swipeOffset < 0 ? "opacity-100" : "opacity-0"
           }`}
+          // MODIFICATION: Visual feedback adjustment for action reveal
           style={{ transform: `translateX(${swipeOffset < -SWIPE_ACTION_THRESHOLD / 3 ? Math.max(0, swipeOffset + SWIPE_ACTION_THRESHOLD / 2) : -SWIPE_ACTION_THRESHOLD / 1.2}px)` }}
+
         >
           <div className="flex flex-col items-center pointer-events-none">
             <X size={24} /> <span className="text-xs mt-1">End</span>
@@ -207,6 +225,7 @@ export function SwipeableTableCard({
           className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-l from-green-600 to-green-500 text-white z-0 rounded-r-lg transition-opacity duration-200 ${
             showRightAction && swipeOffset > 0 ? "opacity-100" : "opacity-0"
           }`}
+          // MODIFICATION: Visual feedback adjustment for action reveal
           style={{ transform: `translateX(${swipeOffset > SWIPE_ACTION_THRESHOLD / 3 ? Math.min(0, swipeOffset - SWIPE_ACTION_THRESHOLD / 2) : SWIPE_ACTION_THRESHOLD / 1.2}px)` }}
         >
           <div className="flex flex-col items-center pointer-events-none">
@@ -215,6 +234,7 @@ export function SwipeableTableCard({
         </div>
       )}
 
+      {/* Swipe Hint */}
       {showSwipeHint && table.isActive && showAnimations && (
          <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
           <div className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs animate-pulse">
@@ -223,18 +243,20 @@ export function SwipeableTableCard({
         </div>
       )}
 
+      {/* Table Card Content */}
       <div
         ref={cardRef}
-        className="relative z-10 rounded-lg shadow-lg" 
+        className="relative z-10 rounded-lg shadow-lg" // Ensure card is above action indicators
         style={{
           transform: `translateX(${swipeOffset}px)`,
+          // transition will be set by resetGestureState or handleTouchStart
         }}
       >
         <TableCard
           table={table}
           servers={servers}
-          logs={logs.filter(log => log.tableId === table.id)} 
-          onClick={onClick} 
+          logs={logs.filter(log => log.tableId === table.id)} // Pass only relevant logs
+          onClick={onClick} // This onClick is now more reliably a tap
           showAnimations={showAnimations}
         />
       </div>

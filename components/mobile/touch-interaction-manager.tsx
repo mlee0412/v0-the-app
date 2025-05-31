@@ -1,117 +1,173 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export function TouchInteractionManager() {
+  const lastTouchEndRef = useRef(0)
+  const touchStartCoordsRef = useRef<{ x: number; y: number } | null>(null)
+
   useEffect(() => {
     if (typeof window === "undefined") return
 
-    // Detect mobile device
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    const isMobile = isIOS || /Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
     if (!isMobile) return
 
-    // Add mobile class to body
     document.body.classList.add("mobile-device")
-
-    // Prevent double-tap zoom on interactive elements
-    const preventDoubleTapZoom = (e: TouchEvent) => {
-      const target = e.target as HTMLElement
-
-      // Check if the element or its parents have interactive classes
-      if (
-        target.closest('button, a, .interactive, [role="button"], .table-card, .no-double-tap') ||
-        target.tagName === "BUTTON" ||
-        target.tagName === "A" ||
-        target.getAttribute("role") === "button"
-      ) {
-        e.preventDefault()
-
-        // Still allow the click event to fire
-        setTimeout(() => {
-          const clickEvent = new MouseEvent("click", {
-            view: window,
-            bubbles: true,
-            cancelable: true,
-          })
-          target.dispatchEvent(clickEvent)
-        }, 10)
-      }
+    if (isIOS) {
+      document.body.classList.add("ios-device")
     }
 
-    // Add active state for better touch feedback
-    const addActiveState = (e: TouchEvent) => {
-      const target = e.target as HTMLElement
-      if (target.closest('.touch-feedback, button, .btn, [role="button"]')) {
-        const element = target.closest('.touch-feedback, button, .btn, [role="button"]') as HTMLElement
-        element.classList.add("touch-active")
-      }
+    // --- Safe Area Insets ---
+    const updateSafeAreaInsets = () => {
+      const rootStyle = document.documentElement.style
+      const safeAreaTop = getComputedStyle(document.documentElement).getPropertyValue("--safe-area-inset-top") || "0px"
+      const safeAreaRight =
+        getComputedStyle(document.documentElement).getPropertyValue("--safe-area-inset-right") || "0px"
+      const safeAreaBottom =
+        getComputedStyle(document.documentElement).getPropertyValue("--safe-area-inset-bottom") || "0px"
+      const safeAreaLeft =
+        getComputedStyle(document.documentElement).getPropertyValue("--safe-area-inset-left") || "0px"
+
+      rootStyle.setProperty("--safe-area-inset-top", safeAreaTop)
+      rootStyle.setProperty("--safe-area-inset-right", safeAreaRight)
+      rootStyle.setProperty("--safe-area-inset-bottom", safeAreaBottom)
+      rootStyle.setProperty("--safe-area-inset-left", safeAreaLeft)
     }
 
-    const removeActiveState = () => {
-      document.querySelectorAll(".touch-active").forEach((el) => {
-        el.classList.remove("touch-active")
-      })
-    }
+    // Attempt to get actual safe-area-inset values if supported by browser, otherwise use CSS env()
+    // This JS part might be redundant if CSS env() is working well.
+    // For now, we rely on CSS `env()` and this JS part can be a fallback or removed if CSS is sufficient.
+    // updateSafeAreaInsets(); // Initial call
+    // window.addEventListener("resize", updateSafeAreaInsets);
 
-    // Prevent pull-to-refresh on iOS Safari when at the top of the page
-    let startY = 0
-
+    // --- Global Touch Event Handlers ---
     const handleTouchStart = (e: TouchEvent) => {
-      startY = e.touches[0].clientY
+      const target = e.target as HTMLElement
+      touchStartCoordsRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+
+      // Active state feedback
+      const interactiveElement = target.closest(
+        '.touch-feedback, button, .btn, [role="button"], .mobile-bottom-nav-item',
+      )
+      if (interactiveElement) {
+        interactiveElement.classList.add("touch-active")
+      }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      // Allow scrolling in scrollable elements
-      if ((e.target as HTMLElement).closest(".scroll-container, .allow-scroll, [data-scroll]")) {
-        return
-      }
+      if (!touchStartCoordsRef.current) return
 
-      // Prevent pull-to-refresh
-      const deltaY = e.touches[0].clientY - startY
-      if (window.scrollY === 0 && deltaY > 5) {
-        e.preventDefault()
+      // Global pull-to-refresh prevention (conditional)
+      const target = e.target as HTMLElement
+      if (!target.closest(".scroll-container, .allow-scroll, [data-scroll], .overflow-y-auto, .overflow-auto")) {
+        const deltaY = e.touches[0].clientY - touchStartCoordsRef.current.y
+        if (window.scrollY === 0 && deltaY > 5) {
+          // 5px threshold to detect downward pull
+          e.preventDefault()
+        }
       }
     }
 
-    // Add event listeners
-    document.addEventListener("touchend", preventDoubleTapZoom, { passive: false })
-    document.addEventListener("touchstart", addActiveState, { passive: true })
-    document.addEventListener("touchend", removeActiveState, { passive: true })
-    document.addEventListener("touchcancel", removeActiveState, { passive: true })
-    document.addEventListener("touchstart", handleTouchStart, { passive: true })
-    document.addEventListener("touchmove", handleTouchMove, { passive: false })
+    const handleTouchEnd = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      const now = Date.now()
 
-    // Add CSS for touch feedback
-    const style = document.createElement("style")
-    style.textContent = `
-      .touch-active {
-        opacity: 0.7 !important;
-        transform: scale(0.98) !important;
-        transition: transform 0.1s ease, opacity 0.1s ease !important;
+      // Remove active states
+      document.querySelectorAll(".touch-active").forEach((el) => {
+        el.classList.remove("touch-active")
+      })
+
+      // Double-tap zoom & direct click dispatch
+      const interactiveSelector =
+        'button, a, .interactive, [role="button"], .table-card, .no-double-tap, .mobile-bottom-nav-item'
+      const closestInteractive = target.closest(interactiveSelector)
+
+      if (closestInteractive) {
+        if (now - lastTouchEndRef.current < 350) {
+          // 350ms threshold for double tap
+          e.preventDefault() // Prevent zoom on the second tap of a quick double tap
+        }
+
+        // Direct click dispatch for table cards (from DirectTouchHandler)
+        if (closestInteractive.matches(".table-card") || target.closest(".table-card")) {
+          // Check if it was a swipe or a tap
+          const endX = e.changedTouches[0].clientX
+          const endY = e.changedTouches[0].clientY
+          if (touchStartCoordsRef.current) {
+            const deltaX = Math.abs(endX - touchStartCoordsRef.current.x)
+            const deltaY = Math.abs(endY - touchStartCoordsRef.current.y)
+            if (deltaX < 10 && deltaY < 10) {
+              // Small movement, consider it a tap
+              // Dispatch click only if it's not a child that already handles clicks well
+              if (!target.closest("button, a, input")) {
+                const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+                closestInteractive.dispatchEvent(clickEvent)
+              }
+            }
+          }
+        }
       }
-      
-      /* Improve touch targets */
-      button, a, [role="button"], .interactive {
-        min-height: 44px;
-        min-width: 44px;
-      }
-      
-      /* Remove tap highlight on iOS */
-      * {
-        -webkit-tap-highlight-color: transparent;
-      }
-    `
-    document.head.appendChild(style)
+      lastTouchEndRef.current = now
+      touchStartCoordsRef.current = null
+    }
+
+    document.addEventListener("touchstart", handleTouchStart, { passive: true })
+    document.addEventListener("touchmove", handleTouchMove, { passive: false }) // passive:false for preventDefault
+    document.addEventListener("touchend", handleTouchEnd, { passive: false }) // passive:false for preventDefault
+    document.addEventListener(
+      "touchcancel",
+      () => {
+        // Clean up active states on touchcancel
+        document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
+        touchStartCoordsRef.current = null
+      },
+      { passive: true },
+    )
+
+    // --- Dynamically Injected CSS for basic touch interactions ---
+    const styleId = "touch-interaction-manager-styles"
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style")
+      style.id = styleId
+      style.textContent = `
+          .touch-active {
+            opacity: 0.7 !important; /* Example active state */
+            /* transform: scale(0.98); /* Example active state */
+            /* transition: transform 0.05s ease, opacity 0.05s ease; */
+          }
+          /* Global tap highlight removal */
+          * {
+            -webkit-tap-highlight-color: transparent !important;
+          }
+          /* Ensure interactive elements have a minimum touch target and cursor */
+          button, a, [role="button"], .interactive, .mobile-bottom-nav-item {
+            /* min-height: 44px; /* Handled by specific component styles or Tailwind */
+            /* min-width: 44px;  /* Handled by specific component styles or Tailwind */
+            cursor: pointer;
+            touch-action: manipulation; /* Improves responsiveness and prevents some default actions */
+          }
+        `
+      document.head.appendChild(style)
+    }
 
     return () => {
-      document.body.classList.remove("mobile-device")
-      document.removeEventListener("touchend", preventDoubleTapZoom)
-      document.removeEventListener("touchstart", addActiveState)
-      document.removeEventListener("touchend", removeActiveState)
-      document.removeEventListener("touchcancel", removeActiveState)
+      document.body.classList.remove("mobile-device", "ios-device")
       document.removeEventListener("touchstart", handleTouchStart)
       document.removeEventListener("touchmove", handleTouchMove)
-      document.head.removeChild(style)
+      document.removeEventListener("touchend", handleTouchEnd)
+      document.removeEventListener("touchcancel", () => {
+        document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
+        touchStartCoordsRef.current = null
+      })
+      // window.removeEventListener("resize", updateSafeAreaInsets);
+      const dynamicStyle = document.getElementById(styleId)
+      if (dynamicStyle) {
+        dynamicStyle.remove()
+      }
     }
   }, [])
 
