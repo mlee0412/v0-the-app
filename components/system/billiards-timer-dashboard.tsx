@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useReducer, useRef, useMemo } from "react"; // Ensure React is imported
+import { useState, useEffect, useCallback, useReducer, useRef, useMemo } from "react";
 import { debounce } from "lodash";
 import { TableDialog } from "@/components/tables/table-dialog";
 import { TableLogsDialog } from "@/components/tables/table-logs-dialog";
@@ -22,7 +22,7 @@ import { BigBangAnimation } from "@/components/animations/big-bang-animation";
 import { ExplosionAnimation } from "@/components/animations/explosion-animation";
 import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-table-list";
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
-import { OfflineDetector } from "@/components/mobile/offline-detector"; // Corrected import path
+import { OfflineDetector } from "@/components/mobile/offline-detector";
 import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container";
 import { useMobile } from "@/hooks/use-mobile";
 import { IOSTouchFix } from "@/components/ios-touch-fix";
@@ -72,20 +72,23 @@ export interface LogEntry {
   details?: string;
 }
 
+// MODIFIED: SystemSettings interface to match database and intent
 export interface SystemSettings {
   defaultSessionTime: number;
   warningThreshold: number;
   criticalThreshold: number;
-  showTableCardAnimations: boolean;
+  showTableCardAnimations: boolean; // UPDATED
   darkMode: boolean;
-  soundEnabled: boolean;
+  soundEnabled: boolean; // Will be used by soundEffectsEnabled in DashboardState
   autoEndDay: boolean;
   autoEndDayTime: string;
   businessHours: { open: string; close: string };
   dayStarted: boolean;
   dayStartTime: number | null;
+  // NEW: Add highContrastMode and largeTextMode if they are to be persisted
   highContrastMode?: boolean;
   largeTextMode?: boolean;
+  // NEW: groupCounter from useSupabaseData will be handled separately
 }
 
 interface DashboardState {
@@ -93,7 +96,7 @@ interface DashboardState {
   servers: Server[];
   noteTemplates: NoteTemplate[];
   logs: LogEntry[];
-  settings: SystemSettings;
+  settings: SystemSettings; // This will hold our fetched and local UI settings
   selectedTable: Table | null;
   showLoginDialog: boolean;
   showUserManagementDialog: boolean;
@@ -115,14 +118,16 @@ interface DashboardState {
   showExplosionAnimation: boolean;
   animationComplete: boolean;
   activeTab: "tables" | "logs" | "settings" | "servers" | "functions";
+  // These will be controlled locally but can be initialized by settings.
   highContrastMode: boolean;
   largeTextMode: boolean;
-  soundEffectsEnabled: boolean;
-  hideSystemElements: boolean; // This will be managed by isMobile after mount
+  soundEffectsEnabled: boolean; // Renamed from settings.soundEnabled for clarity in UI
+  hideSystemElements: boolean;
   showFunctionsDashboard: boolean;
   loginUsername: string;
   loginPassword: string;
   viewOnlyMode: boolean;
+  // NEW: To store groupCounter from Supabase, separate from UI settings object
   groupCounter: number;
 }
 
@@ -132,8 +137,9 @@ type DashboardAction =
   | { type: "UPDATE_TABLE"; payload: Partial<Table> & { id: number } }
   | { type: "SET_NOTIFICATION"; message: string; notificationType: "success" | "error" | "info" }
   | { type: "CLEAR_NOTIFICATION" }
-  | { type: "UPDATE_SETTINGS"; payload: Partial<SystemSettings> }
-  | { type: "SET_GROUP_COUNTER"; payload: number };
+  | { type: "UPDATE_SETTINGS"; payload: Partial<SystemSettings> } // MODIFIED: More generic settings update
+  | { type: "SET_GROUP_COUNTER"; payload: number }; // NEW
+
 
 const initialTables: Table[] = Array.from({ length: TABLE_COUNT }, (_, i) => ({
   id: i + 1,
@@ -158,11 +164,11 @@ const initialState: DashboardState = {
   servers: [],
   noteTemplates: [],
   logs: [],
-  settings: {
+  settings: { // This is the local/initial state for settings
     defaultSessionTime: DEFAULT_SESSION_TIME,
     warningThreshold: THRESHOLDS.WARNING,
     criticalThreshold: THRESHOLDS.CRITICAL,
-    showTableCardAnimations: true,
+    showTableCardAnimations: true, // Default to true
     darkMode: true,
     soundEnabled: true,
     autoEndDay: false,
@@ -170,8 +176,8 @@ const initialState: DashboardState = {
     businessHours: { open: BUSINESS_HOURS.OPEN, close: BUSINESS_HOURS.CLOSE },
     dayStarted: false,
     dayStartTime: null,
-    highContrastMode: false,
-    largeTextMode: false,
+    highContrastMode: false, // Initialize local UI toggles
+    largeTextMode: false,   // Initialize local UI toggles
   },
   selectedTable: null,
   showLoginDialog: false,
@@ -194,15 +200,15 @@ const initialState: DashboardState = {
   showExplosionAnimation: false,
   animationComplete: true,
   activeTab: "tables",
-  highContrastMode: false,
-  largeTextMode: false,
-  soundEffectsEnabled: true,
-  hideSystemElements: false, // Initial state, will be updated by isMobile
+  highContrastMode: false,    // Duplicates settings.highContrastMode for direct UI control
+  largeTextMode: false,     // Duplicates settings.largeTextMode for direct UI control
+  soundEffectsEnabled: true, // Duplicates settings.soundEnabled for direct UI control
+  hideSystemElements: false,
   showFunctionsDashboard: false,
   loginUsername: "admin",
   loginPassword: "",
   viewOnlyMode: false,
-  groupCounter: 1,
+  groupCounter: 1, // Initial local group counter
 };
 
 const dashboardReducer = (state: DashboardState, action: DashboardAction): DashboardState => {
@@ -223,7 +229,7 @@ const dashboardReducer = (state: DashboardState, action: DashboardAction): Dashb
       };
     case "CLEAR_NOTIFICATION":
       return { ...state, notification: null };
-    case "UPDATE_SETTINGS":
+    case "UPDATE_SETTINGS": // MODIFIED: More generic settings update
       return {
         ...state,
         settings: {
@@ -231,7 +237,7 @@ const dashboardReducer = (state: DashboardState, action: DashboardAction): Dashb
           ...action.payload,
         },
       };
-    case "SET_GROUP_COUNTER":
+    case "SET_GROUP_COUNTER": // NEW
       return { ...state, groupCounter: action.payload };
     default:
       return state;
@@ -240,18 +246,9 @@ const dashboardReducer = (state: DashboardState, action: DashboardAction): Dashb
 
 export function BilliardsTimerDashboard() {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
-  
-  // *** MODIFICATION: Mounted state for reliable client-side checks ***
-  const [hasMounted, setHasMounted] = useState(false);
-  const isMobile = useMobile(); // This hook should now return undefined initially
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
 
   const {
-    tables, // This will be from dashboardReducer state
-    // ... (all other state variables deconstructed from 'state')
+    tables,
     servers,
     noteTemplates: stateNoteTemplates,
     logs,
@@ -277,30 +274,27 @@ export function BilliardsTimerDashboard() {
     showExplosionAnimation,
     animationComplete,
     activeTab,
-    // highContrastMode, // Will use settings.highContrastMode
-    // largeTextMode,   // Will use settings.largeTextMode
-    // soundEffectsEnabled, // Will use settings.soundEnabled
-    hideSystemElements, // This will be derived from isMobile after mount
+    highContrastMode, // This is local state for UI toggle, potentially synced with settings.highContrastMode
+    largeTextMode,   // This is local state for UI toggle
+    soundEffectsEnabled, // This is local state for UI toggle, synced with settings.soundEnabled
+    hideSystemElements,
     showFunctionsDashboard,
     loginUsername,
     loginPassword,
     viewOnlyMode,
-    groupCounter,
+    groupCounter, // NEW: use groupCounter from state
   } = state;
 
-
   const { isAuthenticated, isAdmin, isServer, currentUser, logout, hasPermission: authHasPermission } = useAuth();
+  const isMobile = useMobile();
   const [currentTime, setCurrentTime] = useState(new Date());
+  // Removed viewportHeight and headerHeight as they are not directly used for this change
   const headerRef = useRef<HTMLDivElement>(null);
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Update hideSystemElements based on isMobile, only after component has mounted
   useEffect(() => {
-    if (hasMounted && isMobile !== undefined) {
-        dispatch({ type: "SET_STATE", payload: { hideSystemElements: isMobile } });
-    }
-  }, [isMobile, hasMounted]);
-
+    dispatch({ type: "SET_STATE", payload: { hideSystemElements: isMobile } });
+  }, [isMobile]);
 
   const {
     tables: supabaseTables,
@@ -308,8 +302,9 @@ export function BilliardsTimerDashboard() {
     servers: supabaseServerUsers,
     noteTemplates: supabaseNoteTemplates,
     dayStarted: supabaseDayStarted,
-    showTableCardAnimations: supabaseShowTableCardAnimations,
+    showTableCardAnimations: supabaseShowTableCardAnimations, // NEW: Consumed from useSupabaseData
     groupCounter: supabaseGroupCounter,
+    // systemSettings: supabaseSystemSettings, // Assuming useSupabaseData exposes the full settings object
     loading: supabaseLoading,
     error: supabaseError,
     updateTable: updateSupabaseTable,
@@ -321,6 +316,7 @@ export function BilliardsTimerDashboard() {
     syncData,
   } = useSupabaseData();
 
+  // Effect to sync settings from Supabase to local dashboard state
   useEffect(() => {
     const newSettingsPayload: Partial<SystemSettings> = {};
     let changed = false;
@@ -333,11 +329,18 @@ export function BilliardsTimerDashboard() {
       newSettingsPayload.showTableCardAnimations = supabaseShowTableCardAnimations;
       changed = true;
     }
-    
+    // Example if other settings were fetched by useSupabaseData and exposed individually or via a systemSettings object
+    // if (supabaseSystemSettings?.defaultSessionTime !== undefined && supabaseSystemSettings.defaultSessionTime !== settings.defaultSessionTime) {
+    //   newSettingsPayload.defaultSessionTime = supabaseSystemSettings.defaultSessionTime;
+    //   changed = true;
+    // }
+    // ... and so on for other settings like warningThreshold, criticalThreshold, darkMode, soundEnabled etc.
+
     if (changed) {
       dispatch({ type: "UPDATE_SETTINGS", payload: newSettingsPayload });
     }
     
+    // Sync groupCounter separately
     if (supabaseGroupCounter !== undefined && supabaseGroupCounter !== groupCounter) {
       dispatch({ type: "SET_GROUP_COUNTER", payload: supabaseGroupCounter });
     }
@@ -346,16 +349,18 @@ export function BilliardsTimerDashboard() {
     supabaseDayStarted, 
     supabaseShowTableCardAnimations, 
     supabaseGroupCounter,
-    settings,
+    // supabaseSystemSettings, // Add if you fetch the whole object
+    settings, // Add full settings to ensure comparison is complete
     groupCounter
   ]);
+
 
   const formatCurrentTime = (date: Date) => date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
   const formatMinutes = (minutes: number) => Math.round(minutes);
 
   const queueTableUpdate = useCallback(
     (table: Table) => {
-      updateSupabaseTable(table as any); // Cast to any if Table type from Supabase is different
+      updateSupabaseTable(table);
     },
     [updateSupabaseTable]
   );
@@ -363,7 +368,7 @@ export function BilliardsTimerDashboard() {
   const debouncedUpdateTables = useCallback(
     debounce((tablesToUpdate: Table[]) => {
       if (tablesToUpdate.length > 0) {
-        updateSupabaseTables(tablesToUpdate as any[]); // Cast if needed
+        updateSupabaseTables(tablesToUpdate);
       }
     }, 500),
     [updateSupabaseTables]
@@ -380,7 +385,7 @@ export function BilliardsTimerDashboard() {
         notificationTimeoutRef.current = null;
       }, 3000);
 
-      if (state.settings.soundEnabled && type !== "info") { // Use state.settings
+      if (settings.soundEnabled && type !== "info") { 
         try {
           const context = new (window.AudioContext || (window as any).webkitAudioContext)();
           const oscillator = context.createOscillator();
@@ -396,12 +401,11 @@ export function BilliardsTimerDashboard() {
           console.error("Failed to play notification sound:", error);
         }
       }
-      // Access isMobile via state if it's part of DashboardState, or directly if passed as prop/context
-      if (state.hideSystemElements && navigator.vibrate) { // Assuming hideSystemElements implies mobile
+      if (isMobile && navigator.vibrate) {
         navigator.vibrate(type === "error" ? [100, 50, 100] : 50);
       }
     },
-    [state.settings.soundEnabled, state.hideSystemElements] // Use state values
+    [settings.soundEnabled, isMobile] 
   );
   
   const closeTableDialog = useCallback(() => {
@@ -409,7 +413,7 @@ export function BilliardsTimerDashboard() {
   }, []);
 
   const { startTableSession, endTableSession } = useTableActions({
-    tables: state.tables, // Use tables from state
+    tables,
     dispatch,
     debouncedUpdateTable: queueTableUpdate,
     debouncedUpdateTables,
@@ -426,13 +430,13 @@ export function BilliardsTimerDashboard() {
   );
 
   const hasPermission = useCallback(
-    (permissionKey: string) => authHasPermission(permissionKey), // Assuming permissionKey is keyof Permission
+    (permission: string) => authHasPermission(permission),
     [authHasPermission]
   );
 
   const withPermission = useCallback(
-    (permissionKey: string, callback: () => void) => { // Assuming permissionKey is keyof Permission
-      if (!isAuthenticated || !hasPermission(permissionKey)) {
+    (permission: string, callback: () => void) => {
+      if (!isAuthenticated || !hasPermission(permission)) {
         dispatch({ type: "SET_STATE", payload: { loginAttemptFailed: true } });
         showNotification("Admin login required for this action.", "error");
         return;
@@ -444,14 +448,14 @@ export function BilliardsTimerDashboard() {
 
   useEffect(() => {
     if (supabaseTables) {
-      dispatch({ type: "SET_TABLES", payload: supabaseTables as Table[] }); // Cast if needed
+      dispatch({ type: "SET_TABLES", payload: supabaseTables });
       supabaseTables.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any));
     }
   }, [supabaseTables]);
 
   useEffect(() => {
     if (supabaseLogs) {
-      dispatch({ type: "SET_STATE", payload: { logs: supabaseLogs as LogEntry[] } }); // Cast if needed
+      dispatch({ type: "SET_STATE", payload: { logs: supabaseLogs } });
     }
   }, [supabaseLogs]);
 
@@ -461,15 +465,16 @@ export function BilliardsTimerDashboard() {
         if (!acc.some((s) => s.id === server.id)) acc.push(server);
         return acc;
       }, [] as Server[]);
-      dispatch({ type: "SET_STATE", payload: { servers: uniqueServers as Server[] } }); // Cast
+      dispatch({ type: "SET_STATE", payload: { servers: uniqueServers } });
     }
   }, [supabaseServerUsers]);
 
   useEffect(() => {
     if (supabaseNoteTemplates) {
-      dispatch({ type: "SET_STATE", payload: { noteTemplates: supabaseNoteTemplates as NoteTemplate[] } }); // Cast
+      dispatch({ type: "SET_STATE", payload: { noteTemplates: supabaseNoteTemplates } });
     }
   }, [supabaseNoteTemplates]);
+
 
   useEffect(() => {
     const timerInterval = setInterval(() => {
@@ -482,7 +487,7 @@ export function BilliardsTimerDashboard() {
 
   useEffect(() => {
     const handleTableUpdatedEvent = (event: Event) => {
-      const customEvent = event as CustomEvent<{ tableId: number; table: Partial<Table> }>; // Allow Partial<Table>
+      const customEvent = event as CustomEvent<{ tableId: number; table: Table }>;
       const { tableId, table: updatedTableData } = customEvent.detail;
       dispatch({ type: "UPDATE_TABLE", payload: { id: tableId, ...updatedTableData } });
     };
@@ -493,27 +498,26 @@ export function BilliardsTimerDashboard() {
     };
 
     window.addEventListener("table-updated", handleTableUpdatedEvent);
-    document.addEventListener("fullscreenchange", handleFullScreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullScreenChange);
-    document.addEventListener("mozfullscreenchange", handleFullScreenChange);
-    document.addEventListener("MSFullscreenChange", handleFullScreenChange);
+    window.addEventListener("fullscreenchange", handleFullScreenChange);
+    window.addEventListener("webkitfullscreenchange", handleFullScreenChange);
+    window.addEventListener("mozfullscreenchange", handleFullScreenChange);
+    window.addEventListener("MSFullscreenChange", handleFullScreenChange);
 
     return () => {
       window.removeEventListener("table-updated", handleTableUpdatedEvent);
-      document.removeEventListener("fullscreenchange", handleFullScreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullScreenChange);
-      document.removeEventListener("mozfullscreenchange", handleFullScreenChange);
-      document.removeEventListener("MSFullscreenChange", handleFullScreenChange);
+      window.removeEventListener("fullscreenchange", handleFullScreenChange);
+      window.removeEventListener("webkitfullscreenchange", handleFullScreenChange);
+      window.removeEventListener("mozfullscreenchange", handleFullScreenChange);
+      window.removeEventListener("MSFullscreenChange", handleFullScreenChange);
     };
   }, []);
 
   const toggleFullScreen = useCallback(() => {
-    if (state.isFullScreen) { // Use state
+    if (isFullScreen) {
       dispatch({ type: "SET_STATE", payload: { showExitFullScreenConfirm: true } });
       return;
     }
-    // ... (rest of toggleFullScreen logic)
-     const element = document.documentElement;
+    const element = document.documentElement;
     const requestFullscreen = () =>
       element.requestFullscreen?.() ||
       (element as any).mozRequestFullScreen?.() ||
@@ -524,10 +528,9 @@ export function BilliardsTimerDashboard() {
       console.error("Fullscreen request failed:", error);
       showNotification("Fullscreen mode failed to activate", "error");
     });
-  }, [state.isFullScreen, showNotification]); // Use state
+  }, [isFullScreen, showNotification]);
 
   const confirmExitFullScreen = useCallback(() => {
-    // ... (confirmExitFullScreen logic)
     const exitFullscreen = () =>
       document.exitFullscreen?.() ||
       (document as any).mozCancelFullScreen?.() ||
@@ -541,12 +544,11 @@ export function BilliardsTimerDashboard() {
 
   const addLogEntry = useCallback(
     async (tableId: number, action: string, details = "") => {
-      const currentTables = state.tables; // Use tables from state
-      const table = currentTables.find((t) => t.id === tableId);
+      const table = tables.find((t) => t.id === tableId);
       const tableName = tableId === 0 ? "System" : table?.name || `Table ${tableId}`;
       await addSupabaseLogEntry(tableId, tableName, action, details);
     },
-    [state.tables, addSupabaseLogEntry] // Use state
+    [tables, addSupabaseLogEntry]
   );
 
   const openTableDialog = useCallback(
@@ -558,9 +560,8 @@ export function BilliardsTimerDashboard() {
 
   const confirmEndSession = useCallback(
     (tableId: number) => {
-      withPermission("canEndSession", () => { // Assuming this permission key is correct
-        const currentTables = state.tables; // Use tables from state
-        const tableToEnd = currentTables.find((t) => t.id === tableId);
+      withPermission("canEndSession", () => {
+        const tableToEnd = tables.find((t) => t.id === tableId);
         if (!tableToEnd) return;
         dispatch({
           type: "SET_STATE",
@@ -568,14 +569,13 @@ export function BilliardsTimerDashboard() {
         });
       });
     },
-    [state.tables, withPermission] // Use state
+    [tables, withPermission]
   );
-  
+
   const handleSessionFeedback = useCallback(
     async (tableId: number, rating: "good" | "bad", comment: string) => {
       try {
-        const currentTables = state.tables; // Use tables from state
-        const tableForFeedback = currentTables.find((t) => t.id === tableId);
+        const tableForFeedback = tables.find((t) => t.id === tableId);
         if (!tableForFeedback) {
           showNotification("Table not found for feedback", "error");
           return;
@@ -589,29 +589,34 @@ export function BilliardsTimerDashboard() {
         showNotification("Failed to submit feedback", "error");
       }
     },
-    [state.tables, addLogEntry, endTableSession, showNotification, closeTableDialog] // Use state
+    [tables, addLogEntry, endTableSession, showNotification, closeTableDialog]
   );
 
   const addTime = useCallback(
     async (tableId: number, minutes = 15) => {
-      withPermission("canAddTime", async () => { // Assuming this permission key is correct
+      withPermission("canAddTime", async () => {
         try {
-          const currentTables = state.tables; // Use tables from state
-          const table = currentTables.find((t) => t.id === tableId);
-          // ... (rest of addTime logic)
+          const table = tables.find((t) => t.id === tableId);
           if (!table) {
             showNotification("Table not found", "error");
             return;
           }
+
           const additionalTime = minutes * 60 * 1000;
           const updatedAt = new Date().toISOString();
+          
           if (table.groupId) {
             await addLogEntry(tableId, "Group Time Added", `${minutes} minutes added to group ${table.groupId}`);
-            const updatedGroupTables = currentTables.map((t) => {
+            const updatedGroupTables = tables.map((t) => {
               if (t.groupId === table.groupId) {
                 const newInitialTime = t.initialTime + additionalTime;
                 const newRemainingTime = t.remainingTime + additionalTime; 
-                return { ...t, initialTime: newInitialTime, remainingTime: newRemainingTime, updatedAt };
+                return { 
+                    ...t, 
+                    initialTime: newInitialTime, 
+                    remainingTime: newRemainingTime, 
+                    updatedAt 
+                };
               }
               return t;
             });
@@ -619,47 +624,54 @@ export function BilliardsTimerDashboard() {
             debouncedUpdateTables(updatedGroupTables.filter(t => t.groupId === table.groupId));
             showNotification(`Added ${minutes} minutes to ${table.groupId}`, "success");
           } else {
-            // ... (logic for single table)
             const newInitialTime = table.initialTime + additionalTime;
             const newRemainingTime = table.remainingTime + additionalTime;
-            const updatedTable = { ...table, initialTime: newInitialTime, remainingTime: newRemainingTime, updatedAt };
+            const updatedTable = {
+              ...table,
+              initialTime: newInitialTime,
+              remainingTime: newRemainingTime,
+              updatedAt,
+            };
             dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
             queueTableUpdate(updatedTable);
             await addLogEntry(tableId, "Time Added", `${minutes} minutes added`);
             showNotification(`Added ${minutes} minutes to ${table.name}`, "success");
           }
-
         } catch (error) {
           console.error("Failed to add time:", error);
           showNotification("Failed to add time", "error");
         }
       });
     },
-    [state.tables, withPermission, addLogEntry, showNotification, queueTableUpdate, debouncedUpdateTables, dispatch] // Use state
+    [tables, withPermission, addLogEntry, showNotification, queueTableUpdate, debouncedUpdateTables, dispatch]
   );
   
   const subtractTime = useCallback(
     async (tableId: number, minutes: number) => {
-      withPermission("canSubtractTime", async () => { // Assuming this permission key is correct
+      withPermission("canSubtractTime", async () => {
         try {
-          const currentTables = state.tables; // Use tables from state
-          const table = currentTables.find((t) => t.id === tableId);
-          // ... (rest of subtractTime logic)
-           if (!table) {
+          const table = tables.find((t) => t.id === tableId);
+          if (!table) {
             showNotification("Table not found", "error");
             return;
           }
+  
           const subtractedTime = minutes * 60 * 1000;
           const updatedAt = new Date().toISOString();
+
           if (table.groupId) {
-            // ... (logic for group)
             await addLogEntry(tableId, "Group Time Subtracted", `${minutes} minutes subtracted from group ${table.groupId}`);
-            const updatedGroupTables = currentTables.map((t) => {
+            const updatedGroupTables = tables.map((t) => {
               if (t.groupId === table.groupId) {
                 const newInitialTime = Math.max(0, t.initialTime - subtractedTime);
                 const currentElapsedTime = t.isActive && t.startTime ? (Date.now() - t.startTime) : (t.initialTime - t.remainingTime);
                 const newRemainingTime = newInitialTime - currentElapsedTime;
-                return { ...t, initialTime: newInitialTime, remainingTime: newRemainingTime, updatedAt };
+                return { 
+                    ...t, 
+                    initialTime: newInitialTime, 
+                    remainingTime: newRemainingTime, 
+                    updatedAt 
+                };
               }
               return t;
             });
@@ -667,11 +679,15 @@ export function BilliardsTimerDashboard() {
             debouncedUpdateTables(updatedGroupTables.filter(t => t.groupId === table.groupId));
             showNotification(`Subtracted ${minutes} minutes from ${table.groupId}`, "info");
           } else {
-            // ... (logic for single table)
             const newInitialTime = Math.max(0, table.initialTime - subtractedTime);
             const currentElapsedTime = table.isActive && table.startTime ? (Date.now() - table.startTime) : (table.initialTime - table.remainingTime);
             const newRemainingTime = newInitialTime - currentElapsedTime;
-            const updatedTable = { ...table, initialTime: newInitialTime, remainingTime: newRemainingTime, updatedAt, };
+            const updatedTable = {
+              ...table,
+              initialTime: newInitialTime,
+              remainingTime: newRemainingTime,
+              updatedAt,
+            };
             dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
             queueTableUpdate(updatedTable);
             await addLogEntry(tableId, "Time Subtracted", `${minutes} minutes subtracted`);
@@ -683,21 +699,18 @@ export function BilliardsTimerDashboard() {
         }
       });
     },
-    [state.tables, withPermission, addLogEntry, showNotification, queueTableUpdate, debouncedUpdateTables, dispatch] // Use state
+    [tables, withPermission, addLogEntry, showNotification, queueTableUpdate, debouncedUpdateTables, dispatch]
   );
 
   const updateGuestCount = useCallback(
     async (tableId: number, count: number) => {
-      withPermission("canUpdateGuests", async () => { // Assuming this permission key is correct
+      withPermission("canUpdateGuests", async () => {
         try {
-          const currentSettings = state.settings; // Use settings from state
-          if (!currentSettings.dayStarted) {
+          if (!settings.dayStarted) {
             showNotification("Please start the day before updating guest count", "error");
             return;
           }
-          const currentTables = state.tables; // Use tables from state
-          const table = currentTables.find((t) => t.id === tableId);
-          // ... (rest of updateGuestCount logic)
+          const table = tables.find((t) => t.id === tableId);
           if (!table) {
             showNotification("Table not found", "error");
             return;
@@ -709,14 +722,13 @@ export function BilliardsTimerDashboard() {
           const updatedTable = { ...table, guestCount: newCount, updatedAt: new Date().toISOString() };
           dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
           queueTableUpdate(updatedTable);
-
         } catch (error) {
           console.error("Failed to update guest count:", error);
           showNotification("Failed to update guest count", "error");
         }
       });
     },
-    [state.settings, state.tables, withPermission, addLogEntry, showNotification, queueTableUpdate, dispatch] // Use state
+    [tables, settings.dayStarted, withPermission, addLogEntry, showNotification, queueTableUpdate, dispatch]
   );
 
   const assignServer = useCallback(
@@ -725,30 +737,26 @@ export function BilliardsTimerDashboard() {
         showNotification("Please log in to assign servers.", "error");
         return;
       }
-      // Assuming permission logic is correct
       if (!isAdmin && !hasPermission("canAssignServer") && !(isServer && currentUser?.id === serverId) ) {
-        const currentTables = state.tables;
-        const currentTable = currentTables.find(t => t.id === tableId);
+        const currentTable = tables.find(t => t.id === tableId);
         if (!(isServer && currentUser?.id === serverId && (!currentTable?.server || currentTable?.server === currentUser?.id))) {
             showNotification("You do not have permission to assign this server.", "error");
             return;
         }
       }
       try {
-        const currentTables = state.tables; // Use state
-        const currentServers = state.servers; // Use state
-        const table = currentTables.find((t) => t.id === tableId);
+        const table = tables.find((t) => t.id === tableId);
         if (!table) {
           showNotification(`Error: Table ${tableId} not found`, "error");
           return;
         }
         const updatedTable = { ...table, server: serverId || null, updatedAt: new Date().toISOString() };
         dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
-        if (state.selectedTable?.id === tableId) { // Use state
+        if (selectedTable?.id === tableId) {
           dispatch({ type: "SET_STATE", payload: { selectedTable: updatedTable } });
         }
         queueTableUpdate(updatedTable);
-        const serverName = serverId ? currentServers.find((s) => s.id === serverId)?.name || "Unknown" : "Unassigned";
+        const serverName = serverId ? servers.find((s) => s.id === serverId)?.name || "Unknown" : "Unassigned";
         await addLogEntry(tableId, "Server Assigned", `Server: ${serverName}`);
         showNotification(`Assigned ${serverName} to table ${tableId}`, "success");
       } catch (error) {
@@ -756,44 +764,55 @@ export function BilliardsTimerDashboard() {
         showNotification("Failed to assign server", "error");
       }
     },
-    [state.tables, state.servers, isAuthenticated, isAdmin, isServer, currentUser, hasPermission, state.selectedTable, addLogEntry, showNotification, queueTableUpdate, dispatch] // Use state
+    [tables, servers, isAuthenticated, isAdmin, isServer, currentUser, hasPermission, selectedTable, addLogEntry, showNotification, queueTableUpdate, dispatch]
   );
 
   const groupTables = useCallback(
     async (tableIds: number[]) => {
-      withPermission("canGroupTables", async () => { // Assuming permission key
+      withPermission("canGroupTables", async () => {
         try {
           if (tableIds.length < 2) {
             showNotification("Select at least two tables to group", "error");
             return;
           }
-          const currentGroupCounter = state.groupCounter; // Use state
-          const newGroupCounter = currentGroupCounter + 1;
+          // MODIFIED: Use groupCounter from DashboardState
+          const newGroupCounter = groupCounter + 1;
           const groupName = `Group ${newGroupCounter}`;
           
-          const currentSettings = state.settings; // Use state
+          // Update Supabase settings with the new groupCounter and existing settings
           await updateSupabaseSystemSettings(
-            currentSettings.dayStarted,
-            newGroupCounter,
-            currentSettings.showTableCardAnimations,
-            currentSettings.defaultSessionTime,
-            currentSettings.warningThreshold,
-            currentSettings.criticalThreshold
+            settings.dayStarted,
+            newGroupCounter, // Use the new group counter
+            settings.showTableCardAnimations,
+            settings.defaultSessionTime,
+            settings.warningThreshold,
+            settings.criticalThreshold
+            // Add any other fields from your SystemSettings interface that updateSupabaseSystemSettings handles
           );
+          // Update local state for groupCounter
           dispatch({ type: "SET_GROUP_COUNTER", payload: newGroupCounter });
           
-          const currentTables = state.tables; // Use state
-          const tableNamesForLog = tableIds.map(id => currentTables.find(t => t.id === id)?.name || `T${id}`).join(", ");
+          const tableNamesForLog = tableIds.map(id => tables.find(t => t.id === id)?.name || `T${id}`).join(", ");
           await addLogEntry(tableIds[0], "Tables Grouped", `Group: ${groupName}, Tables: ${tableNamesForLog}`);
           
-          const activeContainedTables = currentTables.filter((t) => tableIds.includes(t.id) && t.isActive);
-          const referenceTableForTiming = activeContainedTables.length > 0 ? activeContainedTables[0] : currentTables.find(t => t.id === tableIds[0]);
+          const activeContainedTables = tables.filter((t) => tableIds.includes(t.id) && t.isActive);
+          const referenceTableForTiming = activeContainedTables.length > 0 ? activeContainedTables[0] : tables.find(t => t.id === tableIds[0]);
 
           const groupProps = referenceTableForTiming && referenceTableForTiming.isActive
-            ? { isActive: true, startTime: referenceTableForTiming.startTime, initialTime: referenceTableForTiming.initialTime, remainingTime: referenceTableForTiming.remainingTime, }
-            : { isActive: false, startTime: null, initialTime: DEFAULT_SESSION_TIME, remainingTime: DEFAULT_SESSION_TIME, };
+            ? {
+                isActive: true,
+                startTime: referenceTableForTiming.startTime,
+                initialTime: referenceTableForTiming.initialTime,
+                remainingTime: referenceTableForTiming.remainingTime,
+              }
+            : {
+                isActive: false,
+                startTime: null,
+                initialTime: DEFAULT_SESSION_TIME,
+                remainingTime: DEFAULT_SESSION_TIME,
+              };
 
-          const updatedTablesArray = currentTables.map((table) =>
+          const updatedTablesArray = tables.map((table) =>
             tableIds.includes(table.id)
               ? { ...table, groupId: groupName, ...groupProps, updatedAt: new Date().toISOString() }
               : table
@@ -807,56 +826,78 @@ export function BilliardsTimerDashboard() {
         }
       });
     },
-    [state.tables, state.groupCounter, state.settings, withPermission, addLogEntry, showNotification, updateSupabaseSystemSettings, debouncedUpdateTables, dispatch] // Use state
+    // MODIFIED: Added groupCounter and settings to dependencies
+    [tables, withPermission, groupCounter, settings, addLogEntry, showNotification, updateSupabaseSystemSettings, debouncedUpdateTables, dispatch]
   );
 
   const ungroupTable = useCallback(
     async (tableId: number) => {
-      withPermission("canUngroupTable", async () => { // Assuming permission key
+      withPermission("canUngroupTable", async () => {
         try {
-          const currentTables = state.tables; // Use state
-          const tableToUngroup = currentTables.find((t) => t.id === tableId);
-          // ... (rest of ungroupTable logic)
-           if (!tableToUngroup || !tableToUngroup.groupId) {
-            showNotification(`Table ${tableToUngroup?.name || tableId} is not part of a group.`, "error"); return;
+          const tableToUngroup = tables.find((t) => t.id === tableId);
+          if (!tableToUngroup || !tableToUngroup.groupId) {
+            showNotification(
+              `Table ${tableToUngroup?.name || tableId} is not part of a group.`,
+              "error"
+            );
+            return;
           }
+
           const groupIdentifier = tableToUngroup.groupId;
-          await addLogEntry(tableId, "Table Ungrouped", `Table ${tableToUngroup.name} removed from group ${groupIdentifier}`);
-          const updatedTable = { ...tableToUngroup, groupId: null, updatedAt: new Date().toISOString(), };
+          await addLogEntry(
+            tableId,
+            "Table Ungrouped",
+            `Table ${tableToUngroup.name} removed from group ${groupIdentifier}`
+          );
+
+          const updatedTable = {
+            ...tableToUngroup,
+            groupId: null,
+            updatedAt: new Date().toISOString(),
+          };
+
           dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
           queueTableUpdate(updatedTable);
-          showNotification(`Table ${updatedTable.name} removed from group ${groupIdentifier}.`, "info");
 
+          showNotification(
+            `Table ${updatedTable.name} removed from group ${groupIdentifier}.`,
+            "info"
+          );
         } catch (error) {
           console.error("Failed to ungroup table:", error);
           showNotification("Failed to ungroup table", "error");
         }
       });
     },
-    [state.tables, withPermission, addLogEntry, showNotification, queueTableUpdate, dispatch] // Use state
+    [tables, withPermission, addLogEntry, showNotification, queueTableUpdate, dispatch]
   );
 
   const ungroupSelectedTablesInDashboard = useCallback(
     async (tableIdsToUngroup: number[]) => {
-        withPermission("canUngroupTable", async () => { // Assuming permission key
+        withPermission("canUngroupTable", async () => {
             try {
                 if (tableIdsToUngroup.length === 0) {
-                    showNotification("No tables selected to ungroup.", "info"); return;
+                    showNotification("No tables selected to ungroup.", "info");
+                    return;
                 }
-                const currentTables = state.tables; // Use state
-                const firstTableInSelection = currentTables.find(t => t.id === tableIdsToUngroup[0]);
+
+                const firstTableInSelection = tables.find(t => t.id === tableIdsToUngroup[0]);
                 const groupIdentifier = firstTableInSelection?.groupId;
 
                 await addLogEntry(
                     tableIdsToUngroup[0],
                     "Tables Ungrouped",
-                    `Tables: ${tableIdsToUngroup.map(id => currentTables.find(t=>t.id === id)?.name || `T${id}`).join(", ")} from group ${groupIdentifier || 'Unknown'}`
+                    `Tables: ${tableIdsToUngroup.map(id => tables.find(t=>t.id === id)?.name || `T${id}`).join(", ")} from group ${groupIdentifier || 'Unknown'}`
                 );
 
                 const tablesToUpdateForSupabase: Table[] = [];
-                const updatedTablesArray = currentTables.map((table) => {
+                const updatedTablesArray = tables.map((table) => {
                     if (tableIdsToUngroup.includes(table.id)) {
-                        const ungroupedTable = { ...table, groupId: null, updatedAt: new Date().toISOString() };
+                        const ungroupedTable = {
+                            ...table,
+                            groupId: null,
+                            updatedAt: new Date().toISOString()
+                        };
                         tablesToUpdateForSupabase.push(ungroupedTable);
                         return ungroupedTable;
                     }
@@ -875,56 +916,82 @@ export function BilliardsTimerDashboard() {
             }
         });
     },
-    [state.tables, withPermission, addLogEntry, showNotification, debouncedUpdateTables, dispatch] // Use state
+    [tables, withPermission, addLogEntry, showNotification, debouncedUpdateTables, dispatch]
   );
 
 
   const moveTable = useCallback(
     async (sourceId: number, targetId: number) => {
-      withPermission("canMoveTable", async () => { // Assuming permission key
+      withPermission("canMoveTable", async () => {
         try {
-          const currentTables = state.tables; // Use state
-          const sourceTable = currentTables.find((t) => t.id === sourceId);
-          const targetTable = currentTables.find((t) => t.id === targetId);
-          // ... (rest of moveTable logic)
+          const sourceTable = tables.find((t) => t.id === sourceId);
+          const targetTable = tables.find((t) => t.id === targetId);
           if (!sourceTable || !targetTable) {
-            showNotification("Source or target table not found", "error"); return;
+            showNotification("Source or target table not found", "error");
+            return;
           }
           await addLogEntry(sourceId, "Table Moved", `From: ${sourceTable.name} to ${targetTable.name}`);
           const timestamp = new Date().toISOString();
-          const updatedTargetTable = { ...targetTable, isActive: sourceTable.isActive, startTime: sourceTable.startTime, remainingTime: sourceTable.remainingTime, initialTime: sourceTable.initialTime, guestCount: sourceTable.guestCount, server: sourceTable.server, groupId: sourceTable.groupId, hasNotes: sourceTable.hasNotes, noteId: sourceTable.noteId, noteText: sourceTable.noteText, updatedAt: timestamp, };
-          const resetSourceTable = { ...sourceTable, isActive: false, startTime: null, remainingTime: DEFAULT_SESSION_TIME, initialTime: DEFAULT_SESSION_TIME, guestCount: 0, server: null, groupId: null, hasNotes: false, noteId: "", noteText: "", updatedAt: timestamp, };
-          const newTables = currentTables.map((t) => t.id === sourceId ? resetSourceTable : t.id === targetId ? updatedTargetTable : t );
+          const updatedTargetTable = {
+            ...targetTable,
+            isActive: sourceTable.isActive,
+            startTime: sourceTable.startTime,
+            remainingTime: sourceTable.remainingTime,
+            initialTime: sourceTable.initialTime,
+            guestCount: sourceTable.guestCount,
+            server: sourceTable.server,
+            groupId: sourceTable.groupId,
+            hasNotes: sourceTable.hasNotes,
+            noteId: sourceTable.noteId,
+            noteText: sourceTable.noteText,
+            updatedAt: timestamp,
+          };
+          const resetSourceTable = {
+            ...sourceTable,
+            isActive: false, startTime: null, remainingTime: DEFAULT_SESSION_TIME,
+            initialTime: DEFAULT_SESSION_TIME, guestCount: 0, server: null,
+            groupId: null, hasNotes: false, noteId: "", noteText: "",
+            updatedAt: timestamp,
+          };
+          const newTables = tables.map((t) =>
+            t.id === sourceId ? resetSourceTable : t.id === targetId ? updatedTargetTable : t
+          );
           dispatch({ type: "SET_TABLES", payload: newTables });
           queueTableUpdate(updatedTargetTable);
           queueTableUpdate(resetSourceTable);
           showNotification(`Moved data from ${sourceTable.name} to ${targetTable.name}`, "success");
-
         } catch (error) {
           console.error("Failed to move table:", error);
           showNotification("Failed to move table", "error");
         }
       });
     },
-    [state.tables, withPermission, addLogEntry, showNotification, queueTableUpdate, dispatch] // Use state
+    [tables, withPermission, addLogEntry, showNotification, queueTableUpdate, dispatch]
   );
 
   const updateTableNotes = useCallback(
     async (tableId: number, noteId: string, noteText: string) => {
       try {
-        const currentTables = state.tables; // Use state
-        const table = currentTables.find((t) => t.id === tableId);
-        // ... (rest of updateTableNotes logic)
+        const table = tables.find((t) => t.id === tableId);
         if (!table) {
-          showNotification("Table not found", "error"); return;
+          showNotification("Table not found", "error");
+          return;
         }
+        
         const hasNotesNow = noteId.trim().length > 0 || noteText.trim().length > 0;
         if (hasNotesNow && (!table.hasNotes || table.noteId !== noteId || table.noteText !== noteText)) {
             await addLogEntry(tableId, "Notes Updated", `Note: ${noteText.substring(0,30)}${noteText.length > 30 ? "..." : ""}`);
         } else if (table.hasNotes && !hasNotesNow) {
             await addLogEntry(tableId, "Notes Removed", "Note cleared");
         }
-        const updatedTable = { ...table, noteId, noteText, hasNotes: hasNotesNow, updatedAt: new Date().toISOString(), };
+
+        const updatedTable = {
+          ...table,
+          noteId,
+          noteText,
+          hasNotes: hasNotesNow,
+          updatedAt: new Date().toISOString(),
+        };
         dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
         queueTableUpdate(updatedTable);
         if (hasNotesNow) showNotification("Note updated", "info");
@@ -935,17 +1002,16 @@ export function BilliardsTimerDashboard() {
         showNotification("Failed to update notes", "error");
       }
     },
-    [state.tables, addLogEntry, showNotification, queueTableUpdate, dispatch] // Use state
+    [tables, addLogEntry, showNotification, queueTableUpdate, dispatch]
   );
 
   const getServerName = useCallback(
     (serverId: string | null) => {
       if (!serverId) return "Unassigned";
-      const currentServers = state.servers; // Use state
-      const server = currentServers.find((s) => s.id === serverId);
+      const server = servers.find((s) => s.id === serverId);
       return server ? server.name : "Unknown";
     },
-    [state.servers] // Use state
+    [servers]
   );
 
   const startDay = useCallback(() => {
@@ -974,17 +1040,16 @@ export function BilliardsTimerDashboard() {
 
   const completeStartDay = useCallback(async () => {
     try {
-      const currentSettings = state.settings; // Use state
-      const currentGroupCounter = state.groupCounter; // Use state
       const resetTables = initialTables.map((table) => ({ ...table, updatedAt: new Date().toISOString() }));
-      await updateSupabaseTables(resetTables as any[]); // Cast if needed
+      await updateSupabaseTables(resetTables);
+      // Update Supabase settings with the new dayStarted status and existing animation setting
       await updateSupabaseSystemSettings(
-        true, 
-        currentGroupCounter, 
-        currentSettings.showTableCardAnimations,
-        currentSettings.defaultSessionTime,
-        currentSettings.warningThreshold,
-        currentSettings.criticalThreshold
+        true, // dayStarted
+        groupCounter, // Use current groupCounter from state
+        settings.showTableCardAnimations, // Persist current animation setting
+        settings.defaultSessionTime,
+        settings.warningThreshold,
+        settings.criticalThreshold
       );
       dispatch({ type: "SET_TABLES", payload: resetTables });
       resetTables.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any));
@@ -997,39 +1062,38 @@ export function BilliardsTimerDashboard() {
       showNotification("Failed to start day", "error");
       dispatch({ type: "SET_STATE", payload: { isStartingDay: false } });
     }
-  }, [state.settings, state.groupCounter, addLogEntry, showNotification, updateSupabaseTables, updateSupabaseSystemSettings, dispatch]); // Use state
+  }, [settings, groupCounter, addLogEntry, showNotification, updateSupabaseTables, updateSupabaseSystemSettings, dispatch]);
 
   const completeEndDay = useCallback(async () => {
     try {
-      const currentTables = state.tables; // Use state
-      const currentSettings = state.settings; // Use state
-      const activeTables = currentTables.filter((t) => t.isActive);
+      const activeTables = tables.filter((t) => t.isActive);
       if (activeTables.length > 0) {
         for (const table of activeTables) {
           await addLogEntry(table.id, "Session Force Ended", `Table ${table.name} was active at day end`);
         }
       }
       const resetTables = initialTables.map((table) => ({ ...table, updatedAt: new Date().toISOString() }));
-      await updateSupabaseTables(resetTables as any[]); // Cast
+      await updateSupabaseTables(resetTables);
+      // Update Supabase settings with the new dayStarted status and existing animation setting
       await updateSupabaseSystemSettings(
-        false, 
-        1,     
-        currentSettings.showTableCardAnimations, 
-        currentSettings.defaultSessionTime,
-        currentSettings.warningThreshold,
-        currentSettings.criticalThreshold
+        false, // dayStarted
+        1,     // Reset groupCounter
+        settings.showTableCardAnimations, // Persist current animation setting
+        settings.defaultSessionTime,
+        settings.warningThreshold,
+        settings.criticalThreshold
       );
       dispatch({ type: "SET_TABLES", payload: resetTables });
       resetTables.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any));
       await addLogEntry(0, "Day Ended", `Ended at ${formatCurrentTime(new Date())}`);
       showNotification("Day ended successfully", "info");
       dispatch({ type: "UPDATE_SETTINGS", payload: { dayStarted: false, dayStartTime: null } });
-      dispatch({ type: "SET_GROUP_COUNTER", payload: 1 });
+      dispatch({ type: "SET_GROUP_COUNTER", payload: 1 }); // Reset local group counter
     } catch (error) {
       console.error("Failed to end day:", error);
       showNotification("Failed to end day", "error");
     }
-  }, [state.tables, state.settings, addLogEntry, showNotification, updateSupabaseTables, updateSupabaseSystemSettings, dispatch]); // Use state
+  }, [tables, settings, addLogEntry, showNotification, updateSupabaseTables, updateSupabaseSystemSettings, dispatch]);
   
   const handleLogout = useCallback(() => {
     logout();
@@ -1042,14 +1106,13 @@ export function BilliardsTimerDashboard() {
   }, []);
 
   const handleAddSession = useCallback(() => {
-    const currentTables = state.tables; // Use state
-    const availableTable = currentTables.find((t) => !t.isActive);
+    const availableTable = tables.find((t) => !t.isActive);
     if (availableTable) {
       dispatch({ type: "SET_STATE", payload: { selectedTable: availableTable } });
     } else {
       showNotification("No available tables found", "error");
     }
-  }, [state.tables, showNotification]); // Use state
+  }, [tables, showNotification]);
 
   const handleRefreshData = useCallback(async () => {
     try {
@@ -1075,30 +1138,28 @@ export function BilliardsTimerDashboard() {
   }, [showNotification]);
 
   const applyHighContrastMode = useCallback((enabled: boolean) => {
-    dispatch({ type: "SET_STATE", payload: { highContrastMode: enabled }}); // Update local UI state
-    dispatch({ type: "UPDATE_SETTINGS", payload: { highContrastMode: enabled } }); // Update settings state
+    dispatch({ type: "UPDATE_SETTINGS", payload: { highContrastMode: enabled } });
     document.documentElement.classList.toggle("high-contrast-mode", enabled);
   }, []);
 
   const applyLargeTextMode = useCallback((enabled: boolean) => {
-    dispatch({ type: "SET_STATE", payload: { largeTextMode: enabled }}); // Update local UI state
-    dispatch({ type: "UPDATE_SETTINGS", payload: { largeTextMode: enabled } }); // Update settings state
+    dispatch({ type: "UPDATE_SETTINGS", payload: { largeTextMode: enabled } });
     document.documentElement.classList.toggle("large-text-mode", enabled);
   }, []);
   
+  // MODIFIED: Renamed and updated logic for table card animations
   const applyShowTableCardAnimations = useCallback(
     async (enabled: boolean) => {
-      const currentSettings = state.settings; // Use settings from state
-      const currentGroupCounter = state.groupCounter; // Use groupCounter from state
       dispatch({ type: "UPDATE_SETTINGS", payload: { showTableCardAnimations: enabled } });
       try {
         await updateSupabaseSystemSettings(
-          currentSettings.dayStarted,
-          currentGroupCounter,
+          settings.dayStarted,
+          groupCounter, // Use groupCounter from state
           enabled,
-          currentSettings.defaultSessionTime,
-          currentSettings.warningThreshold,
-          currentSettings.criticalThreshold
+          settings.defaultSessionTime,
+          settings.warningThreshold,
+          settings.criticalThreshold
+          // Add other system settings as needed
         );
         showNotification(`Table card animations ${enabled ? "enabled" : "disabled"}.`, "info");
       } catch (error) {
@@ -1107,12 +1168,13 @@ export function BilliardsTimerDashboard() {
         dispatch({ type: "UPDATE_SETTINGS", payload: { showTableCardAnimations: !enabled } });
       }
     },
-    [state.settings, state.groupCounter, updateSupabaseSystemSettings, showNotification, dispatch] // Use state
+    [settings, groupCounter, updateSupabaseSystemSettings, showNotification]
   );
 
   const applySoundEffects = useCallback((enabled: boolean) => {
-    dispatch({ type: "SET_STATE", payload: { soundEffectsEnabled: enabled } }); // Update local UI state
-    dispatch({ type: "UPDATE_SETTINGS", payload: { soundEnabled: enabled } }); // Update settings state
+    dispatch({ type: "UPDATE_SETTINGS", payload: { soundEnabled: enabled } });
+    // NEW: Update the local soundEffectsEnabled state for immediate UI feedback if needed
+    dispatch({ type: "SET_STATE", payload: { soundEffectsEnabled: enabled } });
   }, []);
 
   const handleLogin = useCallback(() => {
@@ -1123,19 +1185,23 @@ export function BilliardsTimerDashboard() {
     dispatch({ type: "SET_STATE", payload: { showFunctionsDashboard: true } });
   }, []);
 
+  const memoizedTables = tables;
+  const memoizedServers = servers;
+  const memoizedLogs = logs;
+  const memoizedNoteTemplates = stateNoteTemplates;
+
+
   const onDialogCloseForDayReport = useCallback(() => {
-    const currentSettings = state.settings; // Use state
     dispatch({ type: "SET_STATE", payload: { showDayReportDialog: false } });
-    if (state.isStartingDay && !currentSettings.dayStarted) { // Use state
+    if (isStartingDay && !settings.dayStarted) {
       completeStartDay();
-    } else if (!state.isStartingDay && currentSettings.dayStarted) { // Use state
+    } else if (!isStartingDay && settings.dayStarted) {
       completeEndDay();
     }
     dispatch({ type: "SET_STATE", payload: { isStartingDay: false } });
-  }, [state.isStartingDay, state.settings.dayStarted, completeStartDay, completeEndDay, dispatch]); // Use state
+  }, [isStartingDay, settings.dayStarted, completeStartDay, completeEndDay]);
 
-  // *** MODIFICATION: Render loading or error state before hasMounted check ***
-  if (supabaseLoading && tables.length === 0 && (!initialTables || initialTables.length === 0)) { 
+  if (supabaseLoading && tables.length === 0 && !initialTables.length) { 
       return (
           <div className="fixed inset-0 flex items-center justify-center bg-gray-900 z-50">
               <div className="text-white text-xl animate-pulse">Loading Billiard Universe...</div>
@@ -1143,7 +1209,7 @@ export function BilliardsTimerDashboard() {
       );
   }
 
-  if (supabaseError && tables.length === 0) { 
+  if (supabaseError && !tables.length) { 
       return (
           <div className="fixed inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 text-white p-4">
               <h2 className="text-2xl text-red-500 mb-4">Connection Error</h2>
@@ -1153,27 +1219,14 @@ export function BilliardsTimerDashboard() {
           </div>
       );
   }
-  
-  // *** MODIFICATION: Return basic loader or null until hasMounted and isMobile are determined ***
-  if (!hasMounted || isMobile === undefined) {
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-background z-[9999]">
-        <div className="text-foreground text-xl animate-pulse">Initializing Interface...</div>
-      </div>
-    ); // Or a more sophisticated skeleton/loader
-  }
 
-  // UI derived states based on DashboardState
-  const currentHighContrastMode = state.settings.highContrastMode;
-  const currentLargeTextMode = state.settings.largeTextMode;
-  const currentSoundEffectsEnabled = state.settings.soundEnabled;
 
   return (
     <TooltipProvider>
       <div
         className={`container mx-auto p-2 min-h-screen max-h-screen flex flex-col space-theme font-mono cursor-spaceship overflow-hidden ${
-          currentHighContrastMode ? "high-contrast-text" : ""
-        } ${currentLargeTextMode ? "large-text" : ""}`}
+          settings.highContrastMode ? "high-contrast-text" : "" // MODIFIED: Use settings.highContrastMode
+        } ${settings.largeTextMode ? "large-text" : ""}`} // MODIFIED: Use settings.largeTextMode
         style={{ height: "100vh", display: "flex", flexDirection: "column" }}
       >
         <IOSTouchFix />
@@ -1190,7 +1243,7 @@ export function BilliardsTimerDashboard() {
             {notification.message}
           </div>
         )}
-        {!hideSystemElements && ( // Use hideSystemElements from state
+        {!isMobile && (
           <Header
             ref={headerRef}
             currentTime={currentTime}
@@ -1206,9 +1259,9 @@ export function BilliardsTimerDashboard() {
             onSync={handleRefreshData}
             onToggleFullScreen={toggleFullScreen}
             onShowFunctions={handleShowFunctions}
-            tables={tables} // Use tables from state
-            logs={logs}     // Use logs from state
-            servers={servers} // Use servers from state
+            tables={memoizedTables}
+            logs={memoizedLogs}
+            servers={memoizedServers}
             animationComplete={animationComplete}
             viewOnlyMode={viewOnlyMode}
             onExitViewOnly={exitViewOnlyMode}
@@ -1217,21 +1270,20 @@ export function BilliardsTimerDashboard() {
           />
         )}
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className={hideSystemElements ? "overflow-y-auto flex-1 pb-16" : "overflow-hidden h-full"}>
+          <div className={isMobile ? "overflow-y-auto flex-1 pb-16" : "overflow-hidden h-full"}>
             <OrientationAwareContainer>
-              {hideSystemElements ? ( // Use hideSystemElements from state
+              {isMobile && (
                 <div className="flex flex-col h-screen">
                   <MobileHeader currentTime={currentTime} /> 
                   <main className="flex-1 overflow-hidden">
                     {activeTab === "tables" && (
                       <div className="h-full overflow-y-auto pb-16">
                         <EnhancedMobileTableList
-                          tables={tables} // Use tables from state
-                          servers={servers} // Use servers from state
-                          logs={logs}     // Use logs from state
+                          tables={memoizedTables}
+                          servers={memoizedServers}
+                          logs={memoizedLogs}
                           onTableClick={(tableId) => { 
-                            const currentTables = state.tables; // Use state
-                            const tableToOpen = currentTables.find(t => t.id === tableId);
+                            const tableToOpen = tables.find(t => t.id === tableId);
                             if (tableToOpen) openTableDialog(tableToOpen);
                           }}
                           onAddTime={addTime} 
@@ -1239,13 +1291,14 @@ export function BilliardsTimerDashboard() {
                           canAddTime={hasPermission("canAddTime")} 
                           canEndSession={hasPermission("canEndSession")} 
                           onRefresh={handleRefreshData}
+                           // NEW: Pass animation setting
                           showAnimations={settings.showTableCardAnimations}
                         />
                       </div>
                     )}
                     {activeTab === "logs" && (
                       <div className="h-full overflow-y-auto pb-16 p-2">
-                        <TableSessionLogs logs={logs} />{/* Use logs from state */}
+                        <TableSessionLogs logs={memoizedLogs} />
                       </div>
                     )}
                      {activeTab === "functions" && (
@@ -1268,13 +1321,15 @@ export function BilliardsTimerDashboard() {
                     isAuthenticated={isAuthenticated} 
                   />
                 </div>
-              ) : (
+              )}
+              {!isMobile && (
                 <TableGrid
-                  tables={tables} // Use tables from state
-                  servers={servers} // Use servers from state
-                  logs={logs}     // Use logs from state
+                  tables={memoizedTables}
+                  servers={memoizedServers}
+                  logs={memoizedLogs}
                   onTableClick={openTableDialog}
-                  // showAnimations={settings.showTableCardAnimations} // Already passed to EnhancedMobileTableList
+                  // NEW: Pass the animation setting
+                  showAnimations={settings.showTableCardAnimations}
                 />
               )}
             </OrientationAwareContainer>
@@ -1284,10 +1339,10 @@ export function BilliardsTimerDashboard() {
         {selectedTable && (
           <TableDialog
             table={selectedTable}
-            servers={servers} // Use servers from state
-            allTables={tables} // Use tables from state
-            noteTemplates={stateNoteTemplates} // Use noteTemplates from state
-            logs={logs} // Use logs from state
+            servers={memoizedServers}
+            allTables={memoizedTables}
+            noteTemplates={memoizedNoteTemplates}
+            logs={memoizedLogs}
             onClose={closeTableDialog}
             onStartSession={handleStartSessionForDialog} 
             onEndSession={confirmEndSession}
@@ -1333,18 +1388,18 @@ export function BilliardsTimerDashboard() {
         <DayReportDialog
           open={showDayReportDialog}
           onClose={onDialogCloseForDayReport}
-          tables={tables} // Use tables from state
-          logs={logs}     // Use logs from state
-          servers={servers} // Use servers from state
+          tables={memoizedTables}
+          logs={memoizedLogs}
+          servers={memoizedServers}
           isStarting={isStartingDay}
           dayStartTime={settings.dayStartTime}
         />
         <SettingsDialog
           open={showSettingsDialog}
           onClose={() => dispatch({ type: "SET_STATE", payload: { showSettingsDialog: false } })}
-          servers={servers} // Use servers from state
+          servers={memoizedServers}
           onUpdateServers={updateSupabaseServers}
-          noteTemplates={stateNoteTemplates} // Use noteTemplates from state
+          noteTemplates={memoizedNoteTemplates}
           onUpdateNoteTemplates={updateSupabaseNoteTemplates}
           onShowUserManagement={() => {
             dispatch({ type: "SET_STATE", payload: { showSettingsDialog: false, showUserManagementDialog: true } });
@@ -1354,44 +1409,48 @@ export function BilliardsTimerDashboard() {
           }}
           onLogout={handleLogout}
           showAdminControls={isAuthenticated && settings.dayStarted}
-          currentSettings={settings}
+          currentSettings={settings} // Pass the whole settings object
+          // MODIFIED: onUpdateSettings now handles partial updates and persists them
           onUpdateSettings={ async (updatedSettingsPayload) => {
-            const currentSettings = state.settings; // Use settings from state
-            const currentGroupCounter = state.groupCounter; // Use groupCounter from state
-            const newSettings = { ...currentSettings, ...updatedSettingsPayload };
+            const newSettings = { ...settings, ...updatedSettingsPayload };
             dispatch({ type: "UPDATE_SETTINGS", payload: updatedSettingsPayload });
+            // Persist all relevant settings to Supabase
+            // Ensure updateSupabaseSystemSettings can handle all these fields or adapt it
             try {
               await updateSupabaseSystemSettings(
                 newSettings.dayStarted,
-                currentGroupCounter,
+                groupCounter, // Use groupCounter from dashboard state
                 newSettings.showTableCardAnimations,
                 newSettings.defaultSessionTime,
                 newSettings.warningThreshold,
                 newSettings.criticalThreshold
+                // Pass other relevant newSettings fields if your Supabase function handles them
               );
+              // The showNotification call is now within specific handlers like applyShowTableCardAnimations
             } catch (error) {
               console.error("Failed to update system settings in Supabase:", error);
               showNotification("Failed to save settings to server.", "error");
-              dispatch({ type: "UPDATE_SETTINGS", payload: currentSettings }); // Revert
+              // Optionally revert local state if Supabase update fails by re-dispatching old settings
+              dispatch({ type: "UPDATE_SETTINGS", payload: settings });
             }
           }}
           onApplyHighContrast={applyHighContrastMode}
           onApplyLargeText={applyLargeTextMode}
           onApplySoundEffects={applySoundEffects}
-          onApplyShowTableCardAnimations={applyShowTableCardAnimations}
-          highContrastMode={state.settings.highContrastMode || false} // Use settings from state
-          largeTextMode={state.settings.largeTextMode || false}     // Use settings from state
-          soundEffectsEnabled={state.settings.soundEnabled} // Use settings from state
+          onApplyShowTableCardAnimations={applyShowTableCardAnimations} // Pass the specific handler
+          highContrastMode={settings.highContrastMode || false} // Use settings from state
+          largeTextMode={settings.largeTextMode || false}     // Use settings from state
+          soundEffectsEnabled={settings.soundEnabled} // Use settings from state
         />
         <TableLogsDialog
           open={showLogsDialog}
           onClose={() => dispatch({ type: "SET_STATE", payload: { showLogsDialog: false } })}
-          logs={logs} // Use logs from state
+          logs={memoizedLogs}
         />
         <LoginDialog
           open={showLoginDialog}
           onClose={() => dispatch({ type: "SET_STATE", payload: { showLoginDialog: false, loginAttemptFailed: false } })}
-          // loginAttemptFailed={loginAttemptFailed} // This prop might not be needed if LoginDialog handles its own error display
+          loginAttemptFailed={loginAttemptFailed}
           onLoginSuccess={() => { 
             dispatch({ type: "SET_STATE", payload: { showLoginDialog: false, loginAttemptFailed: false, viewOnlyMode: false } });
             showNotification("Login successful!", "success");
@@ -1402,6 +1461,7 @@ export function BilliardsTimerDashboard() {
           open={showUserManagementDialog}
           onClose={() => dispatch({ type: "SET_STATE", payload: { showUserManagementDialog: false } })}
         />
+        {/* MODIFIED: Use settings.showTableCardAnimations */}
         {settings.showTableCardAnimations && typeof window !== 'undefined' && !window.matchMedia("(prefers-reduced-motion: reduce)").matches && (
             <>
                 {showBigBangAnimation && <BigBangAnimation onComplete={completeBigBangAnimation} />}
@@ -1416,8 +1476,8 @@ export function BilliardsTimerDashboard() {
             showNotification(`Logged in as ${user.name || 'user'}!`, "success");
           }}
         />
-        {isAuthenticated && settings.dayStarted && !hideSystemElements && ( // Use hideSystemElements from state
-          <PullUpInsightsPanel tables={tables} logs={logs} servers={servers} /> // Use state values
+        {isAuthenticated && settings.dayStarted && !isMobile && (
+          <PullUpInsightsPanel tables={memoizedTables} logs={memoizedLogs} servers={memoizedServers} />
         )}
         <FunctionsDashboard
           open={showFunctionsDashboard}
