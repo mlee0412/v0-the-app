@@ -1,6 +1,9 @@
-/* Add CSS for improved focus states and animations /* Enhanced focus states for better accessibility */ :focus-visible {
-  outline: 2px solid #00ffff !important;
-  outline-offset: 2px !important;
+/* File: billiards-timer (31)/app/mobile.css */
+/* Add CSS for improved focus states and animations */
+/* Enhanced focus states for better accessibility */
+:focus-visible {
+  outline: 2px solid #00ffff; /* !important removed */
+  outline-offset: 2px;
 }
 
 /* Improved mobile bottom navigation */
@@ -30,7 +33,7 @@
   color: rgba(255, 255, 255, 0.6);
   transition: all 0.2s ease;
   position: relative;
-  width: 20%;
+  width: 20%; /* Distributes items evenly if there are 5 items */
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -54,18 +57,18 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 32px;
+  width: 32px; /* Or scale based on icon size */
   height: 32px;
   background: rgba(0, 255, 255, 0.15);
   border-radius: 50%;
-  z-index: -1;
+  z-index: -1; /* Behind the icon */
   animation: pulseGlow 2s infinite;
 }
 
 .mobile-bottom-nav-item.active::after {
   content: "";
   position: absolute;
-  bottom: -8px;
+  bottom: -8px; /* Adjust if padding of nav changes */
   left: 30%;
   width: 40%;
   height: 3px;
@@ -90,14 +93,14 @@
   margin-top: 2px;
 }
 
-/* Improved bottom navigation */
+/* Improved bottom navigation (alternative styling, if .mobile-bottom-nav-improved is used) */
 .mobile-bottom-nav-improved {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   display: flex;
-  justify-content: space-between;
+  justify-content: space-between; /* or space-around */
   background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(0, 0, 0, 0.85));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -107,12 +110,12 @@
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.7);
 }
 
-.nav-button {
+.nav-button { /* Class for items within .mobile-bottom-nav-improved */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  flex: 1; /* Distribute space evenly */
   margin: 0 4px;
   padding: 6px 0;
   color: rgba(255, 255, 255, 0.6);
@@ -124,7 +127,7 @@
 
 .nav-button.active {
   color: #00ffff;
-  background-color: rgba(0, 255, 255, 0.08);
+  background-color: rgba(0, 255, 255, 0.08); /* Subtle background for active tab */
 }
 
 .nav-icon-wrapper {
@@ -167,18 +170,18 @@
 /* Improved mobile FAB */
 .mobile-fab {
   position: fixed;
-  bottom: 76px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px) / 2); /* Adjusted for safe area */
   right: 20px;
   width: 56px;
   height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, #00ffff, #0088ff);
-  color: #000;
+  color: #000; /* Text color for FAB icon */
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 15px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
-  z-index: 51;
+  z-index: 51; /* Above bottom nav */
   border: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -193,6 +196,7 @@
   background: transparent;
   border: 2px solid rgba(0, 255, 255, 0.7);
   animation: pulseFab 2s infinite;
+  z-index: -1; /* Ensure it's behind the FAB icon */
 }
 
 .mobile-fab:active {
@@ -200,10 +204,10 @@
   box-shadow: 0 2px 8px rgba(0, 255, 255, 0.3);
 }
 
-/* Fixed FAB button */
+/* Fixed FAB button (ensure this is distinct from .mobile-fab if used separately) */
 .fab-button {
   position: fixed;
-  bottom: 80px;
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px) / 2); /* Adjusted for safe area */
   right: 20px;
   width: 56px;
   height: 56px;
@@ -214,7 +218,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 15px rgba(0, 255, 255, 0.5), 0 0 20px rgba(0, 255, 255, 0.3);
-  z-index: 999;
+  z-index: 999; /* Ensure high z-index */
   border: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-tap-highlight-color: transparent;
@@ -230,7 +234,7 @@
 
 .cosmic-glow {
   position: relative;
-  overflow: visible;
+  overflow: visible; /* Allow glow to extend */
 }
 
 .cosmic-glow::after {
@@ -240,9 +244,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: 50%;
+  border-radius: 50%; /* Or match parent's border-radius */
   box-shadow: 0 0 15px 2px rgba(0, 255, 255, 0.7);
-  z-index: -1;
+  z-index: -1; /* Behind the element */
 }
 
 .shadow-glow-cyan {
@@ -258,22 +262,22 @@
 }
 
 /* Enhanced Table List */
-.cosmic-panel {
+.cosmic-panel { /* Generic panel styling */
   border: 1px solid rgba(0, 255, 255, 0.15);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 255, 255, 0.05);
 }
 
-.cosmic-text {
+.cosmic-text { /* Generic text glow */
   text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
 }
 
-.table-card-container {
+.table-card-container { /* Used for animating table cards in */
   animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: transform, opacity;
+  will-change: transform, opacity; /* Performance hint */
 }
 
 /* Animations */
-@keyframes pulseGlow {
+@keyframes pulseGlow { /* For active nav item highlight */
   0% {
     opacity: 0.7;
     transform: translate(-50%, -50%) scale(0.8);
@@ -288,7 +292,7 @@
   }
 }
 
-@keyframes pulseFab {
+@keyframes pulseFab { /* For FAB pulse ring */
   0% {
     transform: scale(1);
     opacity: 0.7;
@@ -303,7 +307,7 @@
   }
 }
 
-@keyframes fadeInUp {
+@keyframes fadeInUp { /* For FAB appearing */
   from {
     opacity: 0;
     transform: translateY(20px);
@@ -314,7 +318,7 @@
   }
 }
 
-@keyframes fadeIn {
+@keyframes fadeIn { /* Generic fade in */
   from {
     opacity: 0;
   }
@@ -323,7 +327,7 @@
   }
 }
 
-@keyframes slideInUp {
+@keyframes slideInUp { /* For table cards appearing */
   from {
     transform: translateY(20px);
     opacity: 0;
@@ -334,8 +338,8 @@
   }
 }
 
-/* Ensure proper spacing for notch devices */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
+/* Ensure proper spacing for notch devices (Duplicate from mobile-fixes, ensure one source of truth) */
+/* @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .mobile-bottom-nav {
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
@@ -343,10 +347,10 @@
   .mobile-fab {
     bottom: calc(76px + env(safe-area-inset-bottom) / 2);
   }
-}
+} */
 
-/* Ensure proper spacing for notch devices */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
+/* This handles .mobile-bottom-nav-improved if used */
+/* @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .mobile-bottom-nav-improved {
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
   }
@@ -354,4 +358,4 @@
   .fab-button {
     bottom: calc(80px + env(safe-area-inset-bottom) / 2);
   }
-}
+} */

@@ -1,17 +1,18 @@
+/* File: billiards-timer (31)/app/mobile-optimizations.css */
 /* Mobile Optimizations CSS */
 
-/* Larger touch targets */
+/* Larger touch targets for specific classes if needed, Radix/shadcn generally handles this for its components */
 .mobile-touch-target {
   min-height: 44px;
   min-width: 44px;
 }
 
-/* Increased spacing between interactive elements */
+/* Increased spacing between interactive elements (apply this class to parent containers) */
 .mobile-spacing > * {
-  margin: 8px 0;
+  margin: 8px 0; /* Or use Tailwind gap utilities */
 }
 
-/* Touch feedback animations */
+/* Touch feedback animations for elements with this class */
 .touch-feedback {
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
@@ -21,7 +22,7 @@
   opacity: 0.8;
 }
 
-/* Pull to refresh indicator */
+/* Pull to refresh indicator styling */
 .pull-refresh-indicator {
   height: 50px;
   display: flex;
@@ -31,6 +32,11 @@
   font-size: 12px;
   opacity: 0;
   transition: opacity 0.3s ease;
+  position: absolute; /* Should be relative to its scroll container */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10; /* Ensure it's above content but below fixed headers */
 }
 
 .pull-refresh-indicator.visible {
@@ -42,13 +48,15 @@
   margin-right: 8px;
 }
 
-/* Bottom navigation bar */
+/* Bottom navigation bar - Note: this seems to be a duplicate of styles in mobile.css and bottom-nav.css. Consider consolidating. */
+/* For this fix, I am commenting out this potentially redundant section. If you rely on these specific styles, uncomment and ensure they don't conflict. */
+/*
 .mobile-bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: 60px; 
   background: rgba(0, 0, 30, 0.8);
   backdrop-filter: blur(10px);
   display: flex;
@@ -80,7 +88,7 @@
 }
 
 .mobile-bottom-nav-icon {
-  font-size: 20px;
+  font-size: 20px; 
   margin-bottom: 4px;
 }
 
@@ -88,11 +96,14 @@
   font-size: 10px;
   text-transform: uppercase;
 }
+*/
 
-/* Floating action button */
+/* Floating action button - Note: Similar FAB styles exist in mobile.css. Consolidate if possible. */
+/* Commenting out for now to avoid conflicts, assuming mobile.css has the primary FAB styles */
+/*
 .mobile-fab {
   position: fixed;
-  bottom: 70px;
+  bottom: 70px; 
   right: 20px;
   width: 56px;
   height: 56px;
@@ -103,7 +114,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(0, 255, 255, 0.5);
-  z-index: 51;
+  z-index: 51; 
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -111,19 +122,20 @@
   transform: scale(0.95) translateY(2px);
   box-shadow: 0 2px 8px rgba(0, 255, 255, 0.4);
 }
+*/
 
-/* Card swipe actions */
+/* Card swipe actions styling - these seem fine */
 .swipe-action-container {
   position: relative;
-  overflow: hidden;
-  touch-action: pan-y;
+  overflow: hidden; /* Important for containing swipe actions */
+  touch-action: pan-y; /* Allow vertical scroll on parent, handle horizontal swipe here */
 }
 
 .swipe-action-content {
   transition: transform 0.3s ease;
-  position: relative;
+  position: relative; /* Needed for z-index stacking */
   z-index: 1;
-  touch-action: pan-y;
+  touch-action: pan-y; /* Allow vertical scroll on card content itself if it overflows */
 }
 
 .swipe-action-left,
@@ -131,12 +143,12 @@
   position: absolute;
   top: 0;
   height: 100%;
-  width: 80px;
+  width: 80px; /* Width of the action area */
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  z-index: 0;
+  z-index: 0; /* Behind the content */
 }
 
 .swipe-action-left {
@@ -149,7 +161,7 @@
   background: linear-gradient(90deg, #00cc00, #00ff33);
 }
 
-/* Skeleton screens */
+/* Skeleton screens styling - seems fine */
 .skeleton-loader {
   background: linear-gradient(90deg, rgba(0, 30, 60, 0.8), rgba(0, 40, 80, 0.8), rgba(0, 30, 60, 0.8));
   background-size: 200% 100%;
@@ -166,7 +178,7 @@
   }
 }
 
-/* Offline indicator */
+/* Offline indicator - seems fine */
 .offline-indicator {
   position: fixed;
   top: 0;
@@ -186,7 +198,7 @@
   transform: translateY(0);
 }
 
-/* Collapsible sections */
+/* Collapsible sections styling - seems fine */
 .collapsible-section {
   overflow: hidden;
   transition: max-height 0.3s ease;
@@ -204,11 +216,11 @@
   padding: 0 10px;
 }
 
-/* Landscape optimizations */
+/* Landscape optimizations - seems fine */
 @media (orientation: landscape) {
-  .mobile-bottom-nav {
-    height: 50px;
-  }
+  /* .mobile-bottom-nav {
+    height: 50px; 
+  } */ /* Commented out as bottom nav height is handled by its content + padding */
 
   .landscape-grid {
     display: grid;
@@ -217,7 +229,7 @@
   }
 }
 
-/* Accessibility improvements */
+/* Accessibility improvements - these are good general classes */
 .high-contrast-text {
   text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
 }
@@ -226,12 +238,12 @@
   font-size: 120%;
 }
 
-/* Vibration feedback utility class */
+/* Vibration feedback utility class (marker class) */
 .vibrate-on-click {
   /* No visual style - just a marker class for JS */
 }
 
-/* Swipe indicator */
+/* Swipe indicator styling - seems fine */
 .swipe-indicator {
   position: absolute;
   top: 50%;
@@ -259,27 +271,27 @@
   opacity: 1;
 }
 
-/* Hide system elements on mobile */
+/* Hide system elements on mobile - seems fine */
 @media (max-width: 768px) {
   .hide-on-mobile {
     display: none !important;
   }
 
   /* Ensure dialogs are properly positioned and accessible */
-  .dialog-container {
+  .dialog-container { /* This class seems to be a custom wrapper for dialogs */
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 100;
+    z-index: 100; /* Ensure dialogs are above other content */
     display: flex;
     align-items: center;
     justify-content: center;
     touch-action: none; /* Prevent scrolling behind dialog */
   }
 
-  /* Improve touch targets for all interactive elements */
+  /* Improve touch targets for all interactive elements - good general rule for custom elements */
   button,
   [role="button"],
   a,
@@ -288,11 +300,11 @@
   .interactive {
     min-height: 44px;
     min-width: 44px;
-    padding: 8px;
-    touch-action: manipulation; /* Improve touch handling */
+    padding: 8px; /* Ensure padding contributes to tappable area */
+    touch-action: manipulation; /* Improve touch handling, prevents double-tap zoom */
   }
 
-  /* Fix iOS-specific touch issues */
+  /* Fix iOS-specific touch issues - good general class */
   .ios-touch-fix {
     cursor: pointer;
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
@@ -300,159 +312,167 @@
   }
 
   /* Settings dialog improvements */
-  .dialog-content {
-    max-height: 80vh !important;
-    padding: 12px !important;
+  .dialog-content { /* Generic dialog content class */
+    max-height: 85vh; /* Removed !important, slightly more generous */
+    padding: 12px; /* Reduced padding for smaller screens */
+    overflow-y: auto; /* Ensure dialog itself scrolls if content overflows */
+    -webkit-overflow-scrolling: touch; /* Momentum scrolling for dialog */
   }
 
-  /* Ensure tabs don't overflow */
-  .tabs-list {
+  /* Ensure tabs don't overflow, allow wrapping */
+  .tabs-list { /* shadcn/ui class for TabsList */
     flex-wrap: wrap;
   }
 
-  /* Ensure content doesn't overflow */
-  .dialog-content .overflow-y-auto {
-    max-height: 50vh !important;
-  }
-
-  /* Fix for settings dialog on small screens */
-  .dialog-content .grid-cols-2 {
-    grid-template-columns: 1fr !important;
-  }
-
-  /* Improve spacing in mobile dialogs */
-  .dialog-content .space-y-4 {
-    margin-top: 0.5rem;
-  }
-
-  /* Make scrollable areas more accessible */
-  .dialog-content .overflow-y-auto {
+  /* Ensure content doesn't overflow inside dialogs with specific scroll areas */
+  .dialog-content .overflow-y-auto { /* For nested scroll areas if any */
+    max-height: 60vh; /* Removed !important, adjust based on actual content */
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Fix for dialog buttons on small screens */
+  /* Fix for settings dialog on small screens (if using grid) */
+  .dialog-content .grid-cols-2 { /* Example, if settings dialog uses 2-col grid */
+    grid-template-columns: 1fr !important; /* Force single column */
+  }
+
+  /* Improve spacing in mobile dialogs */
+  .dialog-content .space-y-4 { /* Tailwind class for vertical spacing */
+    margin-top: 0.5rem;
+  }
+
+
+  /* Fix for dialog buttons on small screens (if using a specific class for footer buttons) */
   .dialog-footer-buttons {
     flex-direction: column;
     gap: 0.5rem;
   }
 
-  /* Improve bottom nav display */
-  .mobile-bottom-nav {
+  /* Improve bottom nav display if it scrolls horizontally */
+  /* This is now handled by flex: 1 on items and overflow-x: auto on the nav itself in mobile-fixes.css or mobile.css */
+  /* .mobile-bottom-nav {
     overflow-x: auto;
     justify-content: flex-start;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none; 
   }
 
   .mobile-bottom-nav::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Edge */
+    display: none; 
   }
 
   .mobile-bottom-nav-item {
-    flex: 0 0 auto;
-    min-width: 60px;
-  }
+    flex: 0 0 auto; 
+    min-width: 60px; 
+  } */
 
-  /* Improve FAB positioning */
+
+  /* Improve FAB positioning (ensure it accounts for safe areas) */
   .mobile-fab {
-    bottom: 70px;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px)); /* Adjust 70px based on bottom nav height */
     right: 16px;
     z-index: 100;
   }
 
-  /* Add plus icon styling */
+  /* Add plus icon styling (if needed for a specific FAB icon) */
   .plus-icon {
     font-size: 24px;
     font-weight: bold;
   }
 }
 
-/* Fix for iOS touch events */
-* {
+/* Fix for iOS touch events - REMOVED global star selector for touch-action. */
+/* Specific interactive elements handle this or it's applied via classes. */
+/* * {
   -webkit-tap-highlight-color: transparent;
-}
+} */
+/* -webkit-tap-highlight-color: transparent; is already in mobile-fixes.css .mobile-bottom-nav-item */
+/* and generally good to have on specific interactive elements if not globally. */
+
 
 /* Ensure table dialog is accessible on mobile */
-.table-dialog {
-  z-index: 1000;
+.table-dialog { /* Custom class for table dialog container */
+  z-index: 1000; /* High z-index for dialogs */
   position: fixed;
   inset: 0;
-  touch-action: none;
+  touch-action: none; /* Prevent page scroll when dialog is open */
 }
 
-.table-dialog-content {
-  touch-action: pan-y;
+.table-dialog-content { /* Custom class for table dialog scrollable content */
+  touch-action: pan-y; /* Allow vertical scroll within dialog */
   -webkit-overflow-scrolling: touch;
 }
 
 /* Make table cards tappable on iOS */
-.table-card-container {
-  cursor: pointer;
+.table-card-container { /* Wrapper for TableCard */
+  cursor: pointer; /* Visual cue */
   position: relative;
-  z-index: 1;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  z-index: 1; /* For stacking context if needed */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight */
+  touch-action: manipulation; /* Improve responsiveness, prevent zoom */
 }
 
-/* Add a transparent overlay to improve touch detection */
-.table-card-container::after {
+/* Removed ::after overlay for touch detection as direct click handling or gesture listeners on the card itself are preferred. */
+/* .table-card-container::after {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2;
-}
+  z-index: 2; 
+} */
 
-/* Ensure the table card is visible through the overlay */
+/* Ensure the table card is visible (already has z-index:1 or default stacking) */
 .table-card {
   position: relative;
-  z-index: 1;
+  /* z-index: 1; */ /* May not be needed if container handles it */
 }
 
-/* Add active state for touch feedback */
-.table-card-container:active {
+/* Add active state for touch feedback on table cards */
+.table-card-container:active { /* Or apply to .table-card directly */
   opacity: 0.8;
   transform: scale(0.98);
   transition: transform 0.1s ease, opacity 0.1s ease;
 }
 
-/* Improved touch handling */
-.touch-safe-zone {
+/* Improved touch handling for specific scrollable zones */
+.touch-safe-zone { /* Consider if this class is used for padding or actual touch handling */
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
 
-.prevent-scroll-while-swiping {
-  touch-action: none;
+.prevent-scroll-while-swiping { /* For elements where horizontal swipe should take precedence */
+  touch-action: pan-x; /* Or pan-y if swipe is vertical */
 }
 
-/* Add a delay to touch feedback to prevent accidental activation */
-.delayed-touch-feedback {
-  transition-delay: 50ms;
-}
+/* Add a delay to touch feedback to prevent accidental activation (CSS cannot do this, JS needed) */
+/* .delayed-touch-feedback {
+  transition-delay: 50ms; 
+} */
 
 /* Increase the size of touch targets for better accessibility */
-.enhanced-touch-target {
+.enhanced-touch-target { /* Apply to small custom controls */
   min-height: 48px;
   min-width: 48px;
+  display: inline-flex; /* To make min-height/width effective for inline elements */
+  align-items: center;
+  justify-content: center;
 }
 
-/* Prevent text selection during touch interactions */
-.no-text-select {
+/* Prevent text selection during touch interactions (already in mobile-fixes.css as .no-text-select) */
+/* .no-text-select {
   user-select: none;
   -webkit-user-select: none;
-}
+} */
 
-/* Improve scroll momentum */
+/* Improve scroll momentum (covered by -webkit-overflow-scrolling: touch on scroll containers) */
 .improved-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: contain; /* Prevents pull-to-refresh on this element */
 }
 
-/* Scroll cooldown indicator */
+/* Scroll cooldown indicator styling */
 .scroll-cooldown-active {
   position: fixed;
   bottom: 20px;
@@ -467,7 +487,7 @@
   pointer-events: none;
 }
 
-/* Space-themed open button */
+/* Space-themed open button styling */
 .space-open-button {
   width: 36px;
   height: 36px;
@@ -480,24 +500,27 @@
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.7), inset 0 0 5px rgba(0, 255, 255, 0.5);
   backdrop-filter: blur(4px);
   transition: all 0.2s ease;
-  animation: pulseGlow 2s infinite alternate;
+  animation: pulseGlow 2s infinite alternate; /* Assuming pulseGlow is defined elsewhere or this button is always glowing */
 }
 
 .space-open-button:active {
-  transform: translateY(-50%) scale(0.9);
+  /* transform: translateY(-50%) scale(0.9); */ /* Original was complex, assuming centered and scaling down */
+  transform: scale(0.9);
   box-shadow: 0 0 15px rgba(0, 255, 255, 0.9), inset 0 0 8px rgba(0, 255, 255, 0.7);
 }
 
-@keyframes pulseGlow {
+/* Keyframes for pulseGlow if not defined globally or in space-animations.css */
+/* @keyframes pulseGlow {
   0% {
     box-shadow: 0 0 10px rgba(0, 255, 255, 0.7), inset 0 0 5px rgba(0, 255, 255, 0.5);
   }
   100% {
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.9), inset 0 0 8px rgba(0, 255, 255, 0.7);
   }
-}
+} */
 
-/* Scroll direction indicators */
+
+/* Scroll direction indicators styling */
 .scroll-direction-indicator {
   position: fixed;
   right: 10px;
@@ -512,6 +535,7 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s ease;
+  z-index: 90; /* Below FABs/Navs but above content */
 }
 
 .scroll-direction-indicator.visible {
@@ -519,46 +543,46 @@
 }
 
 .scroll-direction-up {
-  bottom: 80px;
+  bottom: 80px; /* Adjust based on FAB/Nav height */
 }
 
 .scroll-direction-down {
-  bottom: 120px;
+  bottom: 120px; /* Adjust based on FAB/Nav height */
 }
 
-/* Improve touch response */
-* {
-  touch-action: manipulation;
-}
+/* REMOVED global '*' selector for touch-action: manipulation. Apply this more selectively. */
 
-/* Make touch targets more forgiving with invisible expanded hit areas */
+/* Make touch targets more forgiving with invisible expanded hit areas (CSS only expands visual, not actual hit area usually) */
+/* Consider using ::before or ::after pseudo-elements for visual expansion if needed, actual hit area is more JS/HTML structure. */
 .touch-target {
   position: relative;
 }
 
-.touch-target::after {
+/* Example of expanding visual touch area for a small icon button if its content is smaller than 44x44 */
+/* .touch-target.small-icon-button::before {
   content: "";
   position: absolute;
-  top: -10px;
-  left: -10px;
-  right: -10px;
-  bottom: -10px;
-  z-index: 1;
-}
+  top: -10px; left: -10px;
+  right: -10px; bottom: -10px;
+  z-index: 0; Allows clicks to pass through if needed for parent
+} */
 
-/* Improve active state feedback */
+/* Improve active state feedback for elements with this class */
 .touch-response:active {
   transform: scale(0.97);
   transition: transform 0.1s ease-out;
 }
 
-/* Make text inputs easier to interact with */
+/* Make text inputs easier to interact with - prevent iOS zoom */
 input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="number"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
 textarea {
-  font-size: 16px !important; /* Prevents zoom on iOS */
+  font-size: 16px !important; /* Prevents zoom on iOS. Use with caution due to !important */
 }
 
 /* Apply subtle elastic animation to pressed elements */
@@ -570,11 +594,11 @@ textarea {
   transform: scale(0.95);
 }
 
-/* More visible focus states for accessibility */
-:focus-visible {
+/* More visible focus states for accessibility - Already handled in mobile.css, ensure no conflicts */
+/* :focus-visible {
   outline: 2px solid #00ffff !important;
   outline-offset: 2px !important;
-}
+} */
 
 /* Button press effect */
 .btn-press {
@@ -583,52 +607,54 @@ textarea {
 }
 
 .btn-press:active {
-  transform: translateY(2px);
+  transform: translateY(2px); /* Subtle press down effect */
 }
 
-/* Ensure dialogs are properly centered and sized */
+/* Ensure dialogs are properly centered and sized (Dialog specific styles are preferred, e.g., in dialog-fixes.css) */
 @media (max-width: 768px) {
-  .fixed-dialog {
-    width: 92vw !important;
+  .fixed-dialog { /* Generic class, make sure it applies to your dialogs */
+    width: 92vw !important; /* Can be aggressive, ensure content fits */
     max-width: 92vw !important;
-    margin: 4vh auto !important;
-    max-height: 88vh !important;
+    margin: 4vh auto !important; /* Allows some space around */
+    max-height: 88vh !important; /* Ensure it doesn't take full screen height */
+    display: flex; /* Helps with internal flexbox for header/content/footer */
+    flex-direction: column;
   }
 }
 
-/* Improve scrolling in lists */
-.smooth-scroll {
+/* Improve scrolling in lists - already handled by specific scroll container classes */
+/* .smooth-scroll {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none; /* Firefox */
+  scrollbar-width: none;
 }
 
 .smooth-scroll::-webkit-scrollbar {
-  display: none; /* Chrome, Safari, Opera */
-}
+  display: none;
+} */
 
-/* Improve rendering performance */
+/* Improve rendering performance - apply to elements that might benefit (e.g., complex animations) */
 .hardware-accelerated {
   transform: translateZ(0);
   backface-visibility: hidden;
   perspective: 1000px;
 }
 
-/* Better tap highlights for iOS */
-.ios-tap-highlight {
-  -webkit-tap-highlight-color: rgba(0, 255, 255, 0.2);
-}
+/* Better tap highlights for iOS (already handled by -webkit-tap-highlight-color: transparent) */
+/* .ios-tap-highlight {
+  -webkit-tap-highlight-color: rgba(0, 255, 255, 0.2); 
+} */
 
-/* Fix for notched devices */
+/* Fix for notched devices - ensure this class is applied to main layout containers */
 .notch-aware {
-  padding-top: env(safe-area-inset-top, 0);
-  padding-bottom: env(safe-area-inset-bottom, 0);
-  padding-left: env(safe-area-inset-left, 0);
-  padding-right: env(safe-area-inset-right, 0);
+  padding-top: env(safe-area-inset-top, 0px); /* Added fallback */
+  padding-bottom: env(safe-area-inset-bottom, 0px); /* Added fallback */
+  padding-left: env(safe-area-inset-left, 0px); /* Added fallback */
+  padding-right: env(safe-area-inset-right, 0px); /* Added fallback */
 }
 
 /* Fix for iOS Safari 100vh issue more comprehensively */
-.full-height {
-  height: 100vh;
-  height: -webkit-fill-available;
+.full-height { /* Apply to main screen wrapper if needed */
+  height: 100vh; /* Fallback */
+  height: -webkit-fill-available; /* For iOS Safari */
 }
