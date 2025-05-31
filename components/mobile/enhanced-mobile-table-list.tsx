@@ -2,11 +2,11 @@
 
 import type React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card";
+import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card"; // Adjusted path if necessary
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
 import { useTableStore } from "@/utils/table-state-manager";
 import { hapticFeedback } from "@/utils/haptic-feedback";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast"; // Assuming this is your custom toast hook
 import { ArrowDown, Loader2 } from "lucide-react";
 
 interface EnhancedMobileTableListProps {
@@ -38,12 +38,12 @@ export function EnhancedMobileTableList({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const refreshIndicatorRef = useRef<HTMLDivElement>(null);
-  
+
   const touchStartRef = useRef<{ y: number; time: number } | null>(null);
   const isAttemptingPullToRefresh = useRef(false);
   const pullDistanceVisual = useRef(0);
-  const refreshThreshold = 70; // Pixels to pull down
-  
+  const refreshThreshold = 70; // Pixels to pull down for refresh action
+
   const lastUpdateTime = useRef(Date.now());
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
@@ -55,30 +55,37 @@ export function EnhancedMobileTableList({
     const unsubscribe = useTableStore.subscribe((state) => {
       const tableIds = tables.map((t) => t.id);
       const storeStateTables = state.tables;
-      const updatedTables = tableIds.map((id) => storeStateTables[id] || tables.find((t) => t.id === id)!);
-      if (JSON.stringify(updatedTables) !== JSON.stringify(localTables)) {
-        setLocalTables(updatedTables);
+      const updatedTablesFromStore = tableIds.map((id) => {
+        // Ensure the structure from the store matches the Table type
+        const storeTableData = storeStateTables[id];
+        if (storeTableData) {
+          // Map store fields to Table fields if they differ
+          return {
+            id: storeTableData.id,
+            name: storeTableData.name,
+            isActive: storeTableData.is_active || false,
+            startTime: storeTableData.start_time_data ? new Date(storeTableData.start_time_data).getTime() : null,
+            remainingTime: storeTableData.remaining_time || (storeTableData.timer_minutes * 60000),
+            initialTime: storeTableData.initial_time || (storeTableData.timer_minutes * 60000),
+            guestCount: storeTableData.guest_count || 0,
+            server: storeTableData.server_id ? String(storeTableData.server_id) : null,
+            groupId: storeTableData.table_group_id ? String(storeTableData.table_group_id) : null,
+            hasNotes: false, // Assuming not in basic store data
+            noteId: "",      // Assuming not in basic store data
+            noteText: "",    // Assuming not in basic store data
+            updatedAt: new Date().toISOString(), // Or a proper updated_at from store if available
+          } as Table;
+        }
+        return tables.find((t) => t.id === id)!;
+      });
+
+      if (JSON.stringify(updatedTablesFromStore) !== JSON.stringify(localTables)) {
+        setLocalTables(updatedTablesFromStore);
       }
     });
     return () => unsubscribe();
   }, [tables, localTables]);
 
-  // Event listeners for Supabase updates (simplified, assuming bodies are same)
-  useEffect(() => {
-    const handleTimerUpdate = (event: CustomEvent) => { /* ... */ };
-    const handleBatchUpdate = (event: CustomEvent) => { /* ... */ };
-    const handleTableUpdateEvent = (event: CustomEvent) => { /* ... */ };
-    window.addEventListener("supabase-timer-update", handleTimerUpdate as EventListener);
-    window.addEventListener("batch-timer-update", handleBatchUpdate as EventListener);
-    window.addEventListener("supabase-tables-update", handleTableUpdateEvent as EventListener);
-    const refreshInterval = setInterval(() => { /* ... */ }, 60000);
-    return () => {
-      window.removeEventListener("supabase-timer-update", handleTimerUpdate as EventListener);
-      window.removeEventListener("batch-timer-update", handleBatchUpdate as EventListener);
-      window.removeEventListener("supabase-tables-update", handleTableUpdateEvent as EventListener);
-      clearInterval(refreshInterval);
-    };
-  }, [onRefresh, isRefreshing]); // Dependencies from previous version
 
   const triggerRefresh = useCallback(async () => {
     if (onRefresh && !isRefreshing) {
@@ -97,20 +104,20 @@ export function EnhancedMobileTableList({
         setIsRefreshing(false);
       }
     }
-  }, [onRefresh, isRefreshing]);
+  }, [onRefresh, isRefreshing, toast]); // Added toast as dependency
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length > 1 || isRefreshing) {
       isAttemptingPullToRefresh.current = false;
       return;
     }
-    // Only consider pull-to-refresh if scrolled to the very top
-    if (containerRef.current && containerRef.current.scrollTop < 5) {
+    // MODIFICATION: Only consider pull-to-refresh if scrolled exactly to the top.
+    if (containerRef.current && containerRef.current.scrollTop === 0) {
       touchStartRef.current = { y: e.touches[0].clientY, time: Date.now() };
       isAttemptingPullToRefresh.current = true;
       pullDistanceVisual.current = 0;
       if (refreshIndicatorRef.current) {
-        refreshIndicatorRef.current.style.transition = 'none';
+        refreshIndicatorRef.current.style.transition = 'none'; // Allow direct manipulation of transform
       }
     } else {
       isAttemptingPullToRefresh.current = false;
@@ -125,26 +132,28 @@ export function EnhancedMobileTableList({
     const currentY = e.touches[0].clientY;
     const deltaY = currentY - touchStartRef.current.y;
 
-    if (deltaY > 0 && containerRef.current && containerRef.current.scrollTop < 5) {
-      // User is pulling down at the top
-      e.preventDefault(); // Prevent native scroll only when actively pulling for refresh
-      
-      const resistance = 0.5;
-      pullDistanceVisual.current = Math.min(refreshThreshold * 1.8, deltaY * resistance);
+    // MODIFICATION: Stricter condition, ensure it's a downward pull from the very top.
+    if (deltaY > 0 && containerRef.current && containerRef.current.scrollTop === 0) {
+      e.preventDefault(); // Prevent native scroll only when actively pulling for our custom refresh
+
+      const resistance = 0.5; // How much to resist the pull
+      pullDistanceVisual.current = Math.min(refreshThreshold * 1.8, deltaY * resistance); // Cap visual pull
 
       if (refreshIndicatorRef.current) {
         refreshIndicatorRef.current.style.transform = `translateY(${pullDistanceVisual.current}px)`;
         refreshIndicatorRef.current.style.opacity = Math.min(1, pullDistanceVisual.current / refreshThreshold).toString();
-        const rotation = Math.min(180, (pullDistanceVisual.current / refreshThreshold) * 180);
-        const arrowElement = refreshIndicatorRef.current.querySelector(".refresh-arrow");
+        const arrowElement = refreshIndicatorRef.current.querySelector(".refresh-arrow") as HTMLElement;
         if (arrowElement) {
-          arrowElement.setAttribute("style", `transform: rotate(${rotation}deg)`);
+          const rotation = Math.min(180, (pullDistanceVisual.current / refreshThreshold) * 180);
+          arrowElement.style.transform = `rotate(${rotation}deg)`;
         }
       }
     } else {
-      // If scrolling up, or not pulling down, or scrolled away from top, cancel the pull attempt
+      // If scrolling up, or not pulling down enough, or scrolled away from top, reset the attempt.
       isAttemptingPullToRefresh.current = false;
       if (refreshIndicatorRef.current) {
+        // Smoothly hide the indicator if it was partially shown
+        refreshIndicatorRef.current.style.transition = "transform 0.2s ease-out, opacity 0.2s ease-out";
         refreshIndicatorRef.current.style.opacity = '0';
         refreshIndicatorRef.current.style.transform = 'translateY(0px)';
       }
@@ -163,6 +172,7 @@ export function EnhancedMobileTableList({
       refreshIndicatorRef.current.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out";
       refreshIndicatorRef.current.style.transform = "translateY(0)";
       refreshIndicatorRef.current.style.opacity = "0";
+      // Clear transition after animation to allow direct manipulation next time
       setTimeout(() => {
         if (refreshIndicatorRef.current) {
           refreshIndicatorRef.current.style.transition = "";
@@ -181,19 +191,18 @@ export function EnhancedMobileTableList({
 
   return (
     <div
-      className="relative w-full overflow-y-auto pb-20 ios-momentum-scroll"
+      className="relative w-full overflow-y-auto pb-20 ios-momentum-scroll" // Ensure class allows iOS momentum scrolling
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ touchAction: 'pan-y' }} // Allows vertical panning, horizontal swipe handled by cards
+      style={{ touchAction: 'pan-y' }} // Allows vertical panning, horizontal swipe for cards is handled by child
     >
       <div
         ref={refreshIndicatorRef}
         className="absolute top-[-64px] left-0 right-0 flex justify-center items-center h-16 pointer-events-none z-10 opacity-0"
-        style={{ transform: 'translateY(0px)'}}
+        style={{ transform: 'translateY(0px)'}} // Initial position
       >
-        {/* ... Refresh indicator UI (same as before) ... */}
         {isRefreshing ? (
           <div className="flex flex-col items-center p-2 bg-black/70 rounded-lg">
             <Loader2 className="h-5 w-5 text-cyan-500 animate-spin" />
@@ -203,7 +212,8 @@ export function EnhancedMobileTableList({
           <div className="flex flex-col items-center p-2 bg-black/70 rounded-lg">
             <ArrowDown className="h-5 w-5 text-cyan-500 refresh-arrow transition-transform duration-200" />
             <span className="text-xs text-cyan-500 mt-1">
-              {pullDistanceVisual.current >= refreshThreshold ? "Release" : "Pull"}
+              {/* MODIFICATION: Clearer text based on actual pull distance vs threshold */}
+              {pullDistanceVisual.current >= refreshThreshold ? "Release to refresh" : "Pull to refresh"}
             </span>
           </div>
         )}
@@ -233,7 +243,6 @@ export function EnhancedMobileTableList({
           ))
         ) : (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            {/* ... Fallback UI (same as before) ... */}
             <div className="text-[#00FFFF] opacity-70 mb-2">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -245,6 +254,7 @@ export function EnhancedMobileTableList({
             <button
               onClick={triggerRefresh}
               className="mt-4 px-4 py-2 bg-[#00FFFF]/10 text-[#00FFFF] rounded-md text-sm font-medium border border-[#00FFFF]/30"
+              disabled={isRefreshing} // Disable button while refreshing
             >
               {isRefreshing ? (
                 <span className="flex items-center">
