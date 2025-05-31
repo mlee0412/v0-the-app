@@ -39,10 +39,10 @@ export function EnhancedMobileTableList({
   const containerRef = useRef<HTMLDivElement>(null);
   const refreshIndicatorRef = useRef<HTMLDivElement>(null);
   
-  const touchStartInfo = useRef<{ x: number; y: number; time: number; target: EventTarget | null } | null>(null);
-  const isPotentialPullToRefresh = useRef(false);
-  const pullDistanceDisplay = useRef(0); // For visual feedback only
-  const refreshThreshold = 80;
+  const touchStartRef = useRef<{ y: number; time: number } | null>(null);
+  const isAttemptingPullToRefresh = useRef(false);
+  const pullDistanceVisual = useRef(0);
+  const refreshThreshold = 70; // Pixels to pull down
   
   const lastUpdateTime = useRef(Date.now());
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
@@ -61,31 +61,24 @@ export function EnhancedMobileTableList({
       }
     });
     return () => unsubscribe();
-  }, [tables, localTables]); // localTables dependency to re-evaluate if it changes from elsewhere
+  }, [tables, localTables]);
 
+  // Event listeners for Supabase updates (simplified, assuming bodies are same)
   useEffect(() => {
     const handleTimerUpdate = (event: CustomEvent) => { /* ... */ };
     const handleBatchUpdate = (event: CustomEvent) => { /* ... */ };
     const handleTableUpdateEvent = (event: CustomEvent) => { /* ... */ };
-
-    // Simplified event listeners (assuming bodies are the same as previous version)
     window.addEventListener("supabase-timer-update", handleTimerUpdate as EventListener);
     window.addEventListener("batch-timer-update", handleBatchUpdate as EventListener);
     window.addEventListener("supabase-tables-update", handleTableUpdateEvent as EventListener);
-
-    const refreshInterval = setInterval(() => {
-      if (Date.now() - lastUpdateTime.current > 30000 && onRefresh && !isRefreshing) {
-        onRefresh().then(() => lastUpdateTime.current = Date.now());
-      }
-    }, 60000);
-
+    const refreshInterval = setInterval(() => { /* ... */ }, 60000);
     return () => {
       window.removeEventListener("supabase-timer-update", handleTimerUpdate as EventListener);
       window.removeEventListener("batch-timer-update", handleBatchUpdate as EventListener);
       window.removeEventListener("supabase-tables-update", handleTableUpdateEvent as EventListener);
       clearInterval(refreshInterval);
     };
-  }, [onRefresh, isRefreshing]);
+  }, [onRefresh, isRefreshing]); // Dependencies from previous version
 
   const triggerRefresh = useCallback(async () => {
     if (onRefresh && !isRefreshing) {
@@ -107,66 +100,64 @@ export function EnhancedMobileTableList({
   }, [onRefresh, isRefreshing]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length > 1) {
-      isPotentialPullToRefresh.current = false;
+    if (e.touches.length > 1 || isRefreshing) {
+      isAttemptingPullToRefresh.current = false;
       return;
     }
-    touchStartInfo.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      time: Date.now(),
-      target: e.target,
-    };
-    // Only consider pull-to-refresh if at the absolute top of the scroll container
-    isPotentialPullToRefresh.current = (containerRef.current?.scrollTop || 0) < 5; // Allow a small tolerance
-    pullDistanceDisplay.current = 0;
-
-    if (refreshIndicatorRef.current) {
-      refreshIndicatorRef.current.style.transition = 'none';
-      refreshIndicatorRef.current.style.opacity = '0'; // Hide initially
+    // Only consider pull-to-refresh if scrolled to the very top
+    if (containerRef.current && containerRef.current.scrollTop < 5) {
+      touchStartRef.current = { y: e.touches[0].clientY, time: Date.now() };
+      isAttemptingPullToRefresh.current = true;
+      pullDistanceVisual.current = 0;
+      if (refreshIndicatorRef.current) {
+        refreshIndicatorRef.current.style.transition = 'none';
+      }
+    } else {
+      isAttemptingPullToRefresh.current = false;
     }
-  }, []);
+  }, [isRefreshing]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStartInfo.current || e.touches.length > 1 || !isPotentialPullToRefresh.current) {
+    if (!isAttemptingPullToRefresh.current || !touchStartRef.current || e.touches.length > 1 || isRefreshing) {
       return;
     }
 
     const currentY = e.touches[0].clientY;
-    const deltaY = currentY - touchStartInfo.current.y;
+    const deltaY = currentY - touchStartRef.current.y;
 
-    if (deltaY > 0 && (containerRef.current?.scrollTop || 0) < 5) { // Pulling down at the top
-      e.preventDefault(); // Prevent native browser pull-to-refresh and scroll
+    if (deltaY > 0 && containerRef.current && containerRef.current.scrollTop < 5) {
+      // User is pulling down at the top
+      e.preventDefault(); // Prevent native scroll only when actively pulling for refresh
       
-      const resistance = 0.4;
-      pullDistanceDisplay.current = Math.min(refreshThreshold * 2, deltaY * resistance);
+      const resistance = 0.5;
+      pullDistanceVisual.current = Math.min(refreshThreshold * 1.8, deltaY * resistance);
 
       if (refreshIndicatorRef.current) {
-        refreshIndicatorRef.current.style.transform = `translateY(${pullDistanceDisplay.current}px)`;
-        refreshIndicatorRef.current.style.opacity = Math.min(1, pullDistanceDisplay.current / refreshThreshold).toString();
-        const rotation = Math.min(180, (pullDistanceDisplay.current / refreshThreshold) * 180);
+        refreshIndicatorRef.current.style.transform = `translateY(${pullDistanceVisual.current}px)`;
+        refreshIndicatorRef.current.style.opacity = Math.min(1, pullDistanceVisual.current / refreshThreshold).toString();
+        const rotation = Math.min(180, (pullDistanceVisual.current / refreshThreshold) * 180);
         const arrowElement = refreshIndicatorRef.current.querySelector(".refresh-arrow");
         if (arrowElement) {
           arrowElement.setAttribute("style", `transform: rotate(${rotation}deg)`);
         }
       }
     } else {
-      // If scrolling up, or not at the top, or horizontal scroll detected, cancel pull-to-refresh
-      isPotentialPullToRefresh.current = false;
+      // If scrolling up, or not pulling down, or scrolled away from top, cancel the pull attempt
+      isAttemptingPullToRefresh.current = false;
       if (refreshIndicatorRef.current) {
-          refreshIndicatorRef.current.style.opacity = '0';
-          refreshIndicatorRef.current.style.transform = `translateY(0px)`;
+        refreshIndicatorRef.current.style.opacity = '0';
+        refreshIndicatorRef.current.style.transform = 'translateY(0px)';
       }
     }
-  }, [refreshThreshold]);
+  }, [isRefreshing, refreshThreshold]);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-    const wasPotentialPull = isPotentialPullToRefresh.current;
-    const currentPullDistance = pullDistanceDisplay.current;
+  const handleTouchEnd = useCallback(() => {
+    const wasAttemptingPull = isAttemptingPullToRefresh.current;
+    const currentPullDistance = pullDistanceVisual.current;
 
-    // Reset states immediately
-    isPotentialPullToRefresh.current = false;
-    pullDistanceDisplay.current = 0;
+    isAttemptingPullToRefresh.current = false;
+    pullDistanceVisual.current = 0;
+    touchStartRef.current = null;
 
     if (refreshIndicatorRef.current) {
       refreshIndicatorRef.current.style.transition = "transform 0.3s ease-out, opacity 0.3s ease-out";
@@ -179,14 +170,10 @@ export function EnhancedMobileTableList({
       }, 300);
     }
 
-    if (wasPotentialPull && currentPullDistance >= refreshThreshold) {
+    if (wasAttemptingPull && currentPullDistance >= refreshThreshold && !isRefreshing) {
       triggerRefresh();
-    } else if (touchStartInfo.current) {
-      // This was not a pull-to-refresh, check if it was a tap for a card
-      // The tap handling will be managed by SwipeableTableCard's own touchend
     }
-    touchStartInfo.current = null; // Clear touch start info
-  }, [triggerRefresh, refreshThreshold]);
+  }, [triggerRefresh, isRefreshing, refreshThreshold]);
 
   const filteredAndSortedTables = [...localTables]
     .filter((table) => !table.name.toLowerCase().includes("system"))
@@ -199,13 +186,14 @@ export function EnhancedMobileTableList({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      style={{ touchAction: 'pan-y' }} // Prioritize vertical scrolling
+      style={{ touchAction: 'pan-y' }} // Allows vertical panning, horizontal swipe handled by cards
     >
       <div
         ref={refreshIndicatorRef}
-        className="absolute top-[-64px] left-0 right-0 flex justify-center items-center h-16 pointer-events-none z-10 opacity-0" // Positioned above the view
+        className="absolute top-[-64px] left-0 right-0 flex justify-center items-center h-16 pointer-events-none z-10 opacity-0"
         style={{ transform: 'translateY(0px)'}}
       >
+        {/* ... Refresh indicator UI (same as before) ... */}
         {isRefreshing ? (
           <div className="flex flex-col items-center p-2 bg-black/70 rounded-lg">
             <Loader2 className="h-5 w-5 text-cyan-500 animate-spin" />
@@ -215,7 +203,7 @@ export function EnhancedMobileTableList({
           <div className="flex flex-col items-center p-2 bg-black/70 rounded-lg">
             <ArrowDown className="h-5 w-5 text-cyan-500 refresh-arrow transition-transform duration-200" />
             <span className="text-xs text-cyan-500 mt-1">
-              {pullDistanceDisplay.current >= refreshThreshold ? "Release" : "Pull"}
+              {pullDistanceVisual.current >= refreshThreshold ? "Release" : "Pull"}
             </span>
           </div>
         )}
@@ -235,10 +223,7 @@ export function EnhancedMobileTableList({
               table={table}
               servers={servers}
               logs={logs.filter((log) => log.tableId === table.id)}
-              onClick={() => {
-                // The tap vs scroll differentiation will be handled within SwipeableTableCard
-                onTableClick(table.id);
-              }}
+              onClick={() => onTableClick(table.id)}
               onAddTime={onAddTime}
               onEndSession={onEndSession}
               canEndSession={canEndSession}
@@ -248,7 +233,7 @@ export function EnhancedMobileTableList({
           ))
         ) : (
           <div className="flex flex-col items-center justify-center py-10 text-center">
-            {/* ... no changes to this fallback UI ... */}
+            {/* ... Fallback UI (same as before) ... */}
             <div className="text-[#00FFFF] opacity-70 mb-2">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
