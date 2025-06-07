@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client"
-import type { Server, NoteTemplate } from "@/components/billiards-timer-dashboard"
+import type { Server, NoteTemplate } from "@/components/system/billiards-timer-dashboard"
 
 // Servers interface for Supabase
 interface ServersRecord {

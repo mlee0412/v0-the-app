@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiards-timer-dashboard"
+import type { Table, Server, NoteTemplate, LogEntry } from "@/components/system/billiards-timer-dashboard"
 import { v4 as uuidv4 } from "uuid"
 import { getSupabaseClient, isSupabaseConfigured, checkSupabaseConnection } from "@/lib/supabase/client"
 import type { RealtimeSubscription } from "@supabase/supabase-js"

@@ -11,7 +11,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js"
-import type { Table, LogEntry, Server, NoteTemplate } from "@/components/billiards-timer-dashboard"
+import type { Table, LogEntry, Server, NoteTemplate } from "@/components/system/billiards-timer-dashboard"
 import supabaseAuthService from "./supabase-auth-service"
 import supabaseTablesService from "./supabase-tables-service"
 import supabaseLogsService from "./supabase-logs-service"

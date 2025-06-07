@@ -1,5 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase/client"
-import type { Table } from "@/components/billiards-timer-dashboard"
+import type { Table } from "@/components/system/billiards-timer-dashboard"
 
 // Tables interface for Supabase
 interface TablesRecord {
