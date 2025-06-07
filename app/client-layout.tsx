@@ -12,6 +12,7 @@ import { TouchInteractionManager } from "@/components/mobile/touch-interaction-m
 import { PWAInit } from "@/components/pwa-init"
 import { OfflineDetector } from "@/components/mobile/offline-detector"
 import { AddUserButton } from "@/components/ui/add-user-button"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function ClientLayout({
   children,
@@ -53,7 +54,13 @@ export default function ClientLayout({
 
       <AuthProvider>
         <OfflineDetector />
-        {isClient ? children || <BilliardsTimerDashboard /> : <div>Loading...</div>}
+        {isClient ? (
+          children || <BilliardsTimerDashboard />
+        ) : (
+          <div className="flex items-center justify-center h-screen">
+            <Spinner className="h-8 w-8 text-cyan-500" />
+          </div>
+        )}
         <AddUserButton />
       </AuthProvider>
 
