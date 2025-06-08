@@ -7,8 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
-    "test": "jest --watchAll",        // runs all tests in watch mode
-    "test:ci": "jest --runInBand"     // single‐run, good for CI
+    "test": "jest --watchAll",        
+    "test:ci": "jest --runInBand"     
   },
   "dependencies": {
     "@ai-sdk/xai": "latest",
