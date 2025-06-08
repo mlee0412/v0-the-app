@@ -2,6 +2,7 @@
 
 // Add imports at the top
 import { ChevronRight } from "lucide-react"
+import Image from "next/image"
 
 // Add breadcrumb prop to the component interface
 interface MobileHeaderProps {
@@ -18,7 +19,14 @@ export function MobileHeader({ currentTime, breadcrumbs = [], onBreadcrumbClick 
   return (
     <header className="bg-black/80 border-b border-cyan-500/50 p-2 flex items-center justify-between">
       <div className="flex items-center">
-        <img src="/images/space-billiard-logo.png" alt="Space Billiard Logo" className="h-8 w-8 mr-2" />
+        <Image
+          src="/images/space-billiard-logo.png"
+          alt="Space Billiard Logo"
+          width={32}
+          height={32}
+          className="h-8 w-8 mr-2"
+          priority
+        />
         <div>
           <h1 className="text-lg font-bold bg-gradient-to-r from-cyan-400 to-fuchsia-400 bg-clip-text text-transparent">
             SPACE BILLIARD
