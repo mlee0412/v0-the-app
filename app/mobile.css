@@ -889,7 +889,8 @@ touch-action: manipulation;
 
   .dialog-content {
     /* Generic dialog content class, ensure it matches your actual dialogs */
-    max-height: 85vh; /* Was 80vh with !important */
+    max-height: 85vh;
+    max-height: calc(var(--vh, 1vh) * 85); /* Account for iOS dynamic viewport */
     padding: 12px; /* Was 12px with !important */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
