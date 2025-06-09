@@ -1,5 +1,8 @@
 // Service Worker for Billiards Timer App
 
+// Toggle verbose logging when running locally
+const DEBUG = location.hostname === "localhost"
+
 // Cache name
 const CACHE_NAME = "billiards-timer-cache-v1"
 
@@ -8,10 +11,10 @@ const urlsToCache = ["/", "/index.html", "/manifest.json", "/images/space-billia
 
 // Install event - cache assets
 self.addEventListener("install", (event) => {
-  console.log("[Service Worker] Install")
+  DEBUG && console.log("[Service Worker] Install")
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log("[Service Worker] Caching app shell")
+      DEBUG && console.log("[Service Worker] Caching app shell")
       return cache.addAll(urlsToCache)
     }),
   )
@@ -19,13 +22,13 @@ self.addEventListener("install", (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener("activate", (event) => {
-  console.log("[Service Worker] Activate")
+  DEBUG && console.log("[Service Worker] Activate")
   event.waitUntil(
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
           if (key !== CACHE_NAME) {
-            console.log("[Service Worker] Removing old cache", key)
+            DEBUG && console.log("[Service Worker] Removing old cache", key)
             return caches.delete(key)
           }
         }),
@@ -74,7 +77,7 @@ self.addEventListener("fetch", (event) => {
 
 // Push event - handle push notifications
 self.addEventListener("push", (event) => {
-  console.log("[Service Worker] Push received:", event)
+  DEBUG && console.log("[Service Worker] Push received:", event)
 
   let notificationData = {}
 
@@ -113,7 +116,7 @@ self.addEventListener("push", (event) => {
 
 // Notification click event
 self.addEventListener("notificationclick", (event) => {
-  console.log("[Service Worker] Notification click:", event)
+  DEBUG && console.log("[Service Worker] Notification click:", event)
 
   event.notification.close()
 
@@ -145,7 +148,7 @@ self.addEventListener("notificationclick", (event) => {
 
 // Sync event for background syncing
 self.addEventListener("sync", (event) => {
-  console.log("[Service Worker] Sync event:", event)
+  DEBUG && console.log("[Service Worker] Sync event:", event)
 
   if (event.tag === "sync-tables") {
     event.waitUntil(
@@ -158,7 +161,7 @@ self.addEventListener("sync", (event) => {
           return response.json()
         })
         .then((data) => {
-          console.log("[Service Worker] Tables synced successfully:", data)
+          DEBUG && console.log("[Service Worker] Tables synced successfully:", data)
         })
         .catch((error) => {
           console.error("[Service Worker] Error syncing tables:", error)
@@ -169,7 +172,7 @@ self.addEventListener("sync", (event) => {
 
 // Periodic sync for regular updates (if supported)
 self.addEventListener("periodicsync", (event) => {
-  console.log("[Service Worker] Periodic Sync:", event)
+  DEBUG && console.log("[Service Worker] Periodic Sync:", event)
 
   if (event.tag === "update-tables") {
     event.waitUntil(
@@ -182,7 +185,7 @@ self.addEventListener("periodicsync", (event) => {
           return response.json()
         })
         .then((data) => {
-          console.log("[Service Worker] Tables updated successfully:", data)
+          DEBUG && console.log("[Service Worker] Tables updated successfully:", data)
 
           // Notify the user if there are important updates
           if (data.hasImportantUpdates) {
@@ -203,7 +206,7 @@ self.addEventListener("periodicsync", (event) => {
 
 // Message event for communication with the app
 self.addEventListener("message", (event) => {
-  console.log("[Service Worker] Message received:", event.data)
+  DEBUG && console.log("[Service Worker] Message received:", event.data)
 
   if (event.data.action === "skipWaiting") {
     self.skipWaiting()

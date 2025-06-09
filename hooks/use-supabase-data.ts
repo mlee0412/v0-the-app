@@ -1,6 +1,14 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+
+// Utility logger that only outputs in development
+const debugLog = (...args: unknown[]) => {
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.log(...args)
+  }
+}
 import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiards-timer-dashboard"
 import { v4 as uuidv4 } from "uuid"
 import { getSupabaseClient, isSupabaseConfigured, checkSupabaseConnection } from "@/lib/supabase/client"
@@ -175,7 +183,7 @@ export function useSupabaseData() {
     lastConnectionAttempt.current = now
 
     if (useLocalStorage || !isSupabaseConfigured()) {
-      console.log("Using localStorage mode (Supabase not configured)")
+      debugLog("Using localStorage mode (Supabase not configured)")
       setOfflineMode(true)
       setUseLocalStorage(true)
       setConnectionTested(true)
@@ -185,7 +193,7 @@ export function useSupabaseData() {
     try {
       const { connected } = await checkSupabaseConnection()
 
-      console.log("Supabase connection test:", connected ? "Connected" : "Failed")
+      debugLog("Supabase connection test:", connected ? "Connected" : "Failed")
 
       if (connected) {
         setOfflineMode(false)
@@ -221,7 +229,7 @@ export function useSupabaseData() {
   // Function to load all data with improved error handling
   const loadAllData = useCallback(async () => {
     try {
-      console.log("Loading all data...")
+      debugLog("Loading all data...")
       setLoading(true)
 
       // Test connection if not tested yet
@@ -642,7 +650,7 @@ export function useSupabaseData() {
             })
             .subscribe((status) => {
               if (status === "SUBSCRIBED") {
-                console.log("Subscribed to tables changes")
+                debugLog("Subscribed to tables changes")
               } else if (status === "CHANNEL_ERROR") {
                 console.error("Error subscribing to tables changes")
                 // Don't immediately go offline, let the connection check handle it
@@ -699,7 +707,7 @@ export function useSupabaseData() {
             )
             .subscribe((status) => {
               if (status === "SUBSCRIBED") {
-                console.log("Subscribed to logs changes")
+                debugLog("Subscribed to logs changes")
               } else if (status === "CHANNEL_ERROR") {
                 console.error("Error subscribing to logs changes")
               }
@@ -721,7 +729,7 @@ export function useSupabaseData() {
             )
             .subscribe((status) => {
               if (status === "SUBSCRIBED") {
-                console.log("Subscribed to settings changes")
+                debugLog("Subscribed to settings changes")
               } else if (status === "CHANNEL_ERROR") {
                 console.error("Error subscribing to settings changes")
               }
@@ -747,7 +755,7 @@ export function useSupabaseData() {
             })
             .subscribe((status) => {
               if (status === "SUBSCRIBED") {
-                console.log("Subscribed to servers changes")
+                debugLog("Subscribed to servers changes")
               } else if (status === "CHANNEL_ERROR") {
                 console.error("Error subscribing to servers changes")
               }
@@ -780,20 +788,20 @@ export function useSupabaseData() {
   useEffect(() => {
     // Handle sync requests
     const handleSyncRequest = () => {
-      console.log("Sync request received")
+      debugLog("Sync request received")
       loadAllData()
     }
 
     // Handle admin sync
     const handleAdminSync = () => {
-      console.log("Admin sync event received")
+      debugLog("Admin sync event received")
       loadAllData()
     }
 
     // Handle admin presence
     const handleAdminPresence = (event: Event) => {
       const { present } = (event as CustomEvent).detail
-      console.log("Admin presence update:", present)
+      debugLog("Admin presence update:", present)
       setAdminPresent(present)
     }
 
@@ -801,7 +809,7 @@ export function useSupabaseData() {
     let onlineStatusTimeout: NodeJS.Timeout | null = null
 
     const handleOnline = () => {
-      console.log("Browser reports online status")
+      debugLog("Browser reports online status")
 
       // Clear any existing timeout
       if (onlineStatusTimeout) {
@@ -821,7 +829,7 @@ export function useSupabaseData() {
     }
 
     const handleOffline = () => {
-      console.log("Browser reports offline status")
+      debugLog("Browser reports offline status")
 
       // Clear any existing timeout
       if (onlineStatusTimeout) {
@@ -852,15 +860,16 @@ export function useSupabaseData() {
     }
   }, [loadAllData, testConnection])
 
-  // Add a periodic sync function to ensure data consistency, but with reduced frequency
+  // Periodically sync data, but avoid excessive network activity
   useEffect(() => {
-    // Set up a periodic sync every 60 seconds (reduced from 30)
     const syncInterval = setInterval(() => {
       if (!offlineMode && !useLocalStorage) {
-        console.log("Performing periodic data sync")
+        if (process.env.NODE_ENV !== "production") {
+          debugLog("Performing periodic data sync")
+        }
         loadAllData()
       }
-    }, 60000) // Increased to 60 seconds
+    }, 120000) // Every 2 minutes
 
     return () => clearInterval(syncInterval)
   }, [loadAllData, offlineMode, useLocalStorage])
@@ -905,12 +914,14 @@ export function useSupabaseData() {
           .filter((table) => updatesToProcess.has(table.id))
           .map(convertTableToSupabase)
 
-        // Update in batches of 5 to reduce load
+        // Update in small batches to avoid overwhelming the API
         const batchSize = 5
+        const batchPromises = []
         for (let i = 0; i < supabaseTables.length; i += batchSize) {
           const batch = supabaseTables.slice(i, i + batchSize)
-          await supabase.from(TABLE_NAMES.TABLES).upsert(batch)
+          batchPromises.push(supabase.from(TABLE_NAMES.TABLES).upsert(batch))
         }
+        await Promise.all(batchPromises)
       } catch (err) {
         console.error("Error updating tables in Supabase:", err)
         setOfflineMode(true)
@@ -1361,7 +1372,7 @@ export function useSupabaseData() {
       setGroupCounter(settings.groupCounter)
 
       // Show success notification
-      console.log("Data synced successfully from Supabase")
+      debugLog("Data synced successfully from Supabase")
       return true
     } catch (error) {
       console.error("Error syncing data from Supabase:", error)
@@ -1374,7 +1385,7 @@ export function useSupabaseData() {
 
   // Force sync from admin (for viewers)
   const forceAdminSync = async () => {
-    console.log("Force admin sync requested")
+    debugLog("Force admin sync requested")
     return loadAllData()
   }
 

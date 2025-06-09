@@ -67,7 +67,11 @@ export function ConnectionStatus() {
 
         // Exponential backoff for reconnection attempts
         const backoffDelay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000)
-        console.log(`Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts} in ${backoffDelay}ms`)
+        if (process.env.NODE_ENV !== "production") {
+          console.log(
+            `Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts} in ${backoffDelay}ms`
+          )
+        }
 
         setTimeout(async () => {
           try {
@@ -94,14 +98,16 @@ export function ConnectionStatus() {
     checkConnection()
 
     // Set up periodic connection check (less frequent)
-    connectionCheckTimer.current = setInterval(checkConnection, 30000) // Every 30 seconds
+    // Check connection less frequently to reduce network chatter
+    connectionCheckTimer.current = setInterval(checkConnection, 60000) // Every 60 seconds
 
     // Set up more frequent ping to keep connection alive
+    // Keep the connection alive but ping less aggressively
     pingTimer.current = setInterval(async () => {
       if (navigator.onLine && isSupabaseConfigured()) {
         await pingSupabase()
       }
-    }, 60000) // Every 60 seconds
+    }, 180000) // Every 3 minutes
 
     return () => {
       if (connectionCheckTimer.current) clearInterval(connectionCheckTimer.current)

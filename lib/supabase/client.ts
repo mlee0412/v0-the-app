@@ -1,14 +1,16 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
+const DEBUG = process.env.NODE_ENV !== "production";
+
 let supabaseBrowserClient: SupabaseClient<Database> | null = null;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-console.log("SupabaseClient: Initializing. URL defined:", !!supabaseUrl, "Anon Key defined:", !!supabaseAnonKey);
+DEBUG && console.log("SupabaseClient: Initializing. URL defined:", !!supabaseUrl, "Anon Key defined:", !!supabaseAnonKey);
 if (supabaseUrl) {
-  console.log("SupabaseClient: NEXT_PUBLIC_SUPABASE_URL (first 20 chars):", supabaseUrl.substring(0, 20));
+  DEBUG && console.log("SupabaseClient: NEXT_PUBLIC_SUPABASE_URL (first 20 chars):", supabaseUrl.substring(0, 20));
 }
 
 
@@ -18,7 +20,7 @@ function createSupabaseClientInstance(): SupabaseClient<Database> { // Renamed t
       "SupabaseClient: createSupabaseClientInstance - Supabase URL or Anon Key is missing. Client may not be fully functional."
     );
   }
-  console.log("SupabaseClient: createSupabaseClientInstance called.");
+  DEBUG && console.log("SupabaseClient: createSupabaseClientInstance called.");
   return createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
@@ -34,7 +36,7 @@ function createSupabaseClientInstance(): SupabaseClient<Database> { // Renamed t
       fetch: async (url, options = {}, ...rest) => {
         const controller = new AbortController();
         const { signal } = controller;
-        console.log(`SupabaseClient: Fetching ${url} with 20s timeout.`);
+        DEBUG && console.log(`SupabaseClient: Fetching ${url} with 20s timeout.`);
         const timeoutId = setTimeout(() => {
           console.warn(`SupabaseClient: Fetch request to ${url} aborted due to 20s timeout.`);
           controller.abort();
@@ -44,7 +46,7 @@ function createSupabaseClientInstance(): SupabaseClient<Database> { // Renamed t
           // @ts-ignore
           const response = await fetch(url, { ...options, signal }, ...rest);
           clearTimeout(timeoutId);
-          console.log(`SupabaseClient: Fetch to ${url} completed with status ${response.status}.`);
+          DEBUG && console.log(`SupabaseClient: Fetch to ${url} completed with status ${response.status}.`);
           return response;
         } catch (error) {
           clearTimeout(timeoutId);
@@ -65,18 +67,18 @@ function createSupabaseClientInstance(): SupabaseClient<Database> { // Renamed t
 
 export const getSupabaseClient = (): SupabaseClient<Database> => {
   if (typeof window === "undefined") {
-    console.log("SupabaseClient: getSupabaseClient - Creating new client for server-side.");
+    DEBUG && console.log("SupabaseClient: getSupabaseClient - Creating new client for server-side.");
     return createSupabaseClientInstance();
   }
   if (!supabaseBrowserClient) {
-    console.log("SupabaseClient: getSupabaseClient - Initializing Supabase client for browser.");
+    DEBUG && console.log("SupabaseClient: getSupabaseClient - Initializing Supabase client for browser.");
     supabaseBrowserClient = createSupabaseClientInstance();
     if (isSupabaseConfigured()) { // Check config before attempting connection test
-        console.log("SupabaseClient: getSupabaseClient - Supabase is configured, attempting initial connection check.");
+        DEBUG && console.log("SupabaseClient: getSupabaseClient - Supabase is configured, attempting initial connection check.");
         checkSupabaseConnection(supabaseBrowserClient)
             .then(({ connected, error }) => {
                 if (connected) {
-                    console.info("SupabaseClient: getSupabaseClient - Initial connection check successful.");
+                    DEBUG && console.info("SupabaseClient: getSupabaseClient - Initial connection check successful.");
                     window.dispatchEvent(new CustomEvent("supabase-connected"));
                 } else {
                     console.error("SupabaseClient: getSupabaseClient - Initial connection check failed:", error);
@@ -106,7 +108,7 @@ export const isSupabaseConfigured = (): boolean => {
 export const checkSupabaseConnection = async (
   client?: SupabaseClient<Database>
 ): Promise<{ connected: boolean; error: string | null }> => {
-  console.log("SupabaseClient: checkSupabaseConnection - Starting connection check.");
+  DEBUG && console.log("SupabaseClient: checkSupabaseConnection - Starting connection check.");
   if (!isSupabaseConfigured()) {
     console.warn("SupabaseClient: checkSupabaseConnection - Supabase not configured. Aborting check.");
     return { connected: false, error: "Supabase not configured" };
@@ -116,7 +118,7 @@ export const checkSupabaseConnection = async (
   let timeoutId: NodeJS.Timeout | null = null;
 
   try {
-    console.log("SupabaseClient: checkSupabaseConnection - Attempting supabase.auth.getUser() with 12s timeout.");
+    DEBUG && console.log("SupabaseClient: checkSupabaseConnection - Attempting supabase.auth.getUser() with 12s timeout.");
     const queryPromise = supabase.auth.getUser();
     
     const timeoutPromise = new Promise((_, reject) => {
@@ -133,7 +135,7 @@ export const checkSupabaseConnection = async (
     timeoutId = null; // Clear timeoutId after use
 
     if (!authError || (authError && (authError.message === 'Auth session missing!' || authError.message === 'invalid_session'))) {
-      console.info("SupabaseClient: checkSupabaseConnection - supabase.auth.getUser() successful (service reachable). User data:", !!userData);
+      DEBUG && console.info("SupabaseClient: checkSupabaseConnection - supabase.auth.getUser() successful (service reachable). User data:", !!userData);
       return { connected: true, error: null };
     } else {
       console.error("SupabaseClient: checkSupabaseConnection - supabase.auth.getUser() failed:", authError.message);
@@ -148,7 +150,7 @@ export const checkSupabaseConnection = async (
 
 export const resetSupabaseClient = (): void => {
   supabaseBrowserClient = null;
-  console.info("SupabaseClient: Supabase browser client has been reset.");
+  DEBUG && console.info("SupabaseClient: Supabase browser client has been reset.");
 };
 
 export const pingSupabase = async (
