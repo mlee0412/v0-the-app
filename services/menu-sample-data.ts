@@ -1,0 +1,39 @@
+export const sampleMenuItems = [
+  { name: "Buffalo Chicken Dip", category: "Appetizers", price: 11, description: "Mildly spicy dip, served with corn tortilla nacho chips.", popularity: 8, pairings: ["Coors Light", "Miller Lite", "White Claw"], is_available: true },
+  { name: "French Fries", category: "Appetizers", price: 13, description: "Classic french fries. Add Cheese & Bacon Bits +2, Add Chili +2, Add Chili & Cheese +3", popularity: 9, pairings: ["Heineken", "Corona", "Beer"], is_available: true },
+  { name: "Jalapeño Poppers", category: "Appetizers", price: 13, description: "Cream cheese blend stuffed in crispy breading, served with dips.", popularity: 7, pairings: ["Corona", "Sangria"], is_available: true },
+  { name: "Chips & Dips", category: "Appetizers", price: 14, description: "Crispy corn tortilla nacho chips with salsa and cheese wizz dips.", popularity: 7, pairings: ["Corona", "Margarita"], is_available: true },
+  { name: "Cheese Quesadillas", category: "Appetizers", price: 13, description: "Triple cheese blend, grill-pressed flour tortillas, served with dip.", popularity: 8, pairings: ["Sangria", "Margarita"], is_available: true },
+  { name: "Onion Ring Tower", category: "Appetizers", price: 13, description: "Deep-fried stacked rings of gold, served with dips.", popularity: 7, pairings: ["Beer", "Cocktails"], is_available: true },
+  { name: "Tater Tots", category: "Appetizers", price: 13, description: "Classic tater tots. Add Cheese & Bacon Bits +2, Add Chili +2, Add Chili & Cheese +3", popularity: 8, pairings: ["Beer", "Soju"], is_available: true },
+  { name: "Mozzarella Sticks", category: "Appetizers", price: 13, description: "Cheese stuffed in crispy breading, served with marinara sauce.", popularity: 9, pairings: ["Beer", "Sangria"], is_available: true },
+  { name: "Crispy Dumplings", category: "Appetizers", price: 15, description: "Minced beef, pork, and vegetable potstickers, served with soy sauce.", popularity: 8, pairings: ["Soju", "Beer"], is_available: true },
+  { name: "Chicken Wings", category: "Appetizers", price: 19, description: "Your choice of sauce: Regular, Buffalo, or Lemon Pepper", popularity: 9, pairings: ["Beer", "Cocktails"], is_available: true },
+  { name: "Pulled Pork 'Dillas", category: "Main", price: 19, description: "Pulled pork & cheese, grill-pressed flour tortillas, served with dip.", popularity: 7, pairings: ["Beer", "Cocktails"], is_available: true },
+  { name: "Slider Trio", category: "Main", price: 19, description: "Your choice: Beef, K-BBQ Bulgogi, Buffalo Chicken, or Pulled Pork", popularity: 8, pairings: ["Beer", "Cocktails"], is_available: true },
+  { name: "Pulled Pork 'Wich", category: "Main", price: 21, description: "Tender pulled pork in between brioche buns, comes with fries.", popularity: 7, pairings: ["Beer", "Cocktails"], is_available: true },
+  { name: "Smashburger & Fries", category: "Main", price: 21, description: "Two beef patties, lettuce, tomato, cheese, brioche, comes with fries.", popularity: 9, pairings: ["Beer", "Cocktails"], is_available: true },
+  { name: "All-Star Platter", category: "Shareable", price: 33, description: "French Fries, Tater Tots, Onion Rings, Mozzarella Sticks, Jalapeño Poppers, Crispy Dumplings, Potato Pancakes", popularity: 10, pairings: ["Beer Tower", "Cocktails", "Soju"], is_available: true },
+  { name: "Fruit Medley", category: "Shareable", price: 35, description: "Apples, Cherry Tomatoes, Grapes, Honeydew, Oranges, Pineapples, Strawberries, Watermelon", popularity: 7, pairings: ["Sangria", "Champagne"], is_available: true },
+  { name: "Beer Bucket", category: "Beer", price: 39, description: "Pick any 5 beers", popularity: 9, pairings: ["All-Star Platter", "Chicken Wings"], is_available: true },
+  { name: "Beer Tower", category: "Beer", price: 65, description: "100 oz beer tower", popularity: 10, pairings: ["All-Star Platter", "Chicken Wings"], is_available: true },
+  { name: "Soju Bottle", category: "Soju", price: 19, description: "375ml bottle. Flavors: Chum-Churum, Saero, Apple, Peach, Strawberry, Yakult", popularity: 9, pairings: ["Crispy Dumplings", "Tater Tots"], is_available: true },
+  { name: "Spectrum Shots", category: "Soju", price: 21, description: "Seven 2oz Rainbow Soju Shooters", popularity: 8, pairings: ["Appetizers"], is_available: true },
+  { name: "Sangria", category: "Wine", price: 14, description: "Glass of sangria. Flavors: Red, Rosé, White", popularity: 7, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true },
+  { name: "Sangria Pitcher", category: "Wine", price: 55, description: "Pitcher of sangria. Flavors: Red, Rosé, White", popularity: 8, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true },
+  { name: "Wine Glass", category: "Wine", price: 12, description: "Glass of wine. Options: Chardonnay, Pinot Grigio, Sauvignon Blanc, Cabernet Sauvignon, Malbec, Pinot Noir", popularity: 6, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true },
+  { name: "Wine Bottle", category: "Wine", price: 49, description: "Bottle of wine. Options: Chardonnay, Pinot Grigio, Sauvignon Blanc, Cabernet Sauvignon, Malbec, Pinot Noir", popularity: 7, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true },
+  { name: "Moët & Chandon Impérial", category: "Champagne", price: 230, description: "Bottle of Moët & Chandon Impérial champagne", popularity: 7, pairings: ["Fruit Medley"], is_available: true },
+  { name: "Moët & Chandon Rosé", category: "Champagne", price: 230, description: "Bottle of Moët & Chandon Rosé champagne", popularity: 7, pairings: ["Fruit Medley"], is_available: true }
+];
+
+export const sampleCombos = [
+  { name: "Combo For Two", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Liquor Shot + 1 Beer Per Person + 1 Hour Billiard Rental" },
+  { name: "Combo For Four", price_weekday: 95, price_weekend: 105, billiard_time_minutes: 60, max_guests: 4, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Liquor Shot + 1 Beer Per Person + 1 Hour Billiard Rental" },
+  { name: "Green Glass Bottle", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Soju Bottle Per Person + 1 Hour Billiard Rental" },
+  { name: "Cocktail Combo", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Cocktail Per Person (<$20) + 1 Hour Billiard Rental" },
+  { name: "Pub Grub Club", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Food Per Person (<$22) + 1 Hour Billiard Rental" },
+  { name: "Six-Pack App Special", price_weekday: 128, price_weekend: 128, billiard_time_minutes: 60, max_guests: 4, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "4 Beers/Seltzers, 2 Soju Bottles, 1 Hour Billiard Rental" },
+  { name: "Social Club Cooler", price_weekday: 349, price_weekend: 349, billiard_time_minutes: 120, max_guests: 6, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Liquor Bottle 750mL, 6 Beers/Seltzers, 2 Red Bulls, includes 2 hours billiard rental (Up to 6 guests)" },
+  { name: "Trust Fund Cooler", price_weekday: 495, price_weekend: 495, billiard_time_minutes: 120, max_guests: 12, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "2 Liquor Bottles 750mL, 12 Beers/Seltzers, 4 Red Bulls, includes 2 hours billiard rental (2 tables)" }
+];
