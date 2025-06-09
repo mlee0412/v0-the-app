@@ -419,10 +419,31 @@ export function BilliardsTimerDashboard() {
   });
   
   const handleStartSessionForDialog = useCallback(
-    (tableId: number, currentGuestCount: number, currentServerId: string | null) => {
-      startTableSession(tableId, currentGuestCount, currentServerId, closeTableDialog);
+    (
+      tableId: number,
+      currentGuestCount: number,
+      currentServerId: string | null,
+    ) => {
+      if (!state.settings.dayStarted) {
+        showNotification(
+          "Please start the day before starting a session",
+          "error",
+        );
+        return;
+      }
+      startTableSession(
+        tableId,
+        currentGuestCount,
+        currentServerId,
+        closeTableDialog,
+      );
     },
-    [startTableSession, closeTableDialog] 
+    [
+      state.settings.dayStarted,
+      startTableSession,
+      closeTableDialog,
+      showNotification,
+    ],
   );
 
   const hasPermission = useCallback(
