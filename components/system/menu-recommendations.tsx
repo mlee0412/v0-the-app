@@ -56,6 +56,8 @@ export function MenuRecommendations({ table, elapsedMinutes }: MenuRecommendatio
 
   // Fallback recommendations if the service fails
   const getFallbackRecommendations = (guestCount: number): MenuRecommendation[] => {
+    if (process.env.NEXT_PUBLIC_USE_SAMPLE_MENU !== "true") return []
+
     const isGroup = guestCount > 2
     const isLargeGroup = guestCount >= 6
 
