@@ -647,9 +647,9 @@ export function TableDialog({
 
   return (
     <TooltipProvider>
-      <Dialog open onOpenChange={ (openState) => { if (!openState) handleDialogClose(); } }>
+      <Dialog open className="table-dialog" onOpenChange={ (openState) => { if (!openState) handleDialogClose(); } }>
         <DialogContent
-          className="max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
+          className="dialog-content table-dialog-content max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
           style={{ boxShadow: "0 0 20px rgba(0, 255, 255, 0.5)", border: "2px solid #00FFFF" }}
           role="dialog"
           aria-labelledby="table-dialog-title"
