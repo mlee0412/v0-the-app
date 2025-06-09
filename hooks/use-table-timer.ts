@@ -32,6 +32,7 @@ export function useTableTimer(table: HookTableInput) {
   // Use refs to avoid dependencies in the tick function
   const tableRef = useRef(table)
   const lastTickTimeRef = useRef<number>(Date.now())
+  // Used to keep track of the animation frame loop when a table is active
   const animationFrameIdRef = useRef<number | null>(null)
 
   // Update the ref when the table changes
@@ -86,7 +87,7 @@ export function useTableTimer(table: HookTableInput) {
     // If not active or no startTime, the useEffect above handles setting the display appropriately.
   }, []) // No dependencies to avoid re-creation
 
-  // Handle global time tick events
+  // Handle global time tick events dispatched elsewhere in the app
   useEffect(() => {
     const handleGlobalTimeTick = (event: Event) => {
       const customEvent = event as CustomEvent<{ timestamp: number }>
@@ -99,6 +100,25 @@ export function useTableTimer(table: HookTableInput) {
       window.removeEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
     }
   }, [tick])
+
+  // Local animation loop to update the timer every frame while active
+  useEffect(() => {
+    const runAnimation = () => {
+      tick(Date.now())
+      animationFrameIdRef.current = requestAnimationFrame(runAnimation)
+    }
+
+    if (table.isActive && table.startTime) {
+      animationFrameIdRef.current = requestAnimationFrame(runAnimation)
+    }
+
+    return () => {
+      if (animationFrameIdRef.current !== null) {
+        cancelAnimationFrame(animationFrameIdRef.current)
+        animationFrameIdRef.current = null
+      }
+    }
+  }, [table.isActive, table.startTime, tick])
 
   // Exposed formatTime function (re-wrapped for stability if formatTimeUtil is stable)
   const formatTime = useCallback(
