@@ -472,12 +472,36 @@ export function BilliardsTimerDashboard() {
   }, [supabaseNoteTemplates]);
 
   useEffect(() => {
-    const timerInterval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-      window.dispatchEvent(new CustomEvent("global-time-tick", { detail: { timestamp: now.getTime() } }));
-    }, 1000);
-    return () => clearInterval(timerInterval);
+    let frameId: number;
+
+    const tick = () => {
+      if (document.visibilityState === "visible") {
+        const now = new Date();
+        setCurrentTime(now);
+        window.dispatchEvent(
+          new CustomEvent("global-time-tick", { detail: { timestamp: now.getTime() } })
+        );
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        frameId = requestAnimationFrame(tick);
+      } else {
+        cancelAnimationFrame(frameId);
+      }
+    };
+
+    if (document.visibilityState === "visible") {
+      frameId = requestAnimationFrame(tick);
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelAnimationFrame(frameId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
