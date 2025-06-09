@@ -127,60 +127,20 @@ class MenuDataService {
     }
   }
 
-  // DEV NOTE: The following processPdfMenu contains hardcoded data for development.
-  // In production, this should parse the PDF file content.
   private async processPdfMenu(fileName: string): Promise<void> {
-    console.log(`MenuDataService: Processing PDF menu (using hardcoded data): ${fileName}`);
+    console.log(`MenuDataService: Processing PDF menu: ${fileName}`);
     try {
-      // This method should ideally parse the PDF. For now, it uses hardcoded data.
-      // The schema_menu.sql file should be the source of truth for table structure.
-      // This function currently assumes `menu_items` and `combos` tables exist as per schema_menu.sql.
-
-      const menuItems = [
-        { name: "Buffalo Chicken Dip", category: "Appetizers", price: 11, description: "Mildly spicy dip, served with corn tortilla nacho chips.", popularity: 8, pairings: ["Coors Light", "Miller Lite", "White Claw"], is_available: true,},
-        { name: "French Fries", category: "Appetizers", price: 13, description: "Classic french fries. Add Cheese & Bacon Bits +2, Add Chili +2, Add Chili & Cheese +3", popularity: 9, pairings: ["Heineken", "Corona", "Beer"], is_available: true, },
-        { name: "Jalapeño Poppers", category: "Appetizers", price: 13, description: "Cream cheese blend stuffed in crispy breading, served with dips.", popularity: 7, pairings: ["Corona", "Sangria"], is_available: true, },
-        { name: "Chips & Dips", category: "Appetizers", price: 14, description: "Crispy corn tortilla nacho chips with salsa and cheese wizz dips.", popularity: 7, pairings: ["Corona", "Margarita"], is_available: true,},
-        { name: "Cheese Quesadillas", category: "Appetizers", price: 13, description: "Triple cheese blend, grill-pressed flour tortillas, served with dip.", popularity: 8, pairings: ["Sangria", "Margarita"], is_available: true,},
-        { name: "Onion Ring Tower", category: "Appetizers", price: 13, description: "Deep-fried stacked rings of gold, served with dips.", popularity: 7, pairings: ["Beer", "Cocktails"], is_available: true,},
-        { name: "Tater Tots", category: "Appetizers", price: 13, description: "Classic tater tots. Add Cheese & Bacon Bits +2, Add Chili +2, Add Chili & Cheese +3", popularity: 8, pairings: ["Beer", "Soju"], is_available: true,},
-        { name: "Mozzarella Sticks", category: "Appetizers", price: 13, description: "Cheese stuffed in crispy breading, served with marinara sauce.", popularity: 9, pairings: ["Beer", "Sangria"], is_available: true,},
-        { name: "Crispy Dumplings", category: "Appetizers", price: 15, description: "Minced beef, pork, and vegetable potstickers, served with soy sauce.", popularity: 8, pairings: ["Soju", "Beer"], is_available: true,},
-        { name: "Chicken Wings", category: "Appetizers", price: 19, description: "Your choice of sauce: Regular, Buffalo, or Lemon Pepper", popularity: 9, pairings: ["Beer", "Cocktails"], is_available: true,},
-        { name: "Pulled Pork 'Dillas", category: "Main", price: 19, description: "Pulled pork & cheese, grill-pressed flour tortillas, served with dip.", popularity: 7, pairings: ["Beer", "Cocktails"], is_available: true,},
-        { name: "Slider Trio", category: "Main", price: 19, description: "Your choice: Beef, K-BBQ Bulgogi, Buffalo Chicken, or Pulled Pork", popularity: 8, pairings: ["Beer", "Cocktails"], is_available: true,},
-        { name: "Pulled Pork 'Wich", category: "Main", price: 21, description: "Tender pulled pork in between brioche buns, comes with fries.", popularity: 7, pairings: ["Beer", "Cocktails"], is_available: true,},
-        { name: "Smashburger & Fries", category: "Main", price: 21, description: "Two beef patties, lettuce, tomato, cheese, brioche, comes with fries.", popularity: 9, pairings: ["Beer", "Cocktails"], is_available: true,},
-        { name: "All-Star Platter", category: "Shareable", price: 33, description: "French Fries, Tater Tots, Onion Rings, Mozzarella Sticks, Jalapeño Poppers, Crispy Dumplings, Potato Pancakes", popularity: 10, pairings: ["Beer Tower", "Cocktails", "Soju"], is_available: true,},
-        { name: "Fruit Medley", category: "Shareable", price: 35, description: "Apples, Cherry Tomatoes, Grapes, Honeydew, Oranges, Pineapples, Strawberries, Watermelon", popularity: 7, pairings: ["Sangria", "Champagne"], is_available: true,},
-        { name: "Beer Bucket", category: "Beer", price: 39, description: "Pick any 5 beers", popularity: 9, pairings: ["All-Star Platter", "Chicken Wings"], is_available: true,},
-        { name: "Beer Tower", category: "Beer", price: 65, description: "100 oz beer tower", popularity: 10, pairings: ["All-Star Platter", "Chicken Wings"], is_available: true,},
-        { name: "Soju Bottle", category: "Soju", price: 19, description: "375ml bottle. Flavors: Chum-Churum, Saero, Apple, Peach, Strawberry, Yakult", popularity: 9, pairings: ["Crispy Dumplings", "Tater Tots"], is_available: true,},
-        { name: "Spectrum Shots", category: "Soju", price: 21, description: "Seven 2oz Rainbow Soju Shooters", popularity: 8, pairings: ["Appetizers"], is_available: true,},
-        { name: "Sangria", category: "Wine", price: 14, description: "Glass of sangria. Flavors: Red, Rosé, White", popularity: 7, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true,},
-        { name: "Sangria Pitcher", category: "Wine", price: 55, description: "Pitcher of sangria. Flavors: Red, Rosé, White", popularity: 8, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true,},
-        { name: "Wine Glass", category: "Wine", price: 12, description: "Glass of wine. Options: Chardonnay, Pinot Grigio, Sauvignon Blanc, Cabernet Sauvignon, Malbec, Pinot Noir", popularity: 6, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true,},
-        { name: "Wine Bottle", category: "Wine", price: 49, description: "Bottle of wine. Options: Chardonnay, Pinot Grigio, Sauvignon Blanc, Cabernet Sauvignon, Malbec, Pinot Noir", popularity: 7, pairings: ["Cheese Quesadillas", "Fruit Medley"], is_available: true,},
-        { name: "Moët & Chandon Impérial", category: "Champagne", price: 230, description: "Bottle of Moët & Chandon Impérial champagne", popularity: 7, pairings: ["Fruit Medley"], is_available: true,},
-        { name: "Moët & Chandon Rosé", category: "Champagne", price: 230, description: "Bottle of Moët & Chandon Rosé champagne", popularity: 7, pairings: ["Fruit Medley"], is_available: true,},
-      ];
-
-      const combosData = [
-          // Note: The original `processPdfMenu` inserted combo items also into `menu_items`.
-          // This is okay if `menu_items` is a general catalog. If combos should only be in `combos` table, adjust this.
-        { name: "Combo For Two", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Liquor Shot + 1 Beer Per Person + 1 Hour Billiard Rental" },
-        { name: "Combo For Four", price_weekday: 95, price_weekend: 105, billiard_time_minutes: 60, max_guests: 4, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Liquor Shot + 1 Beer Per Person + 1 Hour Billiard Rental" },
-        { name: "Green Glass Bottle", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Soju Bottle Per Person + 1 Hour Billiard Rental" },
-        { name: "Cocktail Combo", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Cocktail Per Person (<$20) + 1 Hour Billiard Rental" },
-        { name: "Pub Grub Club", price_weekday: 59, price_weekend: 69, billiard_time_minutes: 60, max_guests: 2, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Food Per Person (<$22) + 1 Hour Billiard Rental" },
-        { name: "Six-Pack App Special", price_weekday: 128, price_weekend: 128, billiard_time_minutes: 60, max_guests: 4, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "4 Beers/Seltzers, 2 Soju Bottles, 1 Hour Billiard Rental" },
-        { name: "Social Club Cooler", price_weekday: 349, price_weekend: 349, billiard_time_minutes: 120, max_guests: 6, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "1 Liquor Bottle 750mL, 6 Beers/Seltzers, 2 Red Bulls, includes 2 hours billiard rental (Up to 6 guests)" },
-        { name: "Trust Fund Cooler", price_weekday: 495, price_weekend: 495, billiard_time_minutes: 120, max_guests: 12, additional_guest_fee: 5, is_available: true, includes_billiard_time: true, description: "2 Liquor Bottles 750mL, 12 Beers/Seltzers, 4 Red Bulls, includes 2 hours billiard rental (2 tables)" },
-      ];
-
-      // Upsert menu items
+      const { data, error } = await this.supabase.storage.from("menu-data").download(fileName);
+      if (error || !data) throw error || new Error("Failed to download PDF");
+      const buffer = Buffer.from(await data.arrayBuffer());
+      const { default: pdfParse } = await import("pdf-parse");
+      const parsed = await pdfParse(buffer);
+      const menuItems = this.parseMenuFromText(parsed.text);
+      if (menuItems.length === 0 && process.env.NEXT_PUBLIC_USE_SAMPLE_MENU === "true") {
+        console.warn("MenuDataService: No items parsed from PDF, using sample data");
+        menuItems.push(...this.getSampleMenuItems());
+      }
       const menuItemsToUpsert = menuItems.map(item => ({
-        // id: item.id, // Let DB generate UUID if not provided or ensure unique
         name: item.name,
         category: item.category,
         price: item.price,
@@ -188,39 +148,52 @@ class MenuDataService {
         popularity: item.popularity,
         pairings: item.pairings,
         image_url: item.imageUrl,
-        is_available: item.is_available,
+        is_available: item.isAvailable,
       }));
       const { error: menuInsertError } = await this.supabase.from("menu_items").upsert(menuItemsToUpsert, { onConflict: "name" });
       if (menuInsertError) console.error("MenuDataService: Error upserting menu items:", menuInsertError.message);
-
-      // Upsert combos
-      const combosToUpsert = combosData.map(combo => ({
-        // id: combo.id, // Let DB generate UUID
-        name: combo.name,
-        price_weekday: combo.price_weekday,
-        price_weekend: combo.price_weekend,
-        billiard_time_minutes: combo.billiard_time_minutes,
-        max_guests: combo.max_guests,
-        additional_guest_fee: combo.additional_guest_fee,
-        is_available: combo.is_available,
-        includes_billiard_time: combo.includes_billiard_time,
-        image_url: combo.image_url,
-        description: combo.description,
-      }));
-      const { error: comboInsertError } = await this.supabase.from("combos").upsert(combosToUpsert, { onConflict: "name" });
-      if (comboInsertError) console.error("MenuDataService: Error upserting combos:", comboInsertError.message);
-
     } catch (error) {
-      console.error("MenuDataService: Error in processPdfMenu (hardcoded data):", error);
+      console.error("MenuDataService: Error in processPdfMenu:", error);
     }
   }
 
-  // Placeholder - implement actual Excel parsing
+
   private async processExcelMenu(fileName: string): Promise<void> {
-    console.warn(`MenuDataService: Excel processing for ${fileName} not implemented. Using placeholder logic.`);
-    // Similar to processPdfMenu, this would parse Excel and upsert to DB.
-    // For now, it can also call processPdfMenu if the hardcoded data is desired for testing.
-    await this.processPdfMenu(fileName);
+    console.log(`MenuDataService: Processing Excel menu: ${fileName}`);
+    try {
+      const { data, error } = await this.supabase.storage.from("menu-data").download(fileName);
+      if (error || !data) throw error || new Error("Failed to download Excel file");
+      const buffer = Buffer.from(await data.arrayBuffer());
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.read(buffer, { type: "buffer" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+      const menuItems: MenuItem[] = rows.map(row => ({
+        id: "", // placeholder
+        name: row.name || row.Name,
+        category: row.category || row.Category,
+        price: parseFloat(row.price || row.Price),
+        description: row.description || row.Description || "",
+        popularity: row.popularity ? parseInt(row.popularity, 10) : 5,
+        pairings: row.pairings ? String(row.pairings).split(',').map((s: string) => s.trim()) : [],
+        imageUrl: row.image_url || row.imageUrl,
+        isAvailable: row.is_available !== undefined ? !!row.is_available : true,
+      }));
+      const menuItemsToUpsert = menuItems.map(item => ({
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        description: item.description,
+        popularity: item.popularity,
+        pairings: item.pairings,
+        image_url: item.imageUrl,
+        is_available: item.isAvailable,
+      }));
+      const { error: menuInsertError } = await this.supabase.from("menu_items").upsert(menuItemsToUpsert, { onConflict: "name" });
+      if (menuInsertError) console.error("MenuDataService: Error upserting menu items:", menuInsertError.message);
+    } catch (error) {
+      console.error("MenuDataService: Error in processExcelMenu:", error);
+    }
   }
 
   // Placeholder - implement actual sales data processing
@@ -368,6 +341,26 @@ class MenuDataService {
     // Ensure we don't have too many, prioritize based on confidence if needed
     return recommendations.sort((a,b) => b.confidence - a.confidence).slice(0, 4);
   }
+  private parseMenuFromText(text: string): MenuItem[] {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    const items: MenuItem[] = [];
+    for (const line of lines) {
+      const parts = line.split("|");
+      if (parts.length >= 3) {
+        const [name, category, priceRaw, description = ""] = parts;
+        const price = parseFloat(priceRaw.replace(/[^0-9.]/g, ""));
+        if (!isNaN(price)) {
+          items.push({ id: "", name: name.trim(), category: category.trim(), price, description: description.trim(), popularity: 5, pairings: [], imageUrl: undefined, isAvailable: true });
+        }
+      }
+    }
+    return items;
+  }
+
+  private getSampleMenuItems(): MenuItem[] {
+    return [{ id: "", name: "Sample Item", category: "Sample", price: 0, description: "Example", popularity: 5, pairings: [], isAvailable: true }];
+  }
+
 
   private calculateComboRelevance(
     combo: ComboItem,
