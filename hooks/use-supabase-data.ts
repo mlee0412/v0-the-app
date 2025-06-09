@@ -5,6 +5,7 @@ import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiar
 import { v4 as uuidv4 } from "uuid"
 import { getSupabaseClient, isSupabaseConfigured, checkSupabaseConnection } from "@/lib/supabase/client"
 import type { RealtimeSubscription } from "@supabase/supabase-js"
+import { debounce } from "@/utils/timer-sync-utils"
 
 // Default time in milliseconds (60 minutes)
 const DEFAULT_TIME = 60 * 60 * 1000
@@ -122,6 +123,33 @@ export function useSupabaseData() {
   const lastConnectionAttempt = useRef<number>(0)
   const CONNECTION_RETRY_DELAY = 5000 // 5 seconds between connection attempts
   const reconnectBackoffRef = useRef<number>(1000) // Start with 1 second, will increase exponentially
+
+  // Debounced localStorage writer
+  const localStorageWriterRef = useRef<{ setItem: (k: string, v: string) => void; flush: () => void }>()
+
+  if (!localStorageWriterRef.current) {
+    const queue = new Map<string, string>()
+    const flush = () => {
+      queue.forEach((value, key) => {
+        try {
+          localStorage.setItem(key, value)
+        } catch (err) {
+          console.error("Error writing to localStorage:", err)
+        }
+      })
+      queue.clear()
+    }
+
+    const debouncedFlush = debounce(flush, 100)
+
+    localStorageWriterRef.current = {
+      setItem: (key: string, value: string) => {
+        queue.set(key, value)
+        debouncedFlush()
+      },
+      flush,
+    }
+  }
 
   // Check if current user is admin
   useEffect(() => {
@@ -550,6 +578,9 @@ export function useSupabaseData() {
         clearTimeout(updateTimeoutRef.current)
       }
 
+      // Flush any pending localStorage writes
+      localStorageWriterRef.current?.flush()
+
       // Clean up all subscriptions
       subscriptionsRef.current.forEach((unsubscribe) => unsubscribe())
       subscriptionsRef.current = []
@@ -850,8 +881,8 @@ export function useSupabaseData() {
         return table
       })
 
-      // Update localStorage
-      localStorage.setItem("tables", JSON.stringify(updatedTables))
+      // Update localStorage using debounced writer
+      localStorageWriterRef.current?.setItem("tables", JSON.stringify(updatedTables))
 
       // Update state
       if (JSON.stringify(updatedTables) !== JSON.stringify(prevTablesRef.current)) {
@@ -910,6 +941,9 @@ export function useSupabaseData() {
           return prevTables
         })
 
+        // Persist to localStorage using debounced writer
+        localStorageWriterRef.current?.setItem("tables", JSON.stringify(prevTablesRef.current))
+
         // Dispatch event for real-time updates across components
         window.dispatchEvent(
           new CustomEvent("table-updated", {
@@ -964,8 +998,8 @@ export function useSupabaseData() {
           return prevTables
         })
 
-        // Update localStorage
-        localStorage.setItem("tables", JSON.stringify(prevTablesRef.current))
+        // Update localStorage using debounced writer
+        localStorageWriterRef.current?.setItem("tables", JSON.stringify(prevTablesRef.current))
 
         // Schedule batch update
         if (updateTimeoutRef.current) {
