@@ -81,36 +81,29 @@ export function TouchInteractionManager() {
         el.classList.remove("touch-active")
       })
 
-      // Double-tap zoom & direct click dispatch
       const interactiveSelector =
         'button, a, .interactive, [role="button"], .table-card, .no-double-tap, .mobile-bottom-nav-item'
       const closestInteractive = target.closest(interactiveSelector)
 
-      if (closestInteractive) {
-        if (now - lastTouchEndRef.current < 350) {
-          // 350ms threshold for double tap
-          e.preventDefault() // Prevent zoom on the second tap of a quick double tap
+      if (closestInteractive && touchStartCoordsRef.current) {
+        const endX = e.changedTouches[0].clientX
+        const endY = e.changedTouches[0].clientY
+        const deltaX = Math.abs(endX - touchStartCoordsRef.current.x)
+        const deltaY = Math.abs(endY - touchStartCoordsRef.current.y)
+
+        if (deltaX < 10 && deltaY < 10) {
+          // Consider it a tap; synthesize a click for reliability on iOS
+          e.preventDefault()
+          const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
+          closestInteractive.dispatchEvent(clickEvent)
         }
 
-        // Direct click dispatch for table cards (from DirectTouchHandler)
-        if (closestInteractive.matches(".table-card") || target.closest(".table-card")) {
-          // Check if it was a swipe or a tap
-          const endX = e.changedTouches[0].clientX
-          const endY = e.changedTouches[0].clientY
-          if (touchStartCoordsRef.current) {
-            const deltaX = Math.abs(endX - touchStartCoordsRef.current.x)
-            const deltaY = Math.abs(endY - touchStartCoordsRef.current.y)
-            if (deltaX < 10 && deltaY < 10) {
-              // Small movement, consider it a tap
-              // Dispatch click only if it's not a child that already handles clicks well
-              if (!target.closest("button, a, input")) {
-                const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
-                closestInteractive.dispatchEvent(clickEvent)
-              }
-            }
-          }
+        if (now - lastTouchEndRef.current < 350) {
+          // Prevent zoom on double taps
+          e.preventDefault()
         }
       }
+
       lastTouchEndRef.current = now
       touchStartCoordsRef.current = null
     }
