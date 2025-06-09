@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import type { Table, Server, NoteTemplate, LogEntry } from "@/components/billiards-timer-dashboard"
 import { v4 as uuidv4 } from "uuid"
 import { getSupabaseClient, isSupabaseConfigured, checkSupabaseConnection } from "@/lib/supabase/client"
+import deepEqual from "fast-deep-equal"
 import type { RealtimeSubscription } from "@supabase/supabase-js"
 
 // Default time in milliseconds (60 minutes)
@@ -264,7 +265,7 @@ export function useSupabaseData() {
           }))
 
           // Only update if there are actual changes
-          if (JSON.stringify(convertedTables) !== JSON.stringify(prevTablesRef.current)) {
+          if (!deepEqual(convertedTables, prevTablesRef.current)) {
             setTables(convertedTables)
             prevTablesRef.current = convertedTables
             // Save to localStorage as backup
@@ -291,7 +292,7 @@ export function useSupabaseData() {
           }))
 
           // Only update if there are actual changes
-          if (JSON.stringify(convertedLogs) !== JSON.stringify(prevLogsRef.current)) {
+          if (!deepEqual(convertedLogs, prevLogsRef.current)) {
             setLogs(convertedLogs)
             prevLogsRef.current = convertedLogs
             // Save to localStorage as backup
@@ -327,7 +328,7 @@ export function useSupabaseData() {
           serversResult.value.data?.length > 0
         ) {
           // Only update if there are actual changes
-          if (JSON.stringify(serversResult.value.data) !== JSON.stringify(prevServersRef.current)) {
+          if (!deepEqual(serversResult.value.data, prevServersRef.current)) {
             setServers(serversResult.value.data)
             prevServersRef.current = serversResult.value.data
             // Save to localStorage as backup
@@ -348,7 +349,7 @@ export function useSupabaseData() {
           templatesResult.value.data?.length > 0
         ) {
           // Only update if there are actual changes
-          if (JSON.stringify(templatesResult.value.data) !== JSON.stringify(prevTemplatesRef.current)) {
+          if (!deepEqual(templatesResult.value.data, prevTemplatesRef.current)) {
             setNoteTemplates(templatesResult.value.data)
             prevTemplatesRef.current = templatesResult.value.data
             // Save to localStorage as backup
@@ -400,7 +401,7 @@ export function useSupabaseData() {
         const parsedTables = JSON.parse(storedTables)
         if (Array.isArray(parsedTables) && parsedTables.length > 0) {
           // Only update if there are actual changes
-          if (JSON.stringify(parsedTables) !== JSON.stringify(prevTablesRef.current)) {
+          if (!deepEqual(parsedTables, prevTablesRef.current)) {
             setTables(parsedTables)
             prevTablesRef.current = parsedTables
           }
@@ -430,7 +431,7 @@ export function useSupabaseData() {
         const parsedLogs = JSON.parse(storedLogs)
         if (Array.isArray(parsedLogs)) {
           // Only update if there are actual changes
-          if (JSON.stringify(parsedLogs) !== JSON.stringify(prevLogsRef.current)) {
+          if (!deepEqual(parsedLogs, prevLogsRef.current)) {
             setLogs(parsedLogs)
             prevLogsRef.current = parsedLogs
           }
@@ -487,7 +488,7 @@ export function useSupabaseData() {
         const parsedServers = JSON.parse(storedServers)
         if (Array.isArray(parsedServers) && parsedServers.length > 0) {
           // Only update if there are actual changes
-          if (JSON.stringify(parsedServers) !== JSON.stringify(prevServersRef.current)) {
+          if (!deepEqual(parsedServers, prevServersRef.current)) {
             setServers(parsedServers)
             prevServersRef.current = parsedServers
           }
@@ -517,7 +518,7 @@ export function useSupabaseData() {
         const parsedTemplates = JSON.parse(storedTemplates)
         if (Array.isArray(parsedTemplates) && parsedTemplates.length > 0) {
           // Only update if there are actual changes
-          if (JSON.stringify(parsedTemplates) !== JSON.stringify(prevTemplatesRef.current)) {
+          if (!deepEqual(parsedTemplates, prevTemplatesRef.current)) {
             setNoteTemplates(parsedTemplates)
             prevTemplatesRef.current = parsedTemplates
           }
@@ -601,7 +602,7 @@ export function useSupabaseData() {
                 )
 
                 // Only update state if there's an actual change
-                if (JSON.stringify(updatedTables) !== JSON.stringify(ts)) {
+                if (!deepEqual(updatedTables, ts)) {
                   prevTablesRef.current = updatedTables
                   return updatedTables
                 }
@@ -657,7 +658,7 @@ export function useSupabaseData() {
                   }
 
                   // Only update state if there's an actual change
-                  if (JSON.stringify(updatedLogs) !== JSON.stringify(ls)) {
+                  if (!deepEqual(updatedLogs, ls)) {
                     prevLogsRef.current = updatedLogs
                     return updatedLogs
                   }
@@ -706,7 +707,7 @@ export function useSupabaseData() {
                 const updatedServers = ss.map((s) => (s.id === newSrv.id ? newSrv : s))
 
                 // Only update state if there's an actual change
-                if (JSON.stringify(updatedServers) !== JSON.stringify(ss)) {
+                if (!deepEqual(updatedServers, ss)) {
                   prevServersRef.current = updatedServers
                   return updatedServers
                 }
@@ -854,7 +855,7 @@ export function useSupabaseData() {
       localStorage.setItem("tables", JSON.stringify(updatedTables))
 
       // Update state
-      if (JSON.stringify(updatedTables) !== JSON.stringify(prevTablesRef.current)) {
+      if (!deepEqual(updatedTables, prevTablesRef.current)) {
         setTables(updatedTables)
         prevTablesRef.current = updatedTables
       }
@@ -903,7 +904,7 @@ export function useSupabaseData() {
           const updatedTables = prevTables.map((t) => (t.id === table.id ? table : t))
 
           // Only update if there's a change
-          if (JSON.stringify(updatedTables) !== JSON.stringify(prevTables)) {
+          if (!deepEqual(updatedTables, prevTables)) {
             prevTablesRef.current = updatedTables
             return updatedTables
           }
@@ -957,7 +958,7 @@ export function useSupabaseData() {
           })
 
           // Only update if there's a change
-          if (JSON.stringify(newTables) !== JSON.stringify(prevTables)) {
+          if (!deepEqual(newTables, prevTables)) {
             prevTablesRef.current = newTables
             return newTables
           }
@@ -1003,7 +1004,7 @@ export function useSupabaseData() {
           const updatedLogs = [newLog, ...prevLogs]
 
           // Only update if there's a change
-          if (JSON.stringify(updatedLogs) !== JSON.stringify(prevLogs)) {
+          if (!deepEqual(updatedLogs, prevLogs)) {
             prevLogsRef.current = updatedLogs
             localStorage.setItem("logs", JSON.stringify(updatedLogs))
             return updatedLogs
@@ -1110,7 +1111,7 @@ export function useSupabaseData() {
         }, [] as Server[])
 
         // Only update if there's a change
-        if (JSON.stringify(uniqueServers) !== JSON.stringify(prevServersRef.current)) {
+        if (!deepEqual(uniqueServers, prevServersRef.current)) {
           localStorage.setItem("servers", JSON.stringify(uniqueServers))
           setServers(uniqueServers)
           prevServersRef.current = uniqueServers
@@ -1180,7 +1181,7 @@ export function useSupabaseData() {
         }, [] as NoteTemplate[])
 
         // Only update if there's a change
-        if (JSON.stringify(uniqueTemplates) !== JSON.stringify(prevTemplatesRef.current)) {
+        if (!deepEqual(uniqueTemplates, prevTemplatesRef.current)) {
           localStorage.setItem("noteTemplates", JSON.stringify(uniqueTemplates))
           setNoteTemplates(uniqueTemplates)
           prevTemplatesRef.current = uniqueTemplates
@@ -1302,22 +1303,22 @@ export function useSupabaseData() {
       }
 
       // Update state with fetched data only if there are changes
-      if (JSON.stringify(fetchedTables) !== JSON.stringify(prevTablesRef.current)) {
+      if (!deepEqual(fetchedTables, prevTablesRef.current)) {
         setTables(fetchedTables)
         prevTablesRef.current = fetchedTables
       }
 
-      if (JSON.stringify(fetchedLogs) !== JSON.stringify(prevLogsRef.current)) {
+      if (!deepEqual(fetchedLogs, prevLogsRef.current)) {
         setLogs(fetchedLogs)
         prevLogsRef.current = fetchedLogs
       }
 
-      if (JSON.stringify(fetchedServers) !== JSON.stringify(prevServersRef.current)) {
+      if (!deepEqual(fetchedServers, prevServersRef.current)) {
         setServers(fetchedServers)
         prevServersRef.current = fetchedServers
       }
 
-      if (JSON.stringify(fetchedTemplates) !== JSON.stringify(prevTemplatesRef.current)) {
+      if (!deepEqual(fetchedTemplates, prevTemplatesRef.current)) {
         setNoteTemplates(fetchedTemplates)
         prevTemplatesRef.current = fetchedTemplates
       }
