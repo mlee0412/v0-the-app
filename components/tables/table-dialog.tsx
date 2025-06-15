@@ -658,7 +658,7 @@ export function TableDialog({
     <TooltipProvider>
       <Dialog open onOpenChange={ (openState) => { if (!openState) handleDialogClose(); } }>
         <DialogContent
-          className="max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
+          className="max-w-full sm:max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
           style={{ boxShadow: "0 0 20px rgba(0, 255, 255, 0.5)", border: "2px solid #00FFFF" }}
           role="dialog"
           aria-labelledby="table-dialog-title"
@@ -677,7 +677,7 @@ export function TableDialog({
               <div className="flex items-center justify-center gap-4 mt-2">
                 <TimerDisplay />
               </div>
-              <div className="flex space-x-2 mt-4">
+              <div className="flex flex-wrap gap-2 mt-4">
                 <Button
                   variant="outline" size="sm"
                   className={`flex-1 text-sm ${ mobileTabView === "manage" ? "bg-[#00FF00] text-black border-[#00FF00]" : "border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00]"}`}
@@ -779,7 +779,7 @@ export function TableDialog({
                         </div>
                       )}
                     </div>
-                    <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2"><div className="flex items-center justify-center"><ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" /><h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`add-${min}`} variant="outline" className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] transition-all duration-200 active:scale-95" onClick={() => handleAddTime(min)} disabled={viewOnlyMode || !hasPermission("canAddTime")} aria-label={`Add ${min} minutes`}>+{min} min</Button>))}</div></div>
                       <div className="space-y-2"><div className="flex items-center justify-center"><ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" /><h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`sub-${min}`} variant="outline" className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] transition-all duration-200 active:scale-95" onClick={() => handleSubtractTime(min)} disabled={viewOnlyMode || !hasPermission("canSubtractTime")} aria-label={`Subtract ${min} minutes`}>-{min} min</Button>))}</div></div>
                     </div>
@@ -824,7 +824,7 @@ export function TableDialog({
                 <div className="bg-gray-700 text-gray-300 px-3 py-1 rounded-full text-xs">{localTable.isActive ? "Active" : "Inactive"}</div>
               </div>
               {validationError && (<div className="bg-red-900/50 border border-red-500 text-white p-2 rounded-md text-sm" role="alert">{validationError}</div>)}
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className={`h-10 text-sm border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] flex-1 ${!isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables") ? "opacity-50" : ""}`} onClick={() => isAuthenticated && hasPermission("canGroupTables") && setSelectedTab("group")} disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables")} aria-label="Group tables">Group</Button>
                 <Button variant="outline" size="sm" className={`h-10 text-sm border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] flex-1 ${!isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable") ? "opacity-50" : ""}`} onClick={() => isAuthenticated && hasPermission("canMoveTable") && setSelectedTab("move")} disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable")} aria-label="Move table">Move</Button>
                 <Button variant="outline" size="sm" className={`h-10 text-sm border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] flex-1 ${!isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes") ? "opacity-50" : ""}`} onClick={() => isAuthenticated && hasPermission("canUpdateNotes") && setSelectedTab("notes")} disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes")} aria-label="Manage notes">Notes</Button>
@@ -876,7 +876,7 @@ export function TableDialog({
 
                         {/* Scrollable Server List */}
                         <ScrollArea className="h-32 rounded-md border border-[#00FFFF]/30 p-2">
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {availableServers.length > 0 ? (
                               availableServers.map((server) => (
                                 <Button
@@ -902,7 +902,7 @@ export function TableDialog({
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2"><div className="flex items-center justify-center"><ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" /><h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`add-${min}`} variant="outline" className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] transition-all duration-200 active:scale-95" onClick={() => handleAddTime(min)} disabled={viewOnlyMode || !hasPermission("canAddTime")} aria-label={`Add ${min} minutes`}>+{min} min</Button>))}</div></div>
                     <div className="space-y-2"><div className="flex items-center justify-center"><ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" /><h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`sub-${min}`} variant="outline" className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] transition-all duration-200 active:scale-95" onClick={() => handleSubtractTime(min)} disabled={viewOnlyMode || !hasPermission("canSubtractTime")} aria-label={`Subtract ${min} minutes`}>-{min} min</Button>))}</div></div>
                   </div>
@@ -1048,7 +1048,7 @@ export function TableDialog({
             }
         }}>
           <DialogContent
-            className="sm:max-w-[400px] bg-black text-white border-[#00FFFF] space-theme font-mono"
+            className="max-w-full sm:max-w-[400px] bg-black text-white border-[#00FFFF] space-theme font-mono"
             style={{ backgroundImage: "linear-gradient(to bottom, #000033, #000011)", boxShadow: "0 0 20px rgba(0, 255, 255, 0.5)"}}
             role="dialog" aria-labelledby="time-confirm-title"
             onInteractOutside={(e) => e.preventDefault()} 
