@@ -108,7 +108,7 @@ export function TableDialog({
   
   const [elapsedTimeForInsights, setElapsedTimeForInsights] = useState(0);
   const [editingServer, setEditingServer] = useState(!table.server);
-  const [mobileTabView, setMobileTabView] = useState<"logs" | "menu" | "ai">("logs");
+  const [mobileTabView, setMobileTabView] = useState<"logs" | "menu" | "ai" | "manage" | "notes">("logs");
   const [logActionFilter, setLogActionFilter] = useState<string | null>(null);
   const [serverSearchTerm, setServerSearchTerm] = useState<string>(""); // New state for server search
 
@@ -671,6 +671,18 @@ export function TableDialog({
               <div className="flex space-x-2 mt-4">
                 <Button
                   variant="outline" size="sm"
+                  className={`flex-1 text-sm ${ mobileTabView === "manage" ? "bg-[#00FF00] text-black border-[#00FF00]" : "border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00]"}`}
+                  onClick={() => setMobileTabView("manage")}
+                  aria-label="Manage table"
+                >Manage</Button>
+                <Button
+                  variant="outline" size="sm"
+                  className={`flex-1 text-sm ${ mobileTabView === "notes" ? "bg-[#FFFF00] text-black border-[#FFFF00]" : "border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00]"}`}
+                  onClick={() => setMobileTabView("notes")}
+                  aria-label="Manage notes"
+                >Notes</Button>
+                <Button
+                  variant="outline" size="sm"
                   className={`flex-1 text-sm ${ mobileTabView === "logs" ? "bg-[#00FFFF] text-black border-[#00FFFF]" : "border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"}`}
                   onClick={() => setMobileTabView("logs")} aria-label="View logs"
                 ><FileTextIcon className="w-4 h-4 mr-1" />Logs</Button>
@@ -678,7 +690,7 @@ export function TableDialog({
                   variant="outline" size="sm"
                   className={`flex-1 text-sm ${ mobileTabView === "menu" ? "bg-[#FF00FF] text-white border-[#FF00FF]" : "border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF]"}`}
                   onClick={() => setMobileTabView("menu")} aria-label="View menu recommendations"
-                ><ServerIcon className="w-4 h-4 mr-1" />Menu</Button> {/* Changed Icon for Menu */}
+                ><ServerIcon className="w-4 h-4 mr-1" />Menu</Button>
                 <Button
                   variant="outline" size="sm"
                   className={`flex-1 text-sm ${ mobileTabView === "ai" ? "bg-[#00FF00] text-black border-[#00FF00]" : "border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00]"}`}
@@ -712,6 +724,112 @@ export function TableDialog({
                       <p className="text-sm text-[#00FF00]">{localTable.isActive ? `Table ${localTable.name} has ${guestCount} guests and has been active for ${Math.floor(elapsedTimeForInsights / 60000)} minutes. ${ displayedRemainingTime < 0 ? `Currently ${Math.abs(Math.floor(displayedRemainingTime / 60000))} minutes in overtime.` : `${Math.floor(displayedRemainingTime / 60000)} minutes remaining.`}` : `Table ${localTable.name} is currently inactive.`}</p>
                       {localTable.server && (<p className="text-sm mt-2 text-[#00FF00]">Server: {getServerName(localTable.server)}</p>)}
                       {localTable.noteId && (<p className="text-sm mt-2 text-[#00FF00]">Note: {noteTemplates.find((n) => n.id === localTable.noteId)?.text || ""}</p>)}
+                    </div>
+                  </div>
+                )}
+                {mobileTabView === "manage" && (
+                  <>
+                    <div className="flex items-center justify-between gap-4 mt-2">
+                      <div className="flex-1 flex justify-center"><TimerDisplay /></div>
+                      <ActionButton />
+                    </div>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-center mb-2"><UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" /><h3 className="text-sm font-medium text-[#FF00FF]">Players</h3></div>
+                      <div className="flex items-center justify-center gap-5">
+                        <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleDecrementGuests} disabled={viewOnlyMode} aria-label="Decrease guest count"><MinusIcon className="h-6 w-6" /></Button>
+                        <div className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95" onClick={handleGuestCountClick} style={{boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)", border: "2px solid rgba(255, 0, 255, 0.7)"}} role="button" aria-label="Edit guest count">{guestCount}<span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span></div>
+                        <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleIncrementGuests} disabled={viewOnlyMode} aria-label="Increase guest count"><PlusIcon className="h-6 w-6" /></Button>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-center mb-2"><ServerIcon className="mr-1 h-4 w-4 text-[#00FF00]" /><h3 className="text-sm font-medium text-[#00FF00]">Server</h3></div>
+                      {localTable.server && !editingServer ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="flex-1 bg-[#00FF00] text-black text-center py-2 px-3 rounded-md font-bold">{getServerName(localTable.server)}</div>
+                          <Button variant="outline" size="sm" className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95" onClick={toggleServerEditMode} disabled={viewOnlyMode} aria-label="Edit server">Edit</Button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Input
+                              placeholder="Search server..."
+                              value={serverSearchTerm}
+                              onChange={(e) => setServerSearchTerm(e.target.value)}
+                              className="bg-[#000033] border-[#00FFFF] text-white h-8 pl-8 text-xs"
+                              disabled={viewOnlyMode}
+                            />
+                            {serverSearchTerm && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 text-gray-400 hover:text-white"
+                                onClick={() => setServerSearchTerm("")}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                          <ScrollArea className="h-32 rounded-md border border-[#00FFFF]/30 p-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              {availableServers.length > 0 ? (
+                                availableServers.map((server) => (
+                                  <Button
+                                    key={server.id}
+                                    variant={currentServerRef.current === server.id ? "default" : "outline"}
+                                    className={
+                                      currentServerRef.current === server.id
+                                        ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                        : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
+                                    }
+                                    onClick={() => handleServerSelection(server.id)}
+                                    disabled={viewOnlyMode}
+                                    aria-label={`Select server ${server.name}`}
+                                  >
+                                    <span className="truncate">{server.name}</span>
+                                  </Button>
+                                ))
+                              ) : (
+                                <div className="col-span-3 text-center text-gray-400 text-xs py-4">No servers found</div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="space-y-2"><div className="flex items-center justify-center"><ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" /><h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`add-${min}`} variant="outline" className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] transition-all duration-200 active:scale-95" onClick={() => handleAddTime(min)} disabled={viewOnlyMode || !hasPermission("canAddTime")} aria-label={`Add ${min} minutes`}>+{min} min</Button>))}</div></div>
+                      <div className="space-y-2"><div className="flex items-center justify-center"><ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" /><h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`sub-${min}`} variant="outline" className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] transition-all duration-200 active:scale-95" onClick={() => handleSubtractTime(min)} disabled={viewOnlyMode || !hasPermission("canSubtractTime")} aria-label={`Subtract ${min} minutes`}>-{min} min</Button>))}</div></div>
+                    </div>
+                    <div className="text-center text-[#00FFFF] text-sm mt-4">{localTable.isActive ? (<MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTimeForInsights / 60000)} />) : (<div className="p-4 text-center"><p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p></div>)}</div>
+                  </>
+                )}
+                {mobileTabView === "notes" && (
+                  <div className="mt-4 space-y-3">
+                    <h3 className="text-center text-sm font-medium text-[#FFFF00]">Select note template</h3>
+                    <TimerDisplay />
+                    <div className="flex justify-center mb-4"><ActionButton /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant={selectedNoteId === "" ? "default" : "outline"} className={selectedNoteId === "" ? "w-full bg-[#FFFF00] text-black active:scale-95" : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"} onClick={() => handleNoteSelection("")} aria-label="Clear note">No Note</Button>
+                      {noteTemplates.map((note) => (
+                        <Button
+                          key={note.id}
+                          variant={selectedNoteId === note.id ? "default" : "outline"}
+                          className={selectedNoteId === note.id ? "w-full bg-[#FFFF00] text-black active:scale-95" : "w-full border-[#FFFF00] text-[#FFFF00] active:scale-95"}
+                          onClick={() => handleNoteSelection(note.id)}
+                          aria-label={`Select note ${note.text}`}
+                        >
+                          {note.text.length > 15 ? note.text.substring(0, 15) + "..." : note.text}
+                        </Button>
+                      ))}
+                    </div>
+                    {selectedNoteId && (
+                      <div className="p-2 bg-[#111100] rounded-md border border-[#FFFF00]/50">
+                        <p className="text-[#FFFF00]">{noteTemplates.find((n) => n.id === selectedNoteId)?.text || ""}</p>
+                      </div>
+                    )}
+                    <div className="flex justify-between mt-4">
+                      <Button variant="outline" onClick={() => setMobileTabView("manage")} className="border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] active:scale-95" aria-label="Back to manage">Back</Button>
                     </div>
                   </div>
                 )}
