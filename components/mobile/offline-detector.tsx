@@ -10,6 +10,7 @@ export function OfflineDetector() {
   const [lastStatus, setLastStatus] = useState<boolean | null>(null) // Track last status to prevent duplicate notifications
   const { isAuthenticated, isAdmin, currentUser } = useAuth()
   const statusChangeTimeout = useRef<NodeJS.Timeout | null>(null)
+  const lastChangeRef = useRef(0)
   const MIN_STATUS_CHANGE_INTERVAL = 10000 // 10 seconds minimum between status changes
 
   useEffect(() => {
@@ -31,15 +32,21 @@ export function OfflineDetector() {
       statusChangeTimeout.current = setTimeout(() => {
         setIsOnline(true)
 
-        // Only show banner if status changed
-        if (lastStatus === false) {
+        // Only show banner if status changed and not throttled
+        if (
+          lastStatus === false &&
+          Date.now() - lastChangeRef.current > MIN_STATUS_CHANGE_INTERVAL
+        ) {
           setShowBanner(true)
           setLastStatus(true)
+          lastChangeRef.current = Date.now()
 
           // Auto-hide after 5 seconds
           setTimeout(() => {
             setShowBanner(false)
           }, 5000)
+        } else {
+          setLastStatus(true)
         }
       }, 2000) // 2 second delay to ensure network is stable
     }
@@ -54,9 +61,15 @@ export function OfflineDetector() {
       statusChangeTimeout.current = setTimeout(() => {
         setIsOnline(false)
 
-        // Only show banner if status changed
-        if (lastStatus !== false) {
+        // Only show banner if status changed and not throttled
+        if (
+          lastStatus !== false &&
+          Date.now() - lastChangeRef.current > MIN_STATUS_CHANGE_INTERVAL
+        ) {
           setShowBanner(true)
+          setLastStatus(false)
+          lastChangeRef.current = Date.now()
+        } else {
           setLastStatus(false)
         }
       }, 1000) // 1 second delay
@@ -71,15 +84,21 @@ export function OfflineDetector() {
 
       setIsOnline(true)
 
-      // Only show banner if status changed
-      if (lastStatus === false) {
+      // Only show banner if status changed and not throttled
+      if (
+        lastStatus === false &&
+        Date.now() - lastChangeRef.current > MIN_STATUS_CHANGE_INTERVAL
+      ) {
         setShowBanner(true)
         setLastStatus(true)
+        lastChangeRef.current = Date.now()
 
         // Auto-hide after 5 seconds
         setTimeout(() => {
           setShowBanner(false)
         }, 5000)
+      } else {
+        setLastStatus(true)
       }
     }
 
@@ -88,9 +107,15 @@ export function OfflineDetector() {
       if (!navigator.onLine) {
         setIsOnline(false)
 
-        // Only show banner if status changed
-        if (lastStatus !== false) {
+        // Only show banner if status changed and not throttled
+        if (
+          lastStatus !== false &&
+          Date.now() - lastChangeRef.current > MIN_STATUS_CHANGE_INTERVAL
+        ) {
           setShowBanner(true)
+          setLastStatus(false)
+          lastChangeRef.current = Date.now()
+        } else {
           setLastStatus(false)
         }
       }

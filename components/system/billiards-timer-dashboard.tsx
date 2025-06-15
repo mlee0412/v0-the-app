@@ -22,7 +22,6 @@ import { BigBangAnimation } from "@/components/animations/big-bang-animation";
 import { ExplosionAnimation } from "@/components/animations/explosion-animation";
 import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-table-list";
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
-import { OfflineDetector } from "@/components/mobile/offline-detector"; // Corrected import path
 import { OrientationAwareContainer } from "@/components/mobile/orientation-aware-container";
 import { useMobile } from "@/hooks/use-mobile";
 import { IOSTouchFix } from "@/components/ios-touch-fix";
@@ -1207,7 +1206,6 @@ export function BilliardsTimerDashboard() {
         style={{ height: "100vh", display: "flex", flexDirection: "column" }}
       >
         <IOSTouchFix />
-        <OfflineDetector />
         {notification && (
           <div
             role="alert"
