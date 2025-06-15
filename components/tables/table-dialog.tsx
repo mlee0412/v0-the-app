@@ -77,7 +77,7 @@ export function TableDialog({
 }: TableDialogProps) {
   const { isAdmin, isServer, isAuthenticated } = useAuth()
   const isMobile = useMobile()
-  const [selectedTab, setSelectedTab] = useState<"manage" | "group" | "move" | "notes">("manage")
+  const [selectedTab, setSelectedTab] = useState<"manage" | "group" | "move" | "notes" | "logs">("manage")
   
   const getInitialSelectedTablesForGrouping = useCallback(() => {
     if (table.groupId) {
@@ -728,6 +728,7 @@ export function TableDialog({
                 <Button variant="outline" size="sm" className={`h-10 text-sm border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] flex-1 ${!isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables") ? "opacity-50" : ""}`} onClick={() => isAuthenticated && hasPermission("canGroupTables") && setSelectedTab("group")} disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canGroupTables")} aria-label="Group tables">Group</Button>
                 <Button variant="outline" size="sm" className={`h-10 text-sm border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] flex-1 ${!isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable") ? "opacity-50" : ""}`} onClick={() => isAuthenticated && hasPermission("canMoveTable") && setSelectedTab("move")} disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canMoveTable")} aria-label="Move table">Move</Button>
                 <Button variant="outline" size="sm" className={`h-10 text-sm border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] flex-1 ${!isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes") ? "opacity-50" : ""}`} onClick={() => isAuthenticated && hasPermission("canUpdateNotes") && setSelectedTab("notes")} disabled={!isAuthenticated || viewOnlyMode || !hasPermission("canUpdateNotes")} aria-label="Manage notes">Notes</Button>
+                <Button variant="outline" size="sm" className="h-10 text-sm border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] flex-1" onClick={() => setSelectedTab("logs")} aria-label="View logs"><FileTextIcon className="w-4 h-4 mr-1" />Logs</Button>
                 <Button variant="outline" size="sm" className="h-10 text-sm border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] flex-1" onClick={() => setSelectedTab("manage")} aria-label="Manage table">Manage</Button>
               </div>
               {selectedTab === "manage" ? (
@@ -861,6 +862,53 @@ export function TableDialog({
                   </div>
                   {selectedNoteId&&(<div className="p-2 bg-[#111100] rounded-md border border-[#FFFF00]/50"><p className="text-[#FFFF00]">{noteTemplates.find((n)=>n.id===selectedNoteId)?.text||""}</p></div>)}
                   <div className="flex justify-between mt-4"><Button variant="outline" onClick={()=>setSelectedTab("manage")} className="border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] active:scale-95" aria-label="Back to manage">Back</Button></div>
+                </div>
+              ) : selectedTab === "logs" ? (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto p-2 mt-4">
+                  <h3 className="text-[#00FFFF] text-center mb-2 text-sm font-bold">Session Logs</h3>
+                  <div className="mb-3">
+                    <div className="flex flex-wrap gap-1 justify-center">
+                      <Button variant="outline" size="sm" className={`text-xs py-1 px-2 h-auto ${ logActionFilter === null ? "bg-[#00FFFF] text-black border-[#00FFFF]" : "border-[#00FFFF] bg-[#000033] text-[#00FFFF]"}`} onClick={() => setLogActionFilter(null)} aria-label="Show all logs">All</Button>
+                      {uniqueActionTypes.map((action) => (
+                        <Button
+                          key={action}
+                          variant="outline"
+                          size="sm"
+                          className={`text-xs py-1 px-2 h-auto ${ logActionFilter === action ? "bg-purple-600 text-white border-purple-600" : "border-purple-600/50 bg-[#000033] text-purple-300"}`}
+                          onClick={() => setLogActionFilter(action)}
+                          aria-label={`Filter by ${action}`}
+                        >
+                          {action}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                  {logs
+                    .filter(
+                      (log) =>
+                        log.tableId === table.id &&
+                        table.startTime &&
+                        log.timestamp >= table.startTime &&
+                        (logActionFilter === null || log.action === logActionFilter),
+                    )
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .map((log) => (
+                      <div key={log.id} className="p-2 border border-[#00FFFF]/30 rounded-md bg-[#000033] mb-2" role="listitem">
+                        <div className="flex justify-between text-xs text-gray-400">
+                          <span className="bg-purple-900/30 px-1 py-0.5 rounded text-purple-300">{log.action}</span>
+                          <span>{new Date(log.timestamp).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span>
+                        </div>
+                        {log.details && <div className="mt-1 text-sm text-[#00FFFF]">{log.details}</div>}
+                      </div>
+                    ))}
+                  {logs.filter((log) => log.tableId === table.id && table.startTime && log.timestamp >= table.startTime && (logActionFilter === null || log.action === logActionFilter)).length === 0 && (
+                    <div className="text-center text-gray-400 py-4">
+                      <div className="mb-2 opacity-50">
+                        <FileTextIcon className="h-8 w-8 mx-auto mb-1" />
+                      </div>
+                      {logActionFilter ? `No "${logActionFilter}" logs available` : "No session logs available"}
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
