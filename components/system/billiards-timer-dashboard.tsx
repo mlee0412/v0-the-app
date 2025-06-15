@@ -293,6 +293,7 @@ export function BilliardsTimerDashboard() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const headerRef = useRef<HTMLDivElement>(null);
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastNotificationRef = useRef<{ message: string; time: number } | null>(null);
 
   // Update hideSystemElements based on isMobile, only after component has mounted
   useEffect(() => {
@@ -371,6 +372,13 @@ export function BilliardsTimerDashboard() {
 
   const showNotification = useCallback(
     (message: string, type: "success" | "error" | "info" = "info") => {
+      if (
+        lastNotificationRef.current &&
+        lastNotificationRef.current.message === message &&
+        Date.now() - lastNotificationRef.current.time < 1000
+      ) {
+        return;
+      }
       if (notificationTimeoutRef.current) {
         clearTimeout(notificationTimeoutRef.current);
       }
@@ -379,6 +387,7 @@ export function BilliardsTimerDashboard() {
         dispatch({ type: "CLEAR_NOTIFICATION" });
         notificationTimeoutRef.current = null;
       }, 3000);
+      lastNotificationRef.current = { message, time: Date.now() };
 
       if (state.settings.soundEnabled && type !== "info") { // Use state.settings
         try {

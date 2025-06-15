@@ -26,19 +26,32 @@ export function MobileTableList({ tables, servers, logs, onTableClick }: MobileT
   const filteredTables = useMemo(() => {
     let result = [...tables]
 
-    // Filter by active status if needed
     if (filterActive) {
-      result = result.filter((table) => table.isActive)
+      result = result.filter((t) => t.isActive)
     }
 
-    // Filter by assigned server if server is logged in and filter is enabled
     if (isServer && filterAssigned && currentUser) {
-      result = result.filter((table) => table.server === currentUser.id)
+      result = result.filter((t) => t.server === currentUser.id)
     }
 
-    // Sort tables numerically by ID
-    return result.sort((a, b) => a.id - b.id)
-  }, [tables, filterActive, filterAssigned, isServer, currentUser])
+    result.sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1
+
+      const serverNameA = servers.find((s) => s.id === a.server)?.name || ""
+      const serverNameB = servers.find((s) => s.id === b.server)?.name || ""
+      if (serverNameA !== serverNameB) return serverNameA.localeCompare(serverNameB)
+
+      if (a.hasNotes !== b.hasNotes) return a.hasNotes ? -1 : 1
+
+      const guestA = a.guestCount >= 4
+      const guestB = b.guestCount >= 4
+      if (guestA !== guestB) return guestA ? -1 : 1
+
+      return a.id - b.id
+    })
+
+    return result
+  }, [tables, filterActive, filterAssigned, isServer, currentUser, servers])
 
   // Handle filter toggles with haptic feedback
   const handleFilterActiveToggle = useCallback(() => {
