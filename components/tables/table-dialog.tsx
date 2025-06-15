@@ -116,7 +116,7 @@ export function TableDialog({
   const formatLogDetails = useCallback(
     (details?: string) => {
       if (!details) return '';
-      return details.replace(/Server:\s*(\w+)/, (_, id) => `Server: ${getServerName(id)}`);
+      return details.replace(/Server:\s*([\w-]+)/, (_, id) => `Server: ${getServerName(id)}`);
     },
     [getServerName],
   );
