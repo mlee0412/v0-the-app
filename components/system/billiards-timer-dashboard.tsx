@@ -1285,8 +1285,7 @@ export function BilliardsTimerDashboard() {
                     onEndDay={endDay}
                     onShowSettings={() => dispatch({ type: "SET_STATE", payload: { showSettingsDialog: true } })}
                     onLogout={handleLogout}
-                    onLogin={handleAdminLogin} 
-                    isAuthenticated={isAuthenticated} 
+                    onLogin={handleLogin}
                   />
                 </div>
               ) : (
