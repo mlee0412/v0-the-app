@@ -1281,8 +1281,6 @@ export function BilliardsTimerDashboard() {
                     activeTab={activeTab}
                     dayStarted={settings.dayStarted}
                     isAdmin={isAdmin}
-                    onStartDay={startDay}
-                    onEndDay={endDay}
                     onShowSettings={() => dispatch({ type: "SET_STATE", payload: { showSettingsDialog: true } })}
                     onLogout={handleLogout}
                     onLogin={handleLogin}
