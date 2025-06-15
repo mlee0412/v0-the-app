@@ -1,5 +1,10 @@
 export function registerServiceWorker() {
-  if (typeof window !== "undefined" && "serviceWorker" in navigator && window.location.protocol === "https:") {
+  const isSecure =
+    typeof window !== "undefined" &&
+    (window.location.protocol === "https:" ||
+      window.location.hostname === "localhost")
+
+  if (typeof window !== "undefined" && "serviceWorker" in navigator && isSecure) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("/sw.js").then(
         (registration) => {
