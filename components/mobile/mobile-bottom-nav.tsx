@@ -14,8 +14,6 @@ interface MobileBottomNavProps {
   activeTab: string
   dayStarted: boolean
   isAdmin: boolean
-  onStartDay: () => void
-  onEndDay: () => void
   onShowSettings: () => void
   onLogout: () => void
   onLogin: () => void
@@ -27,8 +25,6 @@ export function MobileBottomNav({
   activeTab,
   dayStarted,
   isAdmin,
-  onStartDay,
-  onEndDay,
   onShowSettings,
   onLogout,
   onLogin,
