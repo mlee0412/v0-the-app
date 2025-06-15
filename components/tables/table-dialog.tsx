@@ -656,9 +656,9 @@ export function TableDialog({
 
   return (
     <TooltipProvider>
-      <Dialog open onOpenChange={ (openState) => { if (!openState) handleDialogClose(); } }>
+      <Dialog open className="table-dialog" onOpenChange={ (openState) => { if (!openState) handleDialogClose(); } }>
         <DialogContent
-          className="max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
+          className="dialog-content table-dialog-content max-w-[500px] bg-[#000018] text-white border-[#00FFFF] animate-in fade-in-50 duration-300 space-theme font-mono cursor-galaga overflow-y-auto p-0"
           style={{ boxShadow: "0 0 20px rgba(0, 255, 255, 0.5)", border: "2px solid #00FFFF" }}
           role="dialog"
           aria-labelledby="table-dialog-title"
@@ -906,7 +906,15 @@ export function TableDialog({
                     <div className="space-y-2"><div className="flex items-center justify-center"><ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" /><h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`add-${min}`} variant="outline" className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] transition-all duration-200 active:scale-95" onClick={() => handleAddTime(min)} disabled={viewOnlyMode || !hasPermission("canAddTime")} aria-label={`Add ${min} minutes`}>+{min} min</Button>))}</div></div>
                     <div className="space-y-2"><div className="flex items-center justify-center"><ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" /><h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`sub-${min}`} variant="outline" className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] transition-all duration-200 active:scale-95" onClick={() => handleSubtractTime(min)} disabled={viewOnlyMode || !hasPermission("canSubtractTime")} aria-label={`Subtract ${min} minutes`}>-{min} min</Button>))}</div></div>
                   </div>
-                  <div className="text-center text-[#00FFFF] text-sm mt-4">{localTable.isActive ? (<MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTimeForInsights / 60000)} />) : (<div className="p-4 text-center"><p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p></div>)}</div>
+                  <div className="text-center text-[#00FFFF] text-sm mt-4 max-h-[300px] overflow-y-auto">
+                    {localTable.isActive ? (
+                      <MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTimeForInsights / 60000)} />
+                    ) : (
+                      <div className="p-4 text-center">
+                        <p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : selectedTab === "group" ? (
                 <div className="mt-4 space-y-3">
