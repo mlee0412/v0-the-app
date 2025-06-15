@@ -11,7 +11,9 @@ import {
   PlayIcon,
   FileTextIcon,
   BrainIcon,
-  UnplugIcon, 
+  UnplugIcon,
+  Search,
+  X
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -23,6 +25,8 @@ import { NumberPad } from "@/components/auth/number-pad"
 import { MenuRecommendations } from "@/components/system/menu-recommendations"
 import { useMobile } from "@/hooks/use-mobile"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface TableDialogProps {
   table: Table
@@ -107,6 +111,7 @@ export function TableDialog({
   const [editingServer, setEditingServer] = useState(!table.server);
   const [mobileTabView, setMobileTabView] = useState<"logs" | "menu" | "ai" | "manage" | "notes">("logs");
   const [logActionFilter, setLogActionFilter] = useState<string | null>(null);
+  const [serverSearchTerm, setServerSearchTerm] = useState<string>("");
 
   const formatLogDetails = useCallback(
     (details?: string) => {
@@ -129,8 +134,9 @@ export function TableDialog({
   const availableServers = useMemo(() => {
     return servers
       .filter((server) => server.enabled !== false)
-      .filter((server, index, self) => index === self.findIndex((s) => s.id === server.id));
-  }, [servers]);
+      .filter((server, index, self) => index === self.findIndex((s) => s.id === server.id))
+      .filter((server) => server.name.toLowerCase().includes(serverSearchTerm.toLowerCase()));
+  }, [servers, serverSearchTerm]);
 
   const canManageTable = useMemo(
     () =>
@@ -843,24 +849,56 @@ export function TableDialog({
                         <div className="flex-1 bg-[#00FF00] text-black text-center py-2 px-3 rounded-md font-bold">{getServerName(localTable.server)}</div>
                         <Button variant="outline" size="sm" className="border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-[#00FF00] active:scale-95" onClick={toggleServerEditMode} disabled={viewOnlyMode} aria-label="Edit server">Edit</Button>
                       </div>
-                    ) 
+                    )
                     : (
                       <div>
-                        <Select
-                          value={currentServerRef.current || undefined}
-                          onValueChange={(value) => handleServerSelection(value)}
-                        >
-                          <SelectTrigger className="w-full bg-[#000033] border-[#00FFFF] text-white h-9">
-                            <SelectValue placeholder="Select server" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-[#000033] border-[#00FFFF] text-white max-h-[200px]">
-                            {availableServers.map((server) => (
-                              <SelectItem key={server.id} value={server.id}>
-                                {server.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {/* Server Search Input */}
+                        <div className="relative mb-2">
+                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            placeholder="Search server..."
+                            value={serverSearchTerm}
+                            onChange={(e) => setServerSearchTerm(e.target.value)}
+                            className="bg-[#000033] border-[#00FFFF] text-white h-8 pl-8 text-xs"
+                            disabled={viewOnlyMode}
+                          />
+                          {serverSearchTerm && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 text-gray-400 hover:text-white"
+                              onClick={() => setServerSearchTerm("")}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Scrollable Server List */}
+                        <ScrollArea className="h-32 rounded-md border border-[#00FFFF]/30 p-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {availableServers.length > 0 ? (
+                              availableServers.map((server) => (
+                                <Button
+                                  key={server.id}
+                                  variant={currentServerRef.current === server.id ? "default" : "outline"}
+                                  className={
+                                    currentServerRef.current === server.id
+                                      ? "w-full justify-center bg-[#00FF00] hover:bg-[#00CC00] text-black text-xs h-7 px-1 touch-manipulation font-bold active:scale-95"
+                                      : "w-full justify-center border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white text-xs h-7 px-1 touch-manipulation active:scale-95"
+                                  }
+                                  onClick={() => handleServerSelection(server.id)}
+                                  disabled={viewOnlyMode}
+                                  aria-label={`Select server ${server.name}`}
+                                >
+                                  <span className="truncate">{server.name}</span>
+                                </Button>
+                              ))
+                            ) : (
+                              <div className="col-span-3 text-center text-gray-400 text-xs py-4">No servers found</div>
+                            )}
+                          </div>
+                        </ScrollArea>
                       </div>
                     )}
                   </div>
