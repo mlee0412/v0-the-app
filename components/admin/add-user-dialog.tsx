@@ -19,9 +19,7 @@ interface AddUserDialogProps {
 
 export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserDialogProps) {
   const { toast } = useToast()
-  const [firstName, setFirstName] = useState("")
-  const [displayName, setDisplayName] = useState("")
-  const [email, setEmail] = useState("")
+  const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [nativeLanguage, setNativeLanguage] = useState("English")
   const [pinCode, setPinCode] = useState("")
@@ -42,9 +40,12 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
       // If we have an editUser, populate the form with their data
       if (editUser) {
         setIsEditMode(true)
-        setFirstName(editUser.first_name || editUser.name || "")
-        setDisplayName(editUser.display_name || "")
-        setEmail(editUser.email || "")
+        setName(
+          editUser.name ||
+            editUser.first_name ||
+            editUser.display_name ||
+            "",
+        )
         setPhone(editUser.phone || "")
         setNativeLanguage(editUser.native_language || "English")
         setPinCode(editUser.pin_code || "")
@@ -57,9 +58,7 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
   }, [open, editUser])
 
   const resetForm = () => {
-    setFirstName("")
-    setDisplayName("")
-    setEmail("")
+    setName("")
     setPhone("")
     setNativeLanguage("English")
     setPinCode("")
@@ -89,20 +88,10 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
     }
   }
 
-  const validateEmail = (email: string) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return re.test(email)
-  }
-
   const handleSubmit = async () => {
     // Validate inputs
-    if (!firstName.trim()) {
-      setError("First name is required")
-      return
-    }
-
-    if (!email.trim() || !validateEmail(email)) {
-      setError("Valid email address is required")
+    if (!name.trim()) {
+      setError("Name is required")
       return
     }
 
@@ -121,10 +110,8 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
 
     try {
       const userData = {
-        first_name: firstName,
-        display_name: displayName,
-        email,
-        phone: phone.trim() || null,
+        name,
+        phone,
         native_language: nativeLanguage,
         pin_code: pinCode,
         role,
@@ -186,39 +173,14 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
         <div className="flex-1 overflow-auto pr-2">
           <div className="space-y-4 py-4 mb-2">
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="name">Name</Label>
               <Input
-                id="firstName"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First Name"
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Name"
                 className="bg-[#000033] border-[#00FFFF] text-white"
               />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name (Optional)</Label>
-              <Input
-                id="displayName"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Display Name"
-                className="bg-[#000033] border-[#00FFFF] text-white"
-              />
-              <p className="text-sm text-gray-400">Leave blank to use First Name</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@example.com"
-                className="bg-[#000033] border-[#00FFFF] text-white"
-              />
-              <p className="text-sm text-gray-400">Email address will be used for login.</p>
             </div>
 
             <div className="space-y-2">
@@ -228,6 +190,7 @@ export function AddUserDialog({ open, onClose, onUserAdded, editUser }: AddUserD
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Phone Number"
+                inputMode="numeric"
                 className="bg-[#000033] border-[#00FFFF] text-white"
               />
               <p className="text-sm text-gray-400">Leave blank if not available.</p>
