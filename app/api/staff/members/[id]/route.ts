@@ -44,12 +44,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   try {
     const { id } = params
     const userData = await request.json()
+    const name = userData.name || userData.first_name
 
     const { data, error } = await supabase
       .from("staff_members")
       .update({
-        first_name: userData.first_name,
-        display_name: userData.display_name || userData.first_name,
+        first_name: name,
+        display_name: userData.display_name || name,
         email: userData.email,
         phone: userData.phone || null,
         native_language: userData.native_language || "English",

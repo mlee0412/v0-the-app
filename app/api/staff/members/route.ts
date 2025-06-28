@@ -95,10 +95,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request body. Please send valid JSON." }, { status: 400 });
     }
 
-    if (!userData.first_name || !userData.pin_code || !userData.role) {
-      console.error("API_STAFF_MEMBERS_POST (all members): Missing required fields (first_name, pin_code, role).");
+    const name = userData.name || userData.first_name;
+
+    if (!name || !userData.pin_code || !userData.role) {
+      console.error(
+        "API_STAFF_MEMBERS_POST (all members): Missing required fields (name/first_name, pin_code, role)."
+      );
       return NextResponse.json(
-        { error: "Missing required fields: first_name, pin_code, and role are required." },
+        { error: "Missing required fields: name, pin_code, and role are required." },
         { status: 400 }
       );
     }
@@ -127,12 +131,12 @@ export async function POST(request: NextRequest) {
     }
 
     const staffMemberData = {
-      first_name: userData.first_name,
-      display_name: userData.display_name || userData.first_name,
+      first_name: name,
+      display_name: userData.display_name || name,
       email: userData.email || null,
       phone: userData.phone || null,
       native_language: userData.native_language || "English",
-      pin_code: userData.pin_code, 
+      pin_code: userData.pin_code,
       role: userData.role,
       auth_id: authId, 
     };
