@@ -52,9 +52,10 @@
   }
 
   /* Landscape mode optimizations */
-  @media (orientation: landscape) {
+  @media screen and (orientation: landscape) and (min-device-width: 768px) and (max-device-width: 1024px) {
     .table-grid {
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      /* Match desktop layout with six fixed columns */
+      grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 
     /* Adjust header for landscape */

@@ -294,6 +294,11 @@ export function BilliardsTimerDashboard() {
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastNotificationRef = useRef<{ message: string; time: number } | null>(null);
 
+  // Memoized selectors for frequently used state slices
+  const memoizedTables = useMemo(() => tables, [tables]);
+  const memoizedServers = useMemo(() => servers, [servers]);
+  const memoizedLogs = useMemo(() => logs, [logs]);
+
   // Update hideSystemElements based on isMobile, only after component has mounted
   useEffect(() => {
     if (hasMounted && isMobile !== undefined) {
@@ -1295,9 +1300,9 @@ export function BilliardsTimerDashboard() {
                 </div>
               ) : (
                 <TableGrid
-                  tables={tables} // Use tables from state
-                  servers={servers} // Use servers from state
-                  logs={logs}     // Use logs from state
+                  tables={memoizedTables}
+                  servers={memoizedServers}
+                  logs={memoizedLogs}
                   onTableClick={openTableDialog}
                   // showAnimations={settings.showTableCardAnimations} // Already passed to EnhancedMobileTableList
                 />
@@ -1309,10 +1314,10 @@ export function BilliardsTimerDashboard() {
         {selectedTable && (
           <TableDialog
             table={selectedTable}
-            servers={servers} // Use servers from state
-            allTables={tables} // Use tables from state
-            noteTemplates={stateNoteTemplates} // Use noteTemplates from state
-            logs={logs} // Use logs from state
+            servers={memoizedServers}
+            allTables={memoizedTables}
+            noteTemplates={stateNoteTemplates}
+            logs={memoizedLogs}
             onClose={closeTableDialog}
             onStartSession={handleStartSessionForDialog} 
             onEndSession={confirmEndSession}

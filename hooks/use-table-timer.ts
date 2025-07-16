@@ -32,6 +32,7 @@ export function useTableTimer(table: HookTableInput) {
   // Use refs to avoid dependencies in the tick function
   const tableRef = useRef(table)
   const lastTickTimeRef = useRef<number>(Date.now())
+  const UPDATE_INTERVAL_MS = 1000
   // Used to keep track of the animation frame loop when a table is active
   const animationFrameIdRef = useRef<number | null>(null)
 
@@ -74,6 +75,9 @@ export function useTableTimer(table: HookTableInput) {
 
   // Tick function that doesn't depend on state values
   const tick = useCallback((currentTime: number) => {
+    if (currentTime - lastTickTimeRef.current < UPDATE_INTERVAL_MS) return
+    lastTickTimeRef.current = currentTime
+
     const currentTable = tableRef.current
 
     if (currentTable.isActive && currentTable.startTime) {
