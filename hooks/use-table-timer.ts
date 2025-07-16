@@ -32,8 +32,10 @@ export function useTableTimer(table: HookTableInput) {
   // Use refs to avoid dependencies in the tick function
   const tableRef = useRef(table)
   const lastTickTimeRef = useRef<number>(Date.now())
-  // Used to keep track of the animation frame loop when a table is active
-  const animationFrameIdRef = useRef<number | null>(null)
+  // Limit timer state updates to once per second
+  const UPDATE_INTERVAL_MS = 1000
+  // The old per-table animation frame loop was removed in favor of global
+  // "global-time-tick" events that fire once per second.
 
   // Update the ref when the table changes
   useEffect(() => {
@@ -64,16 +66,16 @@ export function useTableTimer(table: HookTableInput) {
     setRemainingTime(newRemaining)
     setFormattedRemainingTime(formatTimeUtil(newRemaining))
 
-    // Cancel any existing animation frame
-    if (animationFrameIdRef.current !== null) {
-      cancelAnimationFrame(animationFrameIdRef.current)
-      animationFrameIdRef.current = null
-    }
+    // Reset tick limiter so the next global tick updates immediately
+    lastTickTimeRef.current = Date.now() - UPDATE_INTERVAL_MS
   }, [table.isActive, table.startTime, table.initialTime, table.remainingTime, table.id])
   // Added table.id to dependencies in case the table instance itself changes for the same card (e.g. after a move operation)
 
   // Tick function that doesn't depend on state values
   const tick = useCallback((currentTime: number) => {
+    if (currentTime - lastTickTimeRef.current < UPDATE_INTERVAL_MS) return
+    lastTickTimeRef.current = currentTime
+
     const currentTable = tableRef.current
 
     if (currentTable.isActive && currentTable.startTime) {
@@ -101,24 +103,7 @@ export function useTableTimer(table: HookTableInput) {
     }
   }, [tick])
 
-  // Local animation loop to update the timer every frame while active
-  useEffect(() => {
-    const runAnimation = () => {
-      tick(Date.now())
-      animationFrameIdRef.current = requestAnimationFrame(runAnimation)
-    }
-
-    if (table.isActive && table.startTime) {
-      animationFrameIdRef.current = requestAnimationFrame(runAnimation)
-    }
-
-    return () => {
-      if (animationFrameIdRef.current !== null) {
-        cancelAnimationFrame(animationFrameIdRef.current)
-        animationFrameIdRef.current = null
-      }
-    }
-  }, [table.isActive, table.startTime, tick])
+  // No internal interval loop; rely on global "global-time-tick" events
 
   // Exposed formatTime function (re-wrapped for stability if formatTimeUtil is stable)
   const formatTime = useCallback(
