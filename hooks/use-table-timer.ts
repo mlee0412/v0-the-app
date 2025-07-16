@@ -34,6 +34,8 @@ export function useTableTimer(table: HookTableInput) {
   const lastTickTimeRef = useRef<number>(Date.now())
   // Limit timer state updates to once per second
   const UPDATE_INTERVAL_MS = 1000
+  // The old per-table animation frame loop was removed in favor of global
+  // "global-time-tick" events that fire once per second.
 
   // Update the ref when the table changes
   useEffect(() => {
