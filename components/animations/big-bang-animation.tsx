@@ -227,3 +227,5 @@ export function BigBangAnimation({ onComplete }: BigBangAnimationProps) {
     document.body,
   )
 }
+
+export default BigBangAnimation
