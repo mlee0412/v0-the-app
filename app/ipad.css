@@ -41,6 +41,16 @@
     scroll-behavior: smooth;
   }
 
+  /* Ensure buttons inside table cards remain interactive */
+  .table-card * {
+    pointer-events: auto;
+  }
+
+  /* Allow dialogs more height on iPad */
+  .table-dialog .dialog-content {
+    max-height: 90vh !important;
+  }
+
   /* Landscape mode optimizations */
   @media (orientation: landscape) {
     .table-grid {

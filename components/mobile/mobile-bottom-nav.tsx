@@ -49,10 +49,8 @@ export function MobileBottomNav({
       // Provide haptic feedback when changing tabs
       hapticFeedback.selection() // Using selection haptic feedback for tab changes
 
-      // Small delay to ensure UI feedback before tab change
-      setTimeout(() => {
-        onTabChange(tab)
-      }, 10)
+    // Immediately change tab after haptic feedback for snappier UI
+    onTabChange(tab)
     } else {
       onTabChange(tab)
     }
@@ -71,10 +69,8 @@ export function MobileBottomNav({
     e.stopPropagation()
     hapticFeedback.selection() // Using selection haptic feedback for settings
 
-    // Small delay to ensure UI feedback
-    setTimeout(() => {
-      onShowSettings()
-    }, 10)
+    // Call handler directly for quicker response
+    onShowSettings()
   }
 
   // Update the handleAuthClick function
@@ -83,14 +79,12 @@ export function MobileBottomNav({
     e.stopPropagation()
     hapticFeedback.selection() // Using selection haptic feedback for auth actions
 
-    // Small delay to ensure UI feedback
-    setTimeout(() => {
-      if (isAuthenticated) {
-        onLogout()
-      } else {
-        onLogin() // This will trigger the same login dialog as desktop
-      }
-    }, 10)
+    // Trigger action immediately for snappier feel
+    if (isAuthenticated) {
+      onLogout()
+    } else {
+      onLogin() // This will trigger the same login dialog as desktop
+    }
   }
 
   // Update the handleTouchEnd function for better swipe experience
