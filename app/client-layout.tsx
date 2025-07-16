@@ -20,9 +20,25 @@ export default function ClientLayout({
   children?: React.ReactNode
 }>) {
   const [isClient, setIsClient] = useState(false)
+  const [showAnimation, setShowAnimation] = useState(true)
 
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const isOldIpad = /iPad/.test(navigator.userAgent) && /OS 1[3-4]_/.test(navigator.userAgent)
+
+    const updatePreference = () => {
+      setShowAnimation(!mediaQuery.matches && !isOldIpad)
+    }
+
+    updatePreference()
+    mediaQuery.addEventListener("change", updatePreference)
+    return () => mediaQuery.removeEventListener("change", updatePreference)
   }, [])
 
   useEffect(() => {
@@ -65,7 +81,7 @@ export default function ClientLayout({
       </AuthProvider>
 
       {/* Background animation rendered after the main content structure */}
-      {isClient && <SpaceBackgroundAnimation intensity={1.5} />}
+      {isClient && showAnimation && <SpaceBackgroundAnimation intensity={1.5} />}
 
       <Toaster />
     </>
