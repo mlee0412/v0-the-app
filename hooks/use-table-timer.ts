@@ -30,12 +30,12 @@ export function useTableTimer(table: HookTableInput) {
   const [formattedRemainingTime, setFormattedRemainingTime] = useState<string>(formatTimeUtil(remainingTime))
 
   // Use refs to avoid dependencies in the tick function
-  const tableRef = useRef(table)
-  const lastTickTimeRef = useRef<number>(Date.now())
-  // Limit timer state updates to once per second
-  const UPDATE_INTERVAL_MS = 1000
-  // The old per-table animation frame loop was removed in favor of global
-  // "global-time-tick" events that fire once per second.
+const tableRef = useRef(table)
+const lastTickTimeRef = useRef<number>(Date.now())
+// Limit timer state updates to once per second
+const UPDATE_INTERVAL_MS = 1000
+// The old per-table animation frame loop was removed in favor of global
+// "global-time-tick" events that fire once per second.
 
   // Update the ref when the table changes
   useEffect(() => {
