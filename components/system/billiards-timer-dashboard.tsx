@@ -18,7 +18,8 @@ import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { TouchLogin } from "@/components/auth/touch-login";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useTableStore } from "@/utils/table-state-manager";
-import { BigBangAnimation } from "@/components/animations/big-bang-animation";
+import dynamic from "next/dynamic";
+const BigBangAnimation = dynamic(() => import("@/components/animations/big-bang-animation"), { ssr: false });
 import { ExplosionAnimation } from "@/components/animations/explosion-animation";
 import { EnhancedMobileTableList } from "@/components/mobile/enhanced-mobile-table-list";
 import { MobileBottomNav } from "@/components/mobile/mobile-bottom-nav";
@@ -247,6 +248,15 @@ export function BilliardsTimerDashboard() {
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!hasMounted) return;
+    const ua = navigator.userAgent;
+    const isOldIpad = /iPad/.test(ua) && /OS 1[3-4]_/.test(ua);
+    if (isOldIpad) {
+      dispatch({ type: "UPDATE_SETTINGS", payload: { showTableCardAnimations: false } });
+    }
+  }, [hasMounted]);
 
   const {
     tables, // This will be from dashboardReducer state

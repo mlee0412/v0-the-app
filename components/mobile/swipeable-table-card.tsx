@@ -1,7 +1,7 @@
 "use client";
 
-import type React from "react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { throttle } from "lodash";
 import { TableCard } from "@/components/tables/table-card"; // Adjusted path if necessary
 import { Clock, X, ArrowLeft, ArrowRight } from "lucide-react";
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
@@ -93,7 +93,7 @@ export function SwipeableTableCard({
     }
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handleTouchMoveInternal = useCallback((e: React.TouchEvent) => {
     if (!touchStartDetails.current || e.touches.length > 1) return;
 
     const currentX = e.touches[0].clientX;
@@ -141,6 +141,17 @@ export function SwipeableTableCard({
       return;
     }
   }, [table.isActive, canEndSession, canAddTime, showLeftAction, showRightAction]);
+
+  const handleTouchMove = useMemo(
+    () => throttle(handleTouchMoveInternal, 16, { trailing: false }),
+    [handleTouchMoveInternal],
+  );
+
+  useEffect(() => {
+    return () => {
+      handleTouchMove.cancel();
+    };
+  }, [handleTouchMove]);
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     const startDetails = touchStartDetails.current;
@@ -268,4 +279,4 @@ export function SwipeableTableCard({
   );
 }
 
-export default SwipeableTableCard;
+export default React.memo(SwipeableTableCard);
