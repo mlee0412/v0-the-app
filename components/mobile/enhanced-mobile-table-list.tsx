@@ -1,8 +1,8 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { SwipeableTableCard } from "@/components/mobile/swipeable-table-card"; // Adjusted path if necessary
+const MemoizedSwipeableTableCard = memo(SwipeableTableCard);
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
 import { useTableStore } from "@/utils/table-state-manager";
 import { hapticFeedback } from "@/utils/haptic-feedback";
@@ -185,9 +185,13 @@ export function EnhancedMobileTableList({
     }
   }, [triggerRefresh, isRefreshing, refreshThreshold]);
 
-  const filteredAndSortedTables = [...localTables]
-    .filter((table) => !table.name.toLowerCase().includes("system"))
-    .sort((a, b) => a.id - b.id);
+  const filteredAndSortedTables = useMemo(
+    () =>
+      [...localTables]
+        .filter((table) => !table.name.toLowerCase().includes("system"))
+        .sort((a, b) => a.id - b.id),
+    [localTables],
+  );
 
   return (
     <div
@@ -228,7 +232,7 @@ export function EnhancedMobileTableList({
       <div className="space-y-4 p-4 mobile-table-card-list">
         {filteredAndSortedTables.length > 0 ? (
           filteredAndSortedTables.map((table) => (
-            <SwipeableTableCard
+            <MemoizedSwipeableTableCard
               key={table.id}
               table={table}
               servers={servers}
