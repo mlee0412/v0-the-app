@@ -2,8 +2,7 @@
 @media (min-width: 768px) {
   /* Limit maximum height of all dialogs */
   .dialog-content {
-    max-height: 80vh !important;
-    max-height: 600px !important; /* Approximately 10 inches at standard DPI */
+    max-height: 90vh !important;
     overflow-y: auto;
   }
 
