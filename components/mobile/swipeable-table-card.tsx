@@ -3,7 +3,7 @@
 import type React from "react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { TableCard } from "@/components/tables/table-card"; // Adjusted path if necessary
-import { Clock, X } from "lucide-react";
+import { Clock, X, ArrowLeft, ArrowRight } from "lucide-react";
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard";
 import { hapticFeedback } from "@/utils/haptic-feedback";
 
@@ -57,6 +57,7 @@ export function SwipeableTableCard({
     if (table.isActive && (canEndSession || canAddTime) && showAnimations) {
       swipeHintTimeoutRef.current = setTimeout(() => {
         setShowSwipeHint(true);
+        hapticFeedback.light();
         setTimeout(() => setShowSwipeHint(false), 2000);
       }, 500);
     }
@@ -86,6 +87,7 @@ export function SwipeableTableCard({
       scrollY: window.scrollY, // Store initial window scrollY
     };
     gestureType.current = null; // Reset gesture type for new touch
+    hapticFeedback.selection();
     if (cardRef.current) {
       cardRef.current.style.transition = 'none'; // Remove transition during active swipe for direct manipulation
     }
@@ -237,8 +239,10 @@ export function SwipeableTableCard({
       {/* Swipe Hint */}
       {showSwipeHint && table.isActive && showAnimations && (
          <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
-          <div className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs animate-pulse">
-            {canAddTime && canEndSession ? "Swipe card for actions" : canAddTime ? "Swipe right to add time" : canEndSession ? "Swipe left to end" : ""}
+          <div className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs flex items-center gap-2 animate-pulse">
+            <ArrowLeft className="w-3 h-3" />
+            {canAddTime && canEndSession ? "Swipe" : canAddTime ? "Swipe right" : "Swipe left"}
+            <ArrowRight className="w-3 h-3" />
           </div>
         </div>
       )}

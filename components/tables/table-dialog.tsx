@@ -630,14 +630,14 @@ export function TableDialog({
       !localTable.isActive && hasPermission("canStartSession") ? (
         <Button
           size="sm" onClick={handleStartSessionClick}
-          className="h-14 w-14 p-0 rounded-full bg-[#00FF33] hover:bg-[#00CC00] text-black transition-transform duration-200 hover:scale-110 active:scale-95"
+          className="h-16 w-16 p-1 rounded-full bg-[#00FF33] hover:bg-[#00CC00] text-black transition-transform duration-200 hover:scale-110 active:scale-95"
           disabled={viewOnlyMode || !hasPermission("canStartSession")} aria-label="Start session"
         ><PlayIcon className="h-8 w-8" /></Button>
       ) : (
         localTable.isActive && (
           <Button
             size="sm" onClick={handleEndSession}
-            className="h-14 w-14 p-0 rounded-full bg-[#FF3300] hover:bg-[#CC0000] text-white transition-transform duration-200 hover:scale-110 active:scale-95"
+            className="h-16 w-16 p-1 rounded-full bg-[#FF3300] hover:bg-[#CC0000] text-white transition-transform duration-200 hover:scale-110 active:scale-95"
             disabled={viewOnlyMode || !hasPermission("canEndSession")} aria-label="End session"
           ><span className="text-lg font-bold">End</span></Button>
         )
@@ -746,10 +746,10 @@ export function TableDialog({
                     </div>
                     <div className="mt-4">
                       <div className="flex items-center justify-center mb-2"><UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" /><h3 className="text-sm font-medium text-[#FF00FF]">Players</h3></div>
-                      <div className="flex items-center justify-center gap-5">
-                        <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleDecrementGuests} disabled={viewOnlyMode} aria-label="Decrease guest count"><MinusIcon className="h-6 w-6" /></Button>
+                      <div className="flex items-center justify-center gap-6">
+                        <Button variant="outline" size="icon" className="h-14 w-14 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleDecrementGuests} disabled={viewOnlyMode} aria-label="Decrease guest count"><MinusIcon className="h-6 w-6" /></Button>
                         <div className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95" onClick={handleGuestCountClick} style={{boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)", border: "2px solid rgba(255, 0, 255, 0.7)"}} role="button" aria-label="Edit guest count">{guestCount}<span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span></div>
-                        <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleIncrementGuests} disabled={viewOnlyMode} aria-label="Increase guest count"><PlusIcon className="h-6 w-6" /></Button>
+                        <Button variant="outline" size="icon" className="h-14 w-14 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleIncrementGuests} disabled={viewOnlyMode} aria-label="Increase guest count"><PlusIcon className="h-6 w-6" /></Button>
                       </div>
                     </div>
                     <div className="mt-4">
@@ -836,10 +836,10 @@ export function TableDialog({
                   <div className="flex items-center justify-between gap-4 mt-2"><div className="flex-1 flex justify-center"><TimerDisplay /></div><ActionButton /></div>
                   <div className="mt-4">
                     <div className="flex items-center justify-center mb-2"><UsersIcon className="mr-1 h-4 w-4 text-[#FF00FF]" /><h3 className="text-sm font-medium text-[#FF00FF]">Players</h3></div>
-                    <div className="flex items-center justify-center gap-5">
-                      <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleDecrementGuests} disabled={viewOnlyMode} aria-label="Decrease guest count"><MinusIcon className="h-6 w-6" /></Button>
+                    <div className="flex items-center justify-center gap-6">
+                      <Button variant="outline" size="icon" className="h-14 w-14 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleDecrementGuests} disabled={viewOnlyMode} aria-label="Decrease guest count"><MinusIcon className="h-6 w-6" /></Button>
                       <div className="text-3xl font-bold w-20 h-14 text-center text-[#FF00FF] cursor-pointer rounded-md flex items-center justify-center transition-all duration-200 relative bg-[#110022] active:scale-95" onClick={handleGuestCountClick} style={{boxShadow: "0 0 10px rgba(255, 0, 255, 0.5)", border: "2px solid rgba(255, 0, 255, 0.7)",}} role="button" aria-label="Edit guest count">{guestCount}<span className="absolute bottom-1 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span></div>
-                      <Button variant="outline" size="icon" className="h-12 w-12 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleIncrementGuests} disabled={viewOnlyMode} aria-label="Increase guest count"><PlusIcon className="h-6 w-6" /></Button>
+                      <Button variant="outline" size="icon" className="h-14 w-14 border-2 border-[#FF00FF] bg-[#000033] hover:bg-[#000066] text-[#FF00FF] transition-all duration-200 active:scale-95 shadow-md" onClick={handleIncrementGuests} disabled={viewOnlyMode} aria-label="Increase guest count"><PlusIcon className="h-6 w-6" /></Button>
                     </div>
                   </div>
                   <div className="mt-4">
