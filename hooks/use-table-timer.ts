@@ -33,8 +33,6 @@ export function useTableTimer(table: HookTableInput) {
   const tableRef = useRef(table)
   const lastTickTimeRef = useRef<number>(Date.now())
   const UPDATE_INTERVAL_MS = 1000
-  // Use a simple interval rather than a requestAnimationFrame loop
-  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
 
   // Update the ref when the table changes
   useEffect(() => {
@@ -65,11 +63,8 @@ export function useTableTimer(table: HookTableInput) {
     setRemainingTime(newRemaining)
     setFormattedRemainingTime(formatTimeUtil(newRemaining))
 
-    // Clear any existing interval when table props change
-    if (intervalIdRef.current !== null) {
-      clearInterval(intervalIdRef.current)
-      intervalIdRef.current = null
-    }
+    // Reset tick limiter so the next global tick updates immediately
+    lastTickTimeRef.current = Date.now() - UPDATE_INTERVAL_MS
   }, [table.isActive, table.startTime, table.initialTime, table.remainingTime, table.id])
   // Added table.id to dependencies in case the table instance itself changes for the same card (e.g. after a move operation)
 
@@ -105,19 +100,7 @@ export function useTableTimer(table: HookTableInput) {
     }
   }, [tick])
 
-  // Local interval loop to update the timer while active
-  useEffect(() => {
-    if (table.isActive && table.startTime) {
-      intervalIdRef.current = setInterval(() => tick(Date.now()), UPDATE_INTERVAL_MS)
-    }
-
-    return () => {
-      if (intervalIdRef.current !== null) {
-        clearInterval(intervalIdRef.current)
-        intervalIdRef.current = null
-      }
-    }
-  }, [table.isActive, table.startTime, tick])
+  // No internal interval loop; rely on global "global-time-tick" events
 
   // Exposed formatTime function (re-wrapped for stability if formatTimeUtil is stable)
   const formatTime = useCallback(
