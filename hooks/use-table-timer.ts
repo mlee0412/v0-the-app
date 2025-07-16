@@ -32,6 +32,7 @@ export function useTableTimer(table: HookTableInput) {
   // Use refs to avoid dependencies in the tick function
   const tableRef = useRef(table)
   const lastTickTimeRef = useRef<number>(Date.now())
+  // Limit timer state updates to once per second
   const UPDATE_INTERVAL_MS = 1000
 
   // Update the ref when the table changes
