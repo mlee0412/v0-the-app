@@ -26,14 +26,32 @@ export function useParticleAnimation(
   const particlesRef = useRef<Particle[]>([]);
   const animationFrameRef = useRef<number>(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
 
   useEffect(() => {
     setIsMounted(true); // Set mounted state after initial render
   }, []);
 
+  // Determine if animation should run based on device capabilities
   useEffect(() => {
-    // Only run animation if globally enabled, component is mounted, and session is active
-    if (!isEnabled || !isMounted || !isActiveSession) {
+    if (!isEnabled) {
+      setShouldAnimate(false);
+      return;
+    }
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const deviceMemory = (navigator as any).deviceMemory || 4;
+    const hardwareConcurrency = navigator.hardwareConcurrency || 4;
+
+    const lowPower = deviceMemory <= 2 || hardwareConcurrency <= 2;
+    setShouldAnimate(!prefersReducedMotion && !lowPower);
+  }, [isEnabled]);
+
+  useEffect(() => {
+    // Only run animation if allowed and session is active
+    if (!shouldAnimate || !isMounted || !isActiveSession) {
       // Clear canvas if not active or not enabled
       const canvas = canvasRef.current;
       if (canvas) {
@@ -91,9 +109,14 @@ export function useParticleAnimation(
     
     const initParticles = () => {
       particlesRef.current = [];
-      // Reduce particle count if it's too demanding
-      const particleCount = isActiveSession ? 10 : 5; // Reduced from 20:10
-      if (canvas.width > 0 && canvas.height > 0) { // Ensure canvas has dimensions
+      const particleCount = isActiveSession
+        ? shouldAnimate
+          ? 10
+          : 6
+        : shouldAnimate
+          ? 5
+          : 3;
+      if (canvas.width > 0 && canvas.height > 0) {
         for (let i = 0; i < particleCount; i++) {
           particlesRef.current.push(createParticle(canvas));
         }
@@ -161,7 +184,7 @@ export function useParticleAnimation(
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  // Depend on isEnabled, isMounted, and isActiveSession to re-run the effect if they change.
+  // Depend on shouldAnimate and isActiveSession to re-run the effect if they change.
   // Other state like isOvertime, isWarningYellow, isWarningOrange will affect particle creation color inside.
-  }, [isEnabled, isMounted, isActiveSession, canvasRef, containerRef, isOvertime, isWarningYellow, isWarningOrange]); 
+  }, [shouldAnimate, isMounted, isActiveSession, canvasRef, containerRef, isOvertime, isWarningYellow, isWarningOrange]);
 }

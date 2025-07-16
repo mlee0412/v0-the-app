@@ -32,8 +32,9 @@ export function useTableTimer(table: HookTableInput) {
   // Use refs to avoid dependencies in the tick function
   const tableRef = useRef(table)
   const lastTickTimeRef = useRef<number>(Date.now())
-  // Used to keep track of the animation frame loop when a table is active
-  const animationFrameIdRef = useRef<number | null>(null)
+  const UPDATE_INTERVAL_MS = 1000
+  // Use a simple interval rather than a requestAnimationFrame loop
+  const intervalIdRef = useRef<NodeJS.Timeout | null>(null)
 
   // Update the ref when the table changes
   useEffect(() => {
@@ -64,16 +65,19 @@ export function useTableTimer(table: HookTableInput) {
     setRemainingTime(newRemaining)
     setFormattedRemainingTime(formatTimeUtil(newRemaining))
 
-    // Cancel any existing animation frame
-    if (animationFrameIdRef.current !== null) {
-      cancelAnimationFrame(animationFrameIdRef.current)
-      animationFrameIdRef.current = null
+    // Clear any existing interval when table props change
+    if (intervalIdRef.current !== null) {
+      clearInterval(intervalIdRef.current)
+      intervalIdRef.current = null
     }
   }, [table.isActive, table.startTime, table.initialTime, table.remainingTime, table.id])
   // Added table.id to dependencies in case the table instance itself changes for the same card (e.g. after a move operation)
 
   // Tick function that doesn't depend on state values
   const tick = useCallback((currentTime: number) => {
+    if (currentTime - lastTickTimeRef.current < UPDATE_INTERVAL_MS) return
+    lastTickTimeRef.current = currentTime
+
     const currentTable = tableRef.current
 
     if (currentTable.isActive && currentTable.startTime) {
@@ -101,21 +105,16 @@ export function useTableTimer(table: HookTableInput) {
     }
   }, [tick])
 
-  // Local animation loop to update the timer every frame while active
+  // Local interval loop to update the timer while active
   useEffect(() => {
-    const runAnimation = () => {
-      tick(Date.now())
-      animationFrameIdRef.current = requestAnimationFrame(runAnimation)
-    }
-
     if (table.isActive && table.startTime) {
-      animationFrameIdRef.current = requestAnimationFrame(runAnimation)
+      intervalIdRef.current = setInterval(() => tick(Date.now()), UPDATE_INTERVAL_MS)
     }
 
     return () => {
-      if (animationFrameIdRef.current !== null) {
-        cancelAnimationFrame(animationFrameIdRef.current)
-        animationFrameIdRef.current = null
+      if (intervalIdRef.current !== null) {
+        clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null
       }
     }
   }, [table.isActive, table.startTime, tick])
