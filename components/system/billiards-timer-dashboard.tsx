@@ -1215,10 +1215,10 @@ export function BilliardsTimerDashboard() {
   return (
     <TooltipProvider>
       <div
-        className={`container mx-auto p-2 min-h-screen max-h-screen flex flex-col space-theme font-mono cursor-spaceship overflow-hidden ${
+        className={`container mx-auto p-2 min-h-screen max-h-screen flex flex-col space-theme font-mono cursor-spaceship overflow-hidden notch-aware ${
           currentHighContrastMode ? "high-contrast-text" : ""
         } ${currentLargeTextMode ? "large-text" : ""}`}
-        style={{ height: "100vh", display: "flex", flexDirection: "column" }}
+        style={{ height: "calc(var(--vh, 1vh) * 100)" }}
       >
         <IOSTouchFix />
         {notification && (
