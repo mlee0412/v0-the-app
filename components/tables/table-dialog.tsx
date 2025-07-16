@@ -545,10 +545,14 @@ export function TableDialog({
     setTimeout(() => { touchInProgressRef.current = false }, 100);
   }, []);
 
-  const handleEndSession = useCallback(() => {
+const handleEndSession = useCallback(() => {
     if (touchInProgressRef.current) return;
     touchInProgressRef.current = true;
-    onEndSession(table.id); 
+    onEndSession(table.id);
+    // Allow other interactions after a short delay
+    setTimeout(() => {
+      touchInProgressRef.current = false;
+    }, 50);
     // onClose will be handled by parent after feedback or directly
   }, [table.id, onEndSession]);
 
