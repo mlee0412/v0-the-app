@@ -21,7 +21,7 @@ import type { Table, Server, NoteTemplate, LogEntry } from "@/components/system/
 import { useAuth } from "@/contexts/auth-context"
 import type { User } from "@/types/user"; // Using User from types/user.ts
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { NumberPad } from "@/components/auth/number-pad"
+import { NumberPadDialog } from "@/components/auth/number-pad"
 import { MenuRecommendations } from "@/components/system/menu-recommendations"
 import { useMobile } from "@/hooks/use-mobile"
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
@@ -1028,12 +1028,12 @@ export function TableDialog({
         </DialogContent>
       </Dialog>
       {showNumberPad && (
-        <NumberPad
-          open={showNumberPad} // Prop to control dialog visibility
+        <NumberPadDialog
+          open={showNumberPad}
           onClose={() => setShowNumberPad(false)}
-          onSubmit={(val) => handleNumberPadInput(val)} // Ensure NumberPad onSubmit returns string
-          initialValue={String(guestCount)} // Pass as string
-          maxLength={2} // Max 2 digits for guest count up to 16
+          onSubmit={(val) => handleNumberPadInput(val)}
+          initialValue={String(guestCount)}
+          maxLength={2}
           title="Enter Guest Count"
         />
       )}

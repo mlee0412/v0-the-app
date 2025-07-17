@@ -1,6 +1,8 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { XIcon } from "lucide-react"
 import { Loader2 } from "lucide-react"
 
@@ -94,5 +96,56 @@ export function NumberPad({
         </Button>
       )}
     </div>
+  )
+}
+
+interface NumberPadDialogProps {
+  open: boolean
+  onClose: () => void
+  onSubmit: (value: string) => void
+  initialValue?: string
+  maxLength?: number
+  title?: string
+}
+
+export function NumberPadDialog({
+  open,
+  onClose,
+  onSubmit,
+  initialValue = "",
+  maxLength = 6,
+  title = "Enter Value",
+}: NumberPadDialogProps) {
+  const [value, setValue] = useState(initialValue)
+
+  useEffect(() => {
+    if (open) {
+      setValue(initialValue)
+    }
+  }, [initialValue, open])
+
+  const handleDone = () => {
+    onSubmit(value)
+    onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="sm:max-w-[300px] bg-black text-white border-[#00FFFF] space-theme font-mono">
+        <DialogHeader>
+          <DialogTitle className="text-lg text-[#00FFFF]">{title}</DialogTitle>
+        </DialogHeader>
+        <NumberPad value={value} onChange={setValue} maxLength={maxLength} />
+        <DialogFooter className="pt-2">
+          <Button
+            variant="outline"
+            onClick={handleDone}
+            className="w-full border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
+          >
+            Done
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
