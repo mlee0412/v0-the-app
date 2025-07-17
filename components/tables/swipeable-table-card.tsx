@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { TableCard } from "@/components/table-card"
+import { TableCard } from "@/components/tables/table-card"
 import { Clock, X } from "lucide-react"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
 
