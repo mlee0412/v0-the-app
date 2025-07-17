@@ -100,6 +100,45 @@ export function useTableActions({
     [tables, dispatch, debouncedUpdateTable, debouncedUpdateTables, addLogEntry, showNotification, formatMinutes]
   );
 
+  const quickStartTableSession = useCallback(
+    async (tableId: number) => {
+      try {
+        const table = tables.find((t) => t.id === tableId);
+        if (!table) {
+          showNotification("Table not found", "error");
+          return;
+        }
+
+        const startTime = Date.now();
+        const updatedAt = new Date().toISOString();
+
+        const updatedTable = {
+          ...table,
+          isActive: true,
+          startTime,
+          remainingTime: DEFAULT_SESSION_TIME,
+          initialTime: DEFAULT_SESSION_TIME,
+          guestCount: 2,
+          server: null,
+          updatedAt,
+        };
+
+        dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
+        debouncedUpdateTable(updatedTable);
+        await addLogEntry(tableId, "Quick Session Started");
+        showNotification(`Quick session started for ${table.name}`, "success");
+
+        window.dispatchEvent(
+          new CustomEvent("table-updated", { detail: { tableId, table: updatedTable } })
+        );
+      } catch (error) {
+        console.error("Failed to quick start session:", error);
+        showNotification("Failed to quick start session", "error");
+      }
+    },
+    [tables, dispatch, debouncedUpdateTable, addLogEntry, showNotification]
+  );
+
   const endTableSession = useCallback(
     async (tableId: number, closeTableDialog: () => void) => {
       try {
@@ -174,5 +213,5 @@ export function useTableActions({
     [tables, dispatch, debouncedUpdateTables, debouncedUpdateTable, addLogEntry, showNotification, formatMinutes] // Added debouncedUpdateTable
   );
 
-  return { startTableSession, endTableSession };
+  return { startTableSession, quickStartTableSession, endTableSession };
 }
