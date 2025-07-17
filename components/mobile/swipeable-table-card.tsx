@@ -14,7 +14,7 @@ interface SwipeableTableCardProps {
   onClick: () => void;
   onAddTime: (tableId: number) => void;
   onEndSession: (tableId: number) => void;
-  onQuickStart?: (tableId: number) => void;
+  onOpenQuickStartDialog?: (tableId: number) => void;
   canEndSession: boolean;
   canAddTime: boolean;
   canQuickStart?: boolean;
@@ -37,7 +37,7 @@ export function SwipeableTableCard({
   onClick,
   onAddTime,
   onEndSession,
-  onQuickStart,
+  onOpenQuickStartDialog,
   canEndSession,
   canAddTime,
   canQuickStart,
@@ -214,9 +214,9 @@ export function SwipeableTableCard({
           if (table.isActive && canAddTime) {
             hapticFeedback.success();
             onAddTime(table.id);
-          } else if (!table.isActive && canQuickStart && onQuickStart) {
+          } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
             hapticFeedback.success();
-            onQuickStart(table.id);
+            onOpenQuickStartDialog(table.id);
           }
         }
       } else {
@@ -224,7 +224,7 @@ export function SwipeableTableCard({
         hapticFeedback.light();
       }
     }
-  }, [table.id, table.isActive, canEndSession, canAddTime, canQuickStart, onClick, onEndSession, onAddTime, onQuickStart, swipeOffset]);
+  }, [table.id, table.isActive, canEndSession, canAddTime, canQuickStart, onClick, onEndSession, onAddTime, onOpenQuickStartDialog, swipeOffset]);
 
   return (
     <div
