@@ -26,18 +26,6 @@
   }
 }
 
-@keyframes floatAnimation {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
-
 /* Shooting star animation */
 @keyframes shootingStar {
   0% {
@@ -53,62 +41,7 @@
   }
 }
 
-/* Glitch effect */
-@keyframes glitch {
-  0% {
-    transform: translate(0);
-  }
-  20% {
-    transform: translate(-2px, 2px);
-  }
-  40% {
-    transform: translate(-2px, -2px);
-  }
-  60% {
-    transform: translate(2px, 2px);
-  }
-  80% {
-    transform: translate(2px, -2px);
-  }
-  100% {
-    transform: translate(0);
-  }
-}
 
-/* Digital noise animation */
-@keyframes digitalNoise {
-  0%,
-  100% {
-    background-position: 0 0;
-  }
-  10% {
-    background-position: -5% -10%;
-  }
-  30% {
-    background-position: 3% 15%;
-  }
-  50% {
-    background-position: 12% -7%;
-  }
-  70% {
-    background-position: -9% 4%;
-  }
-  90% {
-    background-position: 5% -5%;
-  }
-}
-
-/* Radar sweep animation */
-@keyframes radarSweep {
-  0% {
-    transform: rotate(0deg);
-    opacity: 0.7;
-  }
-  100% {
-    transform: rotate(360deg);
-    opacity: 0.7;
-  }
-}
 
 /* Table status animations */
 @keyframes pulseRed {
@@ -290,13 +223,6 @@
   animation: pulse-slow 4s ease-in-out infinite;
 }
 
-.animate-glitch {
-  animation: glitch 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
-}
-
-.animate-radar-sweep {
-  animation: radarSweep 4s linear infinite;
-}
 
 /* Hover effects */
 .hover-glow:hover {

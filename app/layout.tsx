@@ -5,6 +5,7 @@ import type React from "react"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { SupabaseInitializer } from "@/components/system/supabase-initializer" // Corrected import path
+import { AnimationProvider } from "@/contexts/animation-context"
 import ClientLayout from "./client-layout"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -68,7 +69,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.className} overflow-hidden bg-background text-foreground`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <SupabaseInitializer>
-            <ClientLayout>{children}</ClientLayout>
+            <AnimationProvider>
+              <ClientLayout>{children}</ClientLayout>
+            </AnimationProvider>
           </SupabaseInitializer>
         </ThemeProvider>
       </body>

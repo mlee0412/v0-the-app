@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { PushNotificationManager } from "@/components/notifications/push-notification-manager";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useAnimation } from "@/contexts/animation-context";
 
 interface SettingsDialogProps {
   open: boolean,
@@ -95,6 +96,8 @@ export function SettingsDialog({
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<any | null>(null);
   const [adminSubTab, setAdminSubTab] = useState("userList");
   const [searchTermUsers, setSearchTermUsers] = useState("");
+
+  const { backgroundEnabled, setBackgroundEnabled } = useAnimation();
 
   const predefinedServers = ["Mike", "Ji", "Gun", "Alex", "Lucy", "Tanya", "Ian", "Rolando", "Alexa", "Diego", "BB"];
   const predefinedTemplates = [
@@ -256,6 +259,7 @@ export function SettingsDialog({
                   <h3 className="text-base font-semibold text-cyan-400 mb-3 border-b border-cyan-700/30 pb-2">Display & Sound</h3>
                   <div className="space-y-3">
                     <SettingItem id="tableCardAnimations" label="Table Card Animations" description="Pulsing and particle effects on table cards." checked={currentSettings.showTableCardAnimations} onCheckedChange={handleAnimationToggle} icon={Eye} />
+                    <SettingItem id="backgroundAnimation" label="Background Animation" description="Animated space backdrop." checked={backgroundEnabled} onCheckedChange={setBackgroundEnabled} icon={Bell} />
                     <SettingItem id="soundEffects" label="Sound Effects" description="Enable UI sound effects for actions." checked={currentSettings.soundEnabled}  onCheckedChange={handleSoundToggle} icon={Volume2} />
                   </div>
                 </div>
