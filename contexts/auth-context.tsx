@@ -7,6 +7,7 @@ import { type UserRole, ADMIN_LEVEL_ROLES } from "@/types/user"
 // Define user roles and permissions
 interface Permission {
   canStartSession: boolean
+  canQuickStart: boolean
   canEndSession: boolean
   canAddTime: boolean
   canSubtractTime: boolean

@@ -432,7 +432,11 @@ export function BilliardsTimerDashboard() {
     dispatch({ type: "SET_STATE", payload: { selectedTable: null } });
   }, []);
 
-  const { startTableSession, endTableSession } = useTableActions({
+  const {
+    startTableSession,
+    quickStartTableSession,
+    endTableSession,
+  } = useTableActions({
     tables: state.tables, // Use tables from state
     dispatch,
     debouncedUpdateTable: queueTableUpdate,
@@ -1315,6 +1319,10 @@ export function BilliardsTimerDashboard() {
                   servers={memoizedServers}
                   logs={memoizedLogs}
                   onTableClick={openTableDialog}
+                  onQuickStartSession={quickStartTableSession}
+                  onQuickEndSession={confirmEndSession}
+                  canQuickStart={hasPermission("canQuickStart")}
+                  canEndSession={hasPermission("canEndSession")}
                   // showAnimations={settings.showTableCardAnimations} // Already passed to EnhancedMobileTableList
                 />
               )}
