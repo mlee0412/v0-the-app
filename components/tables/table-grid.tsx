@@ -32,7 +32,7 @@ interface TableGridProps {
   servers: Server[]
   logs: LogEntry[]
   onTableClick: (table: Table) => void
-  onQuickStartSession?: (tableId: number) => void
+  onOpenQuickStartDialog?: (tableId: number) => void
   onQuickEndSession?: (tableId: number) => void
   canQuickStart?: boolean
   canEndSession?: boolean
@@ -61,7 +61,7 @@ function TableGridComponent({
   servers = [],
   logs = [],
   onTableClick,
-  onQuickStartSession,
+  onOpenQuickStartDialog,
   onQuickEndSession,
   canQuickStart,
   canEndSession,
@@ -134,14 +134,14 @@ function TableGridComponent({
             }}
             role="gridcell"
           >
-            {onQuickStartSession || onQuickEndSession ? (
+            {onOpenQuickStartDialog || onQuickEndSession ? (
               <SwipeableTableCard
                 table={table}
                 servers={servers}
                 logs={logs}
                 onClick={() => handleTableClick(table)}
                 onAddTime={() => {}}
-                onQuickStart={onQuickStartSession}
+                onOpenQuickStartDialog={onOpenQuickStartDialog}
                 onEndSession={onQuickEndSession}
                 canAddTime={false}
                 canQuickStart={canQuickStart}
