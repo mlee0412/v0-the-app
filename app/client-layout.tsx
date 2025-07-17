@@ -11,7 +11,6 @@ import { IOSTouchFix } from "@/components/ios-touch-fix"
 import { TouchInteractionManager } from "@/components/mobile/touch-interaction-manager"
 import { PWAInit } from "@/components/pwa-init"
 import { OfflineDetector } from "@/components/mobile/offline-detector"
-import { AddUserButton } from "@/components/ui/add-user-button"
 import { Spinner } from "@/components/ui/spinner"
 import { useAnimation } from "@/contexts/animation-context"
 
@@ -79,7 +78,6 @@ export default function ClientLayout({
             <Spinner className="h-8 w-8 text-cyan-500" />
           </div>
         )}
-        <AddUserButton />
       </AuthProvider>
 
       {/* Background animation rendered after the main content structure */}
