@@ -1305,11 +1305,9 @@ export function BilliardsTimerDashboard() {
                             const tableToOpen = currentTables.find(t => t.id === tableId);
                             if (tableToOpen) openTableDialog(tableToOpen);
                           }}
-                          onAddTime={addTime}
                           onEndSession={confirmEndSession}
                           onOpenQuickStartDialog={openQuickStartDialog}
-                          canAddTime={hasPermission("canAddTime")} 
-                          canEndSession={hasPermission("canEndSession")} 
+                          canEndSession={hasPermission("canEndSession")}
                           onRefresh={handleRefreshData}
                           showAnimations={settings.showTableCardAnimations}
                         />

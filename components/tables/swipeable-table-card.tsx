@@ -12,11 +12,9 @@ interface SwipeableTableCardProps {
   servers: Server[]
   logs: LogEntry[]
   onClick: () => void
-  onAddTime: (tableId: number) => void
   onEndSession: (tableId: number) => void
   onOpenQuickStartDialog?: (tableId: number) => void
   canEndSession: boolean
-  canAddTime: boolean
   canQuickStart?: boolean
   className?: string
 }
@@ -26,11 +24,9 @@ export function SwipeableTableCard({
   servers,
   logs,
   onClick,
-  onAddTime,
   onEndSession,
   onOpenQuickStartDialog,
   canEndSession,
-  canAddTime,
   canQuickStart,
   className = "",
 }: SwipeableTableCardProps) {
@@ -130,11 +126,7 @@ export function SwipeableTableCard({
           setSwipeOffset(newOffset)
           setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
         } else if (distance > 0) {
-          if (table.isActive && canAddTime) {
-            // Right swipe (add time)
-            setSwipeOffset(newOffset)
-            setShowRightAction(newOffset > swipeThreshold / 2)
-          } else if (!table.isActive && canQuickStart) {
+          if (!table.isActive && canQuickStart) {
             // Right swipe (quick start)
             setSwipeOffset(newOffset)
             setShowRightAction(newOffset > swipeThreshold / 2)
@@ -142,7 +134,7 @@ export function SwipeableTableCard({
         }
       }
     },
-    [table.isActive, canEndSession, canAddTime, canQuickStart, swipeThreshold],
+    [table.isActive, canEndSession, canQuickStart, swipeThreshold],
   )
 
   // Handle touch end
@@ -184,14 +176,7 @@ export function SwipeableTableCard({
           navigator.vibrate(20)
         }
       } else if (distance > 0) {
-        if (table.isActive && canAddTime) {
-          // Complete right swipe - add time
-          onAddTime(table.id)
-
-          if (navigator.vibrate) {
-            navigator.vibrate(20)
-          }
-        } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
+        if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
           // Complete right swipe - quick start session
           onOpenQuickStartDialog(table.id)
 
@@ -208,11 +193,9 @@ export function SwipeableTableCard({
     table.id,
     table.isActive,
     canEndSession,
-    canAddTime,
     canQuickStart,
     onClick,
     onEndSession,
-    onAddTime,
     onOpenQuickStartDialog,
     resetSwipe,
     swipeThreshold,
@@ -282,10 +265,7 @@ export function SwipeableTableCard({
           setSwipeOffset(newOffset)
           setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
         } else if (distance > 0) {
-          if (table.isActive && canAddTime) {
-            setSwipeOffset(newOffset)
-            setShowRightAction(newOffset > swipeThreshold / 2)
-          } else if (!table.isActive && canQuickStart) {
+          if (!table.isActive && canQuickStart) {
             setSwipeOffset(newOffset)
             setShowRightAction(newOffset > swipeThreshold / 2)
           }
@@ -320,9 +300,7 @@ export function SwipeableTableCard({
         if (distance < 0 && table.isActive && canEndSession) {
           onEndSession(table.id)
         } else if (distance > 0) {
-          if (table.isActive && canAddTime) {
-            onAddTime(table.id)
-          } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
+          if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
             onOpenQuickStartDialog(table.id)
           }
         }
@@ -346,11 +324,9 @@ export function SwipeableTableCard({
     table.id,
     table.isActive,
     canEndSession,
-    canAddTime,
     canQuickStart,
     onClick,
     onEndSession,
-    onAddTime,
     onOpenQuickStartDialog,
     resetSwipe,
     swipeThreshold,
@@ -385,19 +361,7 @@ export function SwipeableTableCard({
         </div>
       )}
 
-      {/* Right action indicator (Add Time or Quick Start) */}
-      {table.isActive && canAddTime && (
-        <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
-            showRightAction ? "opacity-100" : "opacity-70"
-          }`}
-        >
-          <div className="flex flex-col items-center">
-            <Clock size={24} />
-            <span className="text-xs mt-1">Add Time</span>
-          </div>
-        </div>
-      )}
+      {/* Right action indicator (Quick Start) */}
       {!table.isActive && canQuickStart && (
         <div
           className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
