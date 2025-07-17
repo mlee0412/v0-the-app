@@ -14,8 +14,10 @@ interface SwipeableTableCardProps {
   onClick: () => void;
   onAddTime: (tableId: number) => void;
   onEndSession: (tableId: number) => void;
+  onQuickStart?: (tableId: number) => void;
   canEndSession: boolean;
   canAddTime: boolean;
+  canQuickStart?: boolean;
   className?: string;
   showAnimations?: boolean;
 }
@@ -35,8 +37,10 @@ export function SwipeableTableCard({
   onClick,
   onAddTime,
   onEndSession,
+  onQuickStart,
   canEndSession,
   canAddTime,
+  canQuickStart,
   className = "",
   showAnimations = true,
 }: SwipeableTableCardProps) {
@@ -133,14 +137,21 @@ export function SwipeableTableCard({
         if (!canShowLeft && newOffset < 0) setSwipeOffset(0);
         if (!canShowRight && newOffset > 0) setSwipeOffset(0);
       } else {
-        setSwipeOffset(0); // Don't allow swipe on inactive tables
+        const canShowRight = canQuickStart && newOffset > 0;
+        const rightThresholdInactive = canShowRight && newOffset > SWIPE_ACTION_THRESHOLD / 2;
+
+        if (rightThresholdInactive && !showRightAction) hapticFeedback.light();
+
+        setShowRightAction(rightThresholdInactive);
+
+        if (!canShowRight && newOffset > 0) setSwipeOffset(0);
       }
     } else if (gestureType.current === "vertical_scroll") {
       // If it's a vertical scroll, let the parent (EnhancedMobileTableList) handle it.
       // No e.preventDefault() here for vertical scroll on card.
       return;
     }
-  }, [table.isActive, canEndSession, canAddTime, showLeftAction, showRightAction]);
+  }, [table.isActive, canEndSession, canAddTime, canQuickStart, showLeftAction, showRightAction]);
 
   const handleTouchMove = useMemo(
     () => throttle(handleTouchMoveInternal, 16, { trailing: false }),
@@ -199,16 +210,21 @@ export function SwipeableTableCard({
         if (currentSwipeOffset < 0 && table.isActive && canEndSession) {
           hapticFeedback.strong();
           onEndSession(table.id);
-        } else if (currentSwipeOffset > 0 && table.isActive && canAddTime) {
-          hapticFeedback.success();
-          onAddTime(table.id);
+        } else if (currentSwipeOffset > 0) {
+          if (table.isActive && canAddTime) {
+            hapticFeedback.success();
+            onAddTime(table.id);
+          } else if (!table.isActive && canQuickStart && onQuickStart) {
+            hapticFeedback.success();
+            onQuickStart(table.id);
+          }
         }
       } else {
         // If swipe was not enough to trigger action, but was a swipe
         hapticFeedback.light();
       }
     }
-  }, [table.id, table.isActive, canEndSession, canAddTime, onClick, onEndSession, onAddTime, swipeOffset]); // Added swipeOffset to dependency list
+  }, [table.id, table.isActive, canEndSession, canAddTime, canQuickStart, onClick, onEndSession, onAddTime, onQuickStart, swipeOffset]);
 
   return (
     <div
@@ -243,6 +259,18 @@ export function SwipeableTableCard({
         >
           <div className="flex flex-col items-center pointer-events-none">
             <Clock size={24} /> <span className="text-xs mt-1">Add Time</span>
+          </div>
+        </div>
+      )}
+      {!table.isActive && canQuickStart && (
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-l from-green-600 to-green-500 text-white z-0 rounded-r-lg transition-opacity duration-200 ${
+            showRightAction && swipeOffset > 0 ? "opacity-100" : "opacity-0"
+          }`}
+          style={{ transform: `translateX(${swipeOffset > SWIPE_ACTION_THRESHOLD / 3 ? Math.min(0, swipeOffset - SWIPE_ACTION_THRESHOLD / 2) : SWIPE_ACTION_THRESHOLD / 1.2}px)` }}
+        >
+          <div className="flex flex-col items-center pointer-events-none">
+            <Clock size={24} /> <span className="text-xs mt-1">Quick Start</span>
           </div>
         </div>
       )}

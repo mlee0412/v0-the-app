@@ -136,9 +136,11 @@ function TableGridComponent({
                 servers={servers}
                 logs={logs}
                 onClick={() => handleTableClick(table)}
-                onAddTime={onQuickStartSession}
+                onAddTime={() => {}}
+                onQuickStart={onQuickStartSession}
                 onEndSession={onQuickEndSession}
-                canAddTime={!!onQuickStartSession}
+                canAddTime={false}
+                canQuickStart={!!onQuickStartSession}
                 canEndSession={!!onQuickEndSession}
               />
             ) : (

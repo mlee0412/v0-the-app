@@ -14,8 +14,10 @@ interface SwipeableTableCardProps {
   onClick: () => void
   onAddTime: (tableId: number) => void
   onEndSession: (tableId: number) => void
+  onQuickStart?: (tableId: number) => void
   canEndSession: boolean
   canAddTime: boolean
+  canQuickStart?: boolean
   className?: string
 }
 
@@ -26,8 +28,10 @@ export function SwipeableTableCard({
   onClick,
   onAddTime,
   onEndSession,
+  onQuickStart,
   canEndSession,
   canAddTime,
+  canQuickStart,
   className = "",
 }: SwipeableTableCardProps) {
   const [swipeOffset, setSwipeOffset] = useState(0)
@@ -120,19 +124,25 @@ export function SwipeableTableCard({
         const resistance = 0.5
         const newOffset = distance * resistance
 
-        // Only allow swiping if the table is active and the appropriate permission exists
+        // Only allow swiping if the appropriate permission exists
         if (table.isActive && canEndSession && distance < 0) {
           // Left swipe (end session)
           setSwipeOffset(newOffset)
           setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
-        } else if (table.isActive && canAddTime && distance > 0) {
-          // Right swipe (add time)
-          setSwipeOffset(newOffset)
-          setShowRightAction(newOffset > swipeThreshold / 2)
+        } else if (distance > 0) {
+          if (table.isActive && canAddTime) {
+            // Right swipe (add time)
+            setSwipeOffset(newOffset)
+            setShowRightAction(newOffset > swipeThreshold / 2)
+          } else if (!table.isActive && canQuickStart) {
+            // Right swipe (quick start)
+            setSwipeOffset(newOffset)
+            setShowRightAction(newOffset > swipeThreshold / 2)
+          }
         }
       }
     },
-    [table.isActive, canEndSession, canAddTime, swipeThreshold],
+    [table.isActive, canEndSession, canAddTime, canQuickStart, swipeThreshold],
   )
 
   // Handle touch end
@@ -173,13 +183,21 @@ export function SwipeableTableCard({
         if (navigator.vibrate) {
           navigator.vibrate(20)
         }
-      } else if (distance > 0 && table.isActive && canAddTime) {
-        // Complete right swipe - add time
-        onAddTime(table.id)
+      } else if (distance > 0) {
+        if (table.isActive && canAddTime) {
+          // Complete right swipe - add time
+          onAddTime(table.id)
 
-        // Provide haptic feedback if available
-        if (navigator.vibrate) {
-          navigator.vibrate(20)
+          if (navigator.vibrate) {
+            navigator.vibrate(20)
+          }
+        } else if (!table.isActive && canQuickStart && onQuickStart) {
+          // Complete right swipe - quick start session
+          onQuickStart(table.id)
+
+          if (navigator.vibrate) {
+            navigator.vibrate(20)
+          }
         }
       }
     }
@@ -191,9 +209,11 @@ export function SwipeableTableCard({
     table.isActive,
     canEndSession,
     canAddTime,
+    canQuickStart,
     onClick,
     onEndSession,
     onAddTime,
+    onQuickStart,
     resetSwipe,
     swipeThreshold,
   ])
@@ -261,9 +281,14 @@ export function SwipeableTableCard({
         if (table.isActive && canEndSession && distance < 0) {
           setSwipeOffset(newOffset)
           setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
-        } else if (table.isActive && canAddTime && distance > 0) {
-          setSwipeOffset(newOffset)
-          setShowRightAction(newOffset > swipeThreshold / 2)
+        } else if (distance > 0) {
+          if (table.isActive && canAddTime) {
+            setSwipeOffset(newOffset)
+            setShowRightAction(newOffset > swipeThreshold / 2)
+          } else if (!table.isActive && canQuickStart) {
+            setSwipeOffset(newOffset)
+            setShowRightAction(newOffset > swipeThreshold / 2)
+          }
         }
       }
     }
@@ -294,8 +319,12 @@ export function SwipeableTableCard({
       if (isSwipeComplete && isSwipingRef.current) {
         if (distance < 0 && table.isActive && canEndSession) {
           onEndSession(table.id)
-        } else if (distance > 0 && table.isActive && canAddTime) {
-          onAddTime(table.id)
+        } else if (distance > 0) {
+          if (table.isActive && canAddTime) {
+            onAddTime(table.id)
+          } else if (!table.isActive && canQuickStart && onQuickStart) {
+            onQuickStart(table.id)
+          }
         }
       }
 
@@ -318,9 +347,11 @@ export function SwipeableTableCard({
     table.isActive,
     canEndSession,
     canAddTime,
+    canQuickStart,
     onClick,
     onEndSession,
     onAddTime,
+    onQuickStart,
     resetSwipe,
     swipeThreshold,
   ])
@@ -354,7 +385,7 @@ export function SwipeableTableCard({
         </div>
       )}
 
-      {/* Right action indicator (Add Time) */}
+      {/* Right action indicator (Add Time or Quick Start) */}
       {table.isActive && canAddTime && (
         <div
           className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
@@ -364,6 +395,18 @@ export function SwipeableTableCard({
           <div className="flex flex-col items-center">
             <Clock size={24} />
             <span className="text-xs mt-1">Add Time</span>
+          </div>
+        </div>
+      )}
+      {!table.isActive && canQuickStart && (
+        <div
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
+            showRightAction ? "opacity-100" : "opacity-70"
+          }`}
+        >
+          <div className="flex flex-col items-center">
+            <Clock size={24} />
+            <span className="text-xs mt-1">Quick Start</span>
           </div>
         </div>
       )}
