@@ -14,7 +14,7 @@ interface SwipeableTableCardProps {
   onClick: () => void
   onAddTime: (tableId: number) => void
   onEndSession: (tableId: number) => void
-  onQuickStart?: (tableId: number) => void
+  onOpenQuickStartDialog?: (tableId: number) => void
   canEndSession: boolean
   canAddTime: boolean
   canQuickStart?: boolean
@@ -28,7 +28,7 @@ export function SwipeableTableCard({
   onClick,
   onAddTime,
   onEndSession,
-  onQuickStart,
+  onOpenQuickStartDialog,
   canEndSession,
   canAddTime,
   canQuickStart,
@@ -191,9 +191,9 @@ export function SwipeableTableCard({
           if (navigator.vibrate) {
             navigator.vibrate(20)
           }
-        } else if (!table.isActive && canQuickStart && onQuickStart) {
+        } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
           // Complete right swipe - quick start session
-          onQuickStart(table.id)
+          onOpenQuickStartDialog(table.id)
 
           if (navigator.vibrate) {
             navigator.vibrate(20)
@@ -213,7 +213,7 @@ export function SwipeableTableCard({
     onClick,
     onEndSession,
     onAddTime,
-    onQuickStart,
+    onOpenQuickStartDialog,
     resetSwipe,
     swipeThreshold,
   ])
@@ -322,8 +322,8 @@ export function SwipeableTableCard({
         } else if (distance > 0) {
           if (table.isActive && canAddTime) {
             onAddTime(table.id)
-          } else if (!table.isActive && canQuickStart && onQuickStart) {
-            onQuickStart(table.id)
+          } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
+            onOpenQuickStartDialog(table.id)
           }
         }
       }
@@ -351,7 +351,7 @@ export function SwipeableTableCard({
     onClick,
     onEndSession,
     onAddTime,
-    onQuickStart,
+    onOpenQuickStartDialog,
     resetSwipe,
     swipeThreshold,
   ])

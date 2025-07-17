@@ -14,6 +14,7 @@ import { PullUpInsightsPanel } from "@/components/system/pull-up-insights-panel"
 import { SessionFeedbackDialog } from "@/components/dialogs/session-feedback-dialog";
 import { Header } from "@/components/layout/header";
 import { TableGrid } from "@/components/tables/table-grid";
+import { QuickStartDialog } from "@/components/dialogs/quick-start-dialog";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { TouchLogin } from "@/components/auth/touch-login";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -95,6 +96,7 @@ interface DashboardState {
   logs: LogEntry[];
   settings: SystemSettings;
   selectedTable: Table | null;
+  showQuickStartDialog: boolean;
   showLoginDialog: boolean;
   showUserManagementDialog: boolean;
   showSettingsDialog: boolean;
@@ -174,6 +176,7 @@ const initialState: DashboardState = {
     largeTextMode: false,
   },
   selectedTable: null,
+  showQuickStartDialog: false,
   showLoginDialog: false,
   showUserManagementDialog: false,
   showSettingsDialog: false,
@@ -267,6 +270,7 @@ export function BilliardsTimerDashboard() {
     logs,
     settings,
     selectedTable,
+    showQuickStartDialog,
     showLoginDialog,
     showUserManagementDialog,
     showSettingsDialog,
@@ -604,6 +608,25 @@ export function BilliardsTimerDashboard() {
     },
     []
   );
+
+  const openQuickStartDialog = useCallback(
+    (tableId: number) => {
+      const table = state.tables.find((t) => t.id === tableId);
+      if (!table) return;
+      dispatch({
+        type: "SET_STATE",
+        payload: { selectedTable: table, showQuickStartDialog: true },
+      });
+    },
+    [state.tables]
+  );
+
+  const closeQuickStartDialog = useCallback(() => {
+    dispatch({
+      type: "SET_STATE",
+      payload: { selectedTable: null, showQuickStartDialog: false },
+    });
+  }, []);
 
   const confirmEndSession = useCallback(
     (tableId: number) => {
@@ -1282,8 +1305,9 @@ export function BilliardsTimerDashboard() {
                             const tableToOpen = currentTables.find(t => t.id === tableId);
                             if (tableToOpen) openTableDialog(tableToOpen);
                           }}
-                          onAddTime={addTime} 
-                          onEndSession={confirmEndSession} 
+                          onAddTime={addTime}
+                          onEndSession={confirmEndSession}
+                          onOpenQuickStartDialog={openQuickStartDialog}
                           canAddTime={hasPermission("canAddTime")} 
                           canEndSession={hasPermission("canEndSession")} 
                           onRefresh={handleRefreshData}
@@ -1319,7 +1343,7 @@ export function BilliardsTimerDashboard() {
                   servers={memoizedServers}
                   logs={memoizedLogs}
                   onTableClick={openTableDialog}
-                  onQuickStartSession={quickStartTableSession}
+                  onOpenQuickStartDialog={openQuickStartDialog}
                   onQuickEndSession={confirmEndSession}
                   canQuickStart={hasPermission("canQuickStart")}
                   canEndSession={hasPermission("canEndSession")}
@@ -1330,7 +1354,7 @@ export function BilliardsTimerDashboard() {
           </div>
         </div>
 
-        {selectedTable && (
+        {selectedTable && !showQuickStartDialog && (
           <TableDialog
             table={selectedTable}
             servers={memoizedServers}
@@ -1352,7 +1376,20 @@ export function BilliardsTimerDashboard() {
             getServerName={getServerName}
             currentUser={currentUser as AuthUser | null} 
             hasPermission={hasPermission}
-            viewOnlyMode={viewOnlyMode}
+          viewOnlyMode={viewOnlyMode}
+        />
+        )}
+
+        {selectedTable && showQuickStartDialog && (
+          <QuickStartDialog
+            open={showQuickStartDialog}
+            onClose={closeQuickStartDialog}
+            table={selectedTable}
+            servers={memoizedServers}
+            onStart={(guestCount, serverId) => {
+              quickStartTableSession(selectedTable.id, guestCount, serverId)
+              closeQuickStartDialog()
+            }}
           />
         )}
         
