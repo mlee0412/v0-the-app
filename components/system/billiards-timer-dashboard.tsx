@@ -252,7 +252,8 @@ export function BilliardsTimerDashboard() {
   useEffect(() => {
     if (!hasMounted) return;
     const ua = navigator.userAgent;
-    const isOldIpad = /iPad/.test(ua) && /OS 1[3-4]_/.test(ua);
+    // Broaden older iPad detection to include up to iPadOS 15
+    const isOldIpad = /iPad/.test(ua) && /OS 1[3-5]_/.test(ua);
     if (isOldIpad) {
       dispatch({ type: "UPDATE_SETTINGS", payload: { showTableCardAnimations: false } });
     }
