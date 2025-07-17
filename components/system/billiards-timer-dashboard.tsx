@@ -664,51 +664,6 @@ export function BilliardsTimerDashboard() {
     [state.tables, addLogEntry, endTableSession, showNotification, closeTableDialog] // Use state
   );
 
-  const addTime = useCallback(
-    async (tableId: number, minutes = 15) => {
-      withPermission("canAddTime", async () => { // Assuming this permission key is correct
-        try {
-          const currentTables = state.tables; // Use tables from state
-          const table = currentTables.find((t) => t.id === tableId);
-          // ... (rest of addTime logic)
-          if (!table) {
-            showNotification("Table not found", "error");
-            return;
-          }
-          const additionalTime = minutes * 60 * 1000;
-          const updatedAt = new Date().toISOString();
-          if (table.groupId) {
-            await addLogEntry(tableId, "Group Time Added", `${minutes} minutes added to group ${table.groupId}`);
-            const updatedGroupTables = currentTables.map((t) => {
-              if (t.groupId === table.groupId) {
-                const newInitialTime = t.initialTime + additionalTime;
-                const newRemainingTime = t.remainingTime + additionalTime; 
-                return { ...t, initialTime: newInitialTime, remainingTime: newRemainingTime, updatedAt };
-              }
-              return t;
-            });
-            dispatch({ type: "SET_TABLES", payload: updatedGroupTables });
-            debouncedUpdateTables(updatedGroupTables.filter(t => t.groupId === table.groupId));
-            showNotification(`Added ${minutes} minutes to ${table.groupId}`, "success");
-          } else {
-            // ... (logic for single table)
-            const newInitialTime = table.initialTime + additionalTime;
-            const newRemainingTime = table.remainingTime + additionalTime;
-            const updatedTable = { ...table, initialTime: newInitialTime, remainingTime: newRemainingTime, updatedAt };
-            dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
-            queueTableUpdate(updatedTable);
-            await addLogEntry(tableId, "Time Added", `${minutes} minutes added`);
-            showNotification(`Added ${minutes} minutes to ${table.name}`, "success");
-          }
-
-        } catch (error) {
-          console.error("Failed to add time:", error);
-          showNotification("Failed to add time", "error");
-        }
-      });
-    },
-    [state.tables, withPermission, addLogEntry, showNotification, queueTableUpdate, debouncedUpdateTables, dispatch] // Use state
-  );
   
   const subtractTime = useCallback(
     async (tableId: number, minutes: number) => {
@@ -1305,11 +1260,9 @@ export function BilliardsTimerDashboard() {
                             const tableToOpen = currentTables.find(t => t.id === tableId);
                             if (tableToOpen) openTableDialog(tableToOpen);
                           }}
-                          onAddTime={addTime}
                           onEndSession={confirmEndSession}
                           onOpenQuickStartDialog={openQuickStartDialog}
-                          canAddTime={hasPermission("canAddTime")} 
-                          canEndSession={hasPermission("canEndSession")} 
+                          canEndSession={hasPermission("canEndSession")}
                           onRefresh={handleRefreshData}
                           showAnimations={settings.showTableCardAnimations}
                         />
@@ -1364,7 +1317,6 @@ export function BilliardsTimerDashboard() {
             onClose={closeTableDialog}
             onStartSession={handleStartSessionForDialog} 
             onEndSession={confirmEndSession}
-            onAddTime={addTime}
             onSubtractTime={subtractTime}
             onUpdateGuestCount={updateGuestCount}
             onAssignServer={assignServer}

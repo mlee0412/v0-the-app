@@ -12,11 +12,9 @@ interface SwipeableTableCardProps {
   servers: Server[];
   logs: LogEntry[];
   onClick: () => void;
-  onAddTime: (tableId: number) => void;
   onEndSession: (tableId: number) => void;
   onOpenQuickStartDialog?: (tableId: number) => void;
   canEndSession: boolean;
-  canAddTime: boolean;
   canQuickStart?: boolean;
   className?: string;
   showAnimations?: boolean;
@@ -35,11 +33,9 @@ export function SwipeableTableCard({
   servers,
   logs,
   onClick,
-  onAddTime,
   onEndSession,
   onOpenQuickStartDialog,
   canEndSession,
-  canAddTime,
   canQuickStart,
   className = "",
   showAnimations = true,
@@ -58,7 +54,7 @@ export function SwipeableTableCard({
   const swipeHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (table.isActive && (canEndSession || canAddTime) && showAnimations) {
+    if (table.isActive && canEndSession && showAnimations) {
       swipeHintTimeoutRef.current = setTimeout(() => {
         setShowSwipeHint(true);
         hapticFeedback.light();
@@ -68,7 +64,7 @@ export function SwipeableTableCard({
     return () => {
       if (swipeHintTimeoutRef.current) clearTimeout(swipeHintTimeoutRef.current);
     };
-  }, [table.isActive, canEndSession, canAddTime, showAnimations]);
+  }, [table.isActive, canEndSession, showAnimations]);
 
   const resetGestureState = useCallback(() => {
     setSwipeOffset(0);
@@ -122,20 +118,15 @@ export function SwipeableTableCard({
 
       if (table.isActive) {
         const canShowLeft = canEndSession && newOffset < 0;
-        const canShowRight = canAddTime && newOffset > 0;
 
         const leftThresholdActive = canShowLeft && Math.abs(newOffset) > SWIPE_ACTION_THRESHOLD / 2;
-        const rightThresholdActive = canShowRight && newOffset > SWIPE_ACTION_THRESHOLD / 2;
 
         if (leftThresholdActive && !showLeftAction) hapticFeedback.light();
-        if (rightThresholdActive && !showRightAction) hapticFeedback.light();
-        
+
         setShowLeftAction(leftThresholdActive);
-        setShowRightAction(rightThresholdActive);
-        
+
         // Prevent swiping further if action not allowed
         if (!canShowLeft && newOffset < 0) setSwipeOffset(0);
-        if (!canShowRight && newOffset > 0) setSwipeOffset(0);
       } else {
         const canShowRight = canQuickStart && newOffset > 0;
         const rightThresholdInactive = canShowRight && newOffset > SWIPE_ACTION_THRESHOLD / 2;
@@ -151,7 +142,7 @@ export function SwipeableTableCard({
       // No e.preventDefault() here for vertical scroll on card.
       return;
     }
-  }, [table.isActive, canEndSession, canAddTime, canQuickStart, showLeftAction, showRightAction]);
+  }, [table.isActive, canEndSession, canQuickStart, showLeftAction, showRightAction]);
 
   const handleTouchMove = useMemo(
     () => throttle(handleTouchMoveInternal, 16, { trailing: false }),
@@ -211,10 +202,7 @@ export function SwipeableTableCard({
           hapticFeedback.strong();
           onEndSession(table.id);
         } else if (currentSwipeOffset > 0) {
-          if (table.isActive && canAddTime) {
-            hapticFeedback.success();
-            onAddTime(table.id);
-          } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
+          if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
             hapticFeedback.success();
             onOpenQuickStartDialog(table.id);
           }
@@ -224,7 +212,7 @@ export function SwipeableTableCard({
         hapticFeedback.light();
       }
     }
-  }, [table.id, table.isActive, canEndSession, canAddTime, canQuickStart, onClick, onEndSession, onAddTime, onOpenQuickStartDialog, swipeOffset]);
+  }, [table.id, table.isActive, canEndSession, canQuickStart, onClick, onEndSession, onOpenQuickStartDialog, swipeOffset]);
 
   return (
     <div
@@ -249,19 +237,6 @@ export function SwipeableTableCard({
           </div>
         </div>
       )}
-      {table.isActive && canAddTime && (
-        <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-l from-green-600 to-green-500 text-white z-0 rounded-r-lg transition-opacity duration-200 ${
-            showRightAction && swipeOffset > 0 ? "opacity-100" : "opacity-0"
-          }`}
-          // MODIFICATION: Visual feedback adjustment for action reveal
-          style={{ transform: `translateX(${swipeOffset > SWIPE_ACTION_THRESHOLD / 3 ? Math.min(0, swipeOffset - SWIPE_ACTION_THRESHOLD / 2) : SWIPE_ACTION_THRESHOLD / 1.2}px)` }}
-        >
-          <div className="flex flex-col items-center pointer-events-none">
-            <Clock size={24} /> <span className="text-xs mt-1">Add Time</span>
-          </div>
-        </div>
-      )}
       {!table.isActive && canQuickStart && (
         <div
           className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-l from-green-600 to-green-500 text-white z-0 rounded-r-lg transition-opacity duration-200 ${
@@ -280,7 +255,7 @@ export function SwipeableTableCard({
          <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
           <div className="bg-black/70 text-white px-3 py-1.5 rounded-full text-xs flex items-center gap-2 animate-pulse">
             <ArrowLeft className="w-3 h-3" />
-            {canAddTime && canEndSession ? "Swipe" : canAddTime ? "Swipe right" : "Swipe left"}
+            {canEndSession ? "Swipe left" : "Swipe"}
             <ArrowRight className="w-3 h-3" />
           </div>
         </div>
