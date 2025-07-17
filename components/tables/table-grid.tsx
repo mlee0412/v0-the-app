@@ -2,6 +2,7 @@
 
 import type { Table, LogEntry } from "@/components/system/billiards-timer-dashboard"
 import { TableCard } from "@/components/tables/table-card"
+import { SwipeableTableCard } from "@/components/tables/swipeable-table-card"
 import { useMemo, useCallback, memo } from "react"
 
 // Define interfaces
@@ -31,6 +32,8 @@ interface TableGridProps {
   servers: Server[]
   logs: LogEntry[]
   onTableClick: (table: Table) => void
+  onQuickStartSession?: (tableId: number) => void
+  onQuickEndSession?: (tableId: number) => void
 }
 
 // Define layout configuration for flexibility
@@ -51,7 +54,14 @@ const TABLE_LAYOUT: { id: number; row: number; col: number }[] = [
   { id: 8, row: 3, col: 6 },
 ]
 
-function TableGridComponent({ tables = [], servers = [], logs = [], onTableClick }: TableGridProps) {
+function TableGridComponent({
+  tables = [],
+  servers = [],
+  logs = [],
+  onTableClick,
+  onQuickStartSession,
+  onQuickEndSession,
+}: TableGridProps) {
   // Memoize the table lookup map for performance
   const tableMap = useMemo(() => {
     return new Map<number, Table>(tables.map((table) => [table.id, table]))
@@ -120,19 +130,32 @@ function TableGridComponent({ tables = [], servers = [], logs = [], onTableClick
             }}
             role="gridcell"
           >
-            <TableCard
-              table={table}
-              servers={servers}
-              logs={logs}
-              onClick={() => handleTableClick(table)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault()
-                  handleTableClick(table)
-                }
-              }}
-              tabIndex={0}
-            />
+            {onQuickStartSession && onQuickEndSession ? (
+              <SwipeableTableCard
+                table={table}
+                servers={servers}
+                logs={logs}
+                onClick={() => handleTableClick(table)}
+                onAddTime={onQuickStartSession}
+                onEndSession={onQuickEndSession}
+                canAddTime={!!onQuickStartSession}
+                canEndSession={!!onQuickEndSession}
+              />
+            ) : (
+              <TableCard
+                table={table}
+                servers={servers}
+                logs={logs}
+                onClick={() => handleTableClick(table)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleTableClick(table)
+                  }
+                }}
+                tabIndex={0}
+              />
+            )}
           </div>
         ))}
       </div>
