@@ -6,57 +6,57 @@ import { type UserRole, type User, type Permission, ADMIN_LEVEL_ROLES, USER_ROLE
 // Define default permissions for each role (remains here as it's service-specific default logic)
 const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   admin: {
-    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
+    canStartSession: true, canQuickStart: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
     canUpdateGuests: true, canAssignServer: true, canGroupTables: true, canUngroupTable: true,
     canMoveTable: true, canUpdateNotes: true, canViewLogs: true, canManageUsers: true, canManageSettings: true,
   },
   controller: {
-    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
+    canStartSession: true, canQuickStart: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
     canUpdateGuests: true, canAssignServer: true, canGroupTables: true, canUngroupTable: true,
     canMoveTable: true, canUpdateNotes: true, canViewLogs: true, canManageUsers: true, canManageSettings: true,
   },
   manager: {
-    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
+    canStartSession: true, canQuickStart: true, canEndSession: true, canAddTime: true, canSubtractTime: true,
     canUpdateGuests: true, canAssignServer: true, canGroupTables: true, canUngroupTable: true,
     canMoveTable: true, canUpdateNotes: true, canViewLogs: true, canManageUsers: true, canManageSettings: true,
   },
   server: {
-    canStartSession: true, canEndSession: true, canAddTime: true, canSubtractTime: false,
+    canStartSession: true, canQuickStart: true, canEndSession: true, canAddTime: true, canSubtractTime: false,
     canUpdateGuests: true, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: true, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   bartender: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   barback: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   kitchen: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   security: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   karaoke_main: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   karaoke_staff: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },
   viewer: {
-    canStartSession: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
+    canStartSession: false, canQuickStart: false, canEndSession: false, canAddTime: false, canSubtractTime: false,
     canUpdateGuests: false, canAssignServer: false, canGroupTables: false, canUngroupTable: false,
     canMoveTable: false, canUpdateNotes: false, canViewLogs: false, canManageUsers: false, canManageSettings: false,
   },

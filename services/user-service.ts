@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 
 export interface Permission {
   canStartSession: boolean
+  canQuickStart: boolean
   canEndSession: boolean
   canAddTime: boolean
   canSubtractTime: boolean
@@ -31,6 +32,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   // Admin level roles - full access
   admin: {
     canStartSession: true,
+    canQuickStart: true,
     canEndSession: true,
     canAddTime: true,
     canSubtractTime: true,
@@ -46,6 +48,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   controller: {
     canStartSession: true,
+    canQuickStart: true,
     canEndSession: true,
     canAddTime: true,
     canSubtractTime: true,
@@ -61,6 +64,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   manager: {
     canStartSession: true,
+    canQuickStart: true,
     canEndSession: true,
     canAddTime: true,
     canSubtractTime: true,
@@ -77,6 +81,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   // Staff level roles - operational access
   server: {
     canStartSession: true,
+    canQuickStart: true,
     canEndSession: true,
     canAddTime: true,
     canSubtractTime: false,
@@ -92,6 +97,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   bartender: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,
@@ -107,6 +113,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   barback: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,
@@ -122,6 +129,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   kitchen: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,
@@ -137,6 +145,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   security: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,
@@ -152,6 +161,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   karaoke_main: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,
@@ -167,6 +177,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   },
   karaoke_staff: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,
@@ -183,6 +194,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
   // View only role
   viewer: {
     canStartSession: false,
+    canQuickStart: false,
     canEndSession: false,
     canAddTime: false,
     canSubtractTime: false,

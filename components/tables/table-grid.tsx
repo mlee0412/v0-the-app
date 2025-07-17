@@ -34,6 +34,8 @@ interface TableGridProps {
   onTableClick: (table: Table) => void
   onQuickStartSession?: (tableId: number) => void
   onQuickEndSession?: (tableId: number) => void
+  canQuickStart?: boolean
+  canEndSession?: boolean
 }
 
 // Define layout configuration for flexibility
@@ -61,6 +63,8 @@ function TableGridComponent({
   onTableClick,
   onQuickStartSession,
   onQuickEndSession,
+  canQuickStart,
+  canEndSession,
 }: TableGridProps) {
   // Memoize the table lookup map for performance
   const tableMap = useMemo(() => {
@@ -130,7 +134,7 @@ function TableGridComponent({
             }}
             role="gridcell"
           >
-            {onQuickStartSession && onQuickEndSession ? (
+            {onQuickStartSession || onQuickEndSession ? (
               <SwipeableTableCard
                 table={table}
                 servers={servers}
@@ -140,8 +144,8 @@ function TableGridComponent({
                 onQuickStart={onQuickStartSession}
                 onEndSession={onQuickEndSession}
                 canAddTime={false}
-                canQuickStart={!!onQuickStartSession}
-                canEndSession={!!onQuickEndSession}
+                canQuickStart={canQuickStart}
+                canEndSession={canEndSession}
               />
             ) : (
               <TableCard
