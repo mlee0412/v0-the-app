@@ -13,6 +13,7 @@ import { PWAInit } from "@/components/pwa-init"
 import { OfflineDetector } from "@/components/mobile/offline-detector"
 import { AddUserButton } from "@/components/ui/add-user-button"
 import { Spinner } from "@/components/ui/spinner"
+import { useAnimation } from "@/contexts/animation-context"
 
 export default function ClientLayout({
   children,
@@ -20,7 +21,8 @@ export default function ClientLayout({
   children?: React.ReactNode
 }>) {
   const [isClient, setIsClient] = useState(false)
-  const [showAnimation, setShowAnimation] = useState(true)
+  const { backgroundEnabled } = useAnimation()
+  const [showAnimation, setShowAnimation] = useState(backgroundEnabled)
 
   useEffect(() => {
     setIsClient(true)
@@ -33,13 +35,13 @@ export default function ClientLayout({
     const isOldIpad = /iPad/.test(navigator.userAgent) && /OS 1[3-4]_/.test(navigator.userAgent)
 
     const updatePreference = () => {
-      setShowAnimation(!mediaQuery.matches && !isOldIpad)
+      setShowAnimation(backgroundEnabled && !mediaQuery.matches && !isOldIpad)
     }
 
     updatePreference()
     mediaQuery.addEventListener("change", updatePreference)
     return () => mediaQuery.removeEventListener("change", updatePreference)
-  }, [])
+  }, [backgroundEnabled])
 
   useEffect(() => {
     const setVh = () => {
