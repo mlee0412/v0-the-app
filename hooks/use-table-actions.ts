@@ -101,7 +101,7 @@ export function useTableActions({
   );
 
   const quickStartTableSession = useCallback(
-    async (tableId: number) => {
+    async (tableId: number, guestCount: number, serverId: string) => {
       try {
         const table = tables.find((t) => t.id === tableId);
         if (!table) {
@@ -118,14 +118,18 @@ export function useTableActions({
           startTime,
           remainingTime: DEFAULT_SESSION_TIME,
           initialTime: DEFAULT_SESSION_TIME,
-          guestCount: 2,
-          server: null,
+          guestCount,
+          server: serverId,
           updatedAt,
         };
 
         dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
         debouncedUpdateTable(updatedTable);
-        await addLogEntry(tableId, "Quick Session Started");
+        await addLogEntry(
+          tableId,
+          "Quick Session Started",
+          `Guests: ${guestCount}, Server: ${serverId}`,
+        );
         showNotification(`Quick session started for ${table.name}`, "success");
 
         window.dispatchEvent(

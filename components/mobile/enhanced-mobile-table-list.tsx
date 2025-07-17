@@ -16,7 +16,7 @@ interface EnhancedMobileTableListProps {
   onTableClick: (tableId: number) => void;
   onAddTime: (tableId: number) => void;
   onEndSession: (tableId: number) => void;
-  onQuickStart?: (tableId: number) => void;
+  onOpenQuickStartDialog?: (tableId: number) => void;
   canEndSession: boolean;
   canAddTime: boolean;
   canQuickStart?: boolean;
@@ -31,7 +31,7 @@ export function EnhancedMobileTableList({
   onTableClick,
   onAddTime,
   onEndSession,
-  onQuickStart,
+  onOpenQuickStartDialog,
   canEndSession,
   canAddTime,
   canQuickStart,
@@ -243,7 +243,7 @@ export function EnhancedMobileTableList({
               logs={logs.filter((log) => log.tableId === table.id)}
               onClick={() => onTableClick(table.id)}
               onAddTime={onAddTime}
-              onQuickStart={onQuickStart}
+              onOpenQuickStartDialog={onOpenQuickStartDialog}
               onEndSession={onEndSession}
               canEndSession={canEndSession}
               canAddTime={canAddTime}
