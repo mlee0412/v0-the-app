@@ -38,6 +38,7 @@ interface TableDialogProps {
   // MODIFIED: onStartSession now takes guestCount and serverId
   onStartSession: (tableId: number, guestCount: number, serverId: string | null) => void 
   onEndSession: (tableId: number) => void
+  onAddTime: (tableId: number, minutes?: number) => void
   onSubtractTime: (tableId: number, minutes: number) => void
   onUpdateGuestCount: (tableId: number, count: number) => void
   onAssignServer: (tableId: number, serverId: string | null) => void
@@ -61,6 +62,7 @@ export function TableDialog({
   onClose,
   onStartSession,
   onEndSession,
+  onAddTime,
   onSubtractTime,
   onUpdateGuestCount,
   onAssignServer,
@@ -103,7 +105,7 @@ export function TableDialog({
   const [showNumberPad, setShowNumberPad] = useState(false);
   const [serverSelectionExpanded, setServerSelectionExpanded] = useState(!table.isActive);
   const [showTimeConfirmation, setShowTimeConfirmation] = useState(false);
-  const [pendingTimeAction, setPendingTimeAction] = useState<{ type: "subtract"; minutes: number } | null>(null);
+  const [pendingTimeAction, setPendingTimeAction] = useState<{ type: "add" | "subtract"; minutes: number } | null>(null);
   
   const [elapsedTimeForInsights, setElapsedTimeForInsights] = useState(0);
   const [editingServer, setEditingServer] = useState(!table.server);
@@ -418,6 +420,26 @@ export function TableDialog({
     [table.id, onAssignServer],
   );
 
+  const handleAddTime = useCallback(
+    (minutes: number) => {
+      if (touchInProgressRef.current) return;
+      touchInProgressRef.current = true;
+      
+      const additionalMs = minutes * 60 * 1000;
+      const optimisticRemainingTime = workingRemainingTime + additionalMs;
+      const optimisticInitialTime = currentDialogInitialTime + additionalMs;
+
+      setDisplayedRemainingTime(optimisticRemainingTime); 
+      setWorkingRemainingTime(optimisticRemainingTime);   
+      setCurrentDialogInitialTime(optimisticInitialTime); 
+
+      setPendingTimeAction({ type: "add", minutes });
+      setShowTimeConfirmation(true);
+      
+      setTimeout(() => { touchInProgressRef.current = false }, 100);
+    },
+    [workingRemainingTime, currentDialogInitialTime],
+  );
 
   const handleSubtractTime = useCallback(
     (minutes: number) => {
@@ -453,13 +475,18 @@ export function TableDialog({
     }));
     setDisplayedRemainingTime(finalConfirmedRemainingTime);
 
+    const actionType = pendingTimeAction.type;
     const actionMinutes = pendingTimeAction.minutes;
     
     setShowTimeConfirmation(false);
     setPendingTimeAction(null); 
 
-    onSubtractTime(table.id, actionMinutes);
-  }, [pendingTimeAction, workingRemainingTime, currentDialogInitialTime, table.id, onSubtractTime]);
+    if (actionType === "add") {
+      onAddTime(table.id, actionMinutes);
+    } else {
+      onSubtractTime(table.id, actionMinutes);
+    }
+  }, [pendingTimeAction, workingRemainingTime, currentDialogInitialTime, table.id, onAddTime, onSubtractTime]);
 
   const updateGuestCountOptimistically = useCallback((newCount: number) => {
     setIsGuestCountUpdatingByDialog(true); 
@@ -752,7 +779,8 @@ export function TableDialog({
                         </div>
                       )}
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-4 grid grid-cols-2 gap-4">
+                      <div className="space-y-2"><div className="flex items-center justify-center"><ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" /><h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`add-${min}`} variant="outline" className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] transition-all duration-200 active:scale-95" onClick={() => handleAddTime(min)} disabled={viewOnlyMode || !hasPermission("canAddTime")} aria-label={`Add ${min} minutes`}>+{min} min</Button>))}</div></div>
                       <div className="space-y-2"><div className="flex items-center justify-center"><ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" /><h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`sub-${min}`} variant="outline" className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] transition-all duration-200 active:scale-95" onClick={() => handleSubtractTime(min)} disabled={viewOnlyMode || !hasPermission("canSubtractTime")} aria-label={`Subtract ${min} minutes`}>-{min} min</Button>))}</div></div>
                     </div>
                     <div className="text-center text-[#00FFFF] text-sm mt-4">{localTable.isActive ? (<MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTimeForInsights / 60000)} />) : (<div className="p-4 text-center"><p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p></div>)}</div>
@@ -874,7 +902,8 @@ export function TableDialog({
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 grid grid-cols-1 gap-4">
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div className="space-y-2"><div className="flex items-center justify-center"><ClockIcon className="mr-1 h-4 w-4 text-[#00FFFF]" /><h3 className="text-sm font-medium text-[#00FFFF]">Add Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`add-${min}`} variant="outline" className="border-2 border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF] transition-all duration-200 active:scale-95" onClick={() => handleAddTime(min)} disabled={viewOnlyMode || !hasPermission("canAddTime")} aria-label={`Add ${min} minutes`}>+{min} min</Button>))}</div></div>
                     <div className="space-y-2"><div className="flex items-center justify-center"><ArrowDownIcon className="mr-1 h-4 w-4 text-[#FFFF00]" /><h3 className="text-sm font-medium text-[#FFFF00]">Subtract Time</h3></div><div className="grid grid-cols-2 gap-2">{[5, 15, 30, 60].map((min) => (<Button key={`sub-${min}`} variant="outline" className="border-2 border-[#FFFF00] bg-[#000033] hover:bg-[#000066] text-[#FFFF00] transition-all duration-200 active:scale-95" onClick={() => handleSubtractTime(min)} disabled={viewOnlyMode || !hasPermission("canSubtractTime")} aria-label={`Subtract ${min} minutes`}>-{min} min</Button>))}</div></div>
                   </div>
                   <div className="text-center text-[#00FFFF] text-sm mt-4">{localTable.isActive ? (<MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTimeForInsights / 60000)} />) : (<div className="p-4 text-center"><p className="text-[#00FFFF] text-xs">Recommendations will appear when session starts</p></div>)}</div>
@@ -1032,13 +1061,19 @@ export function TableDialog({
             <div className="py-6">
               <div className="flex flex-col items-center justify-center space-y-4">
                 <div className="text-center text-xl">
-                  <span className="text-[#FFFF00]">-{pendingTimeAction.minutes} minutes</span>
+                  {pendingTimeAction.type === "add" ? (
+                    <span className="text-[#00FFFF]">+{pendingTimeAction.minutes} minutes</span>
+                  ) : (
+                    <span className="text-[#FFFF00]">-{pendingTimeAction.minutes} minutes</span>
+                  )}
                 </div>
                 <p className="text-center text-white">
                   New total time: <span className="font-bold tabular-nums">{formatRemainingTimeHHMMSS(displayedRemainingTime)}</span>
                 </p>
                 <p className="text-center text-white">
-                  Are you sure you want to subtract time from <span className="font-bold">{localTable.name}</span>?
+                  Are you sure you want to {pendingTimeAction.type === "add" ? "add" : "subtract"} time
+                  {pendingTimeAction.type === "add" ? " to " : " from "}
+                  <span className="font-bold">{localTable.name}</span>?
                 </p>
               </div>
             </div>
@@ -1048,9 +1083,9 @@ export function TableDialog({
                 onClick={() => {
                     setShowTimeConfirmation(false);
                     // Revert optimistic UI update on cancel
-                    setDisplayedRemainingTime(table.remainingTime + pendingTimeAction.minutes * 60000);
-                    setWorkingRemainingTime(table.remainingTime + pendingTimeAction.minutes * 60000);
-                    setCurrentDialogInitialTime(table.initialTime + pendingTimeAction.minutes * 60000);
+                    setDisplayedRemainingTime(table.remainingTime + (pendingTimeAction.type === "subtract" ? pendingTimeAction.minutes * 60000 : -pendingTimeAction.minutes * 60000) );
+                    setWorkingRemainingTime(table.remainingTime + (pendingTimeAction.type === "subtract" ? pendingTimeAction.minutes * 60000 : -pendingTimeAction.minutes * 60000) );
+                    setCurrentDialogInitialTime(table.initialTime + (pendingTimeAction.type === "subtract" ? pendingTimeAction.minutes * 60000 : -pendingTimeAction.minutes * 60000) );
                     setPendingTimeAction(null);
                 }}
                 className="border-gray-600 bg-[#000033] hover:bg-[#000066] text-white active:scale-95"
@@ -1060,7 +1095,11 @@ export function TableDialog({
               </Button>
               <Button
                 onClick={executeTimeChange}
-                className="bg-[#FFFF00] hover:bg-[#CCCC00] text-black font-bold active:scale-95"
+                className={
+                  pendingTimeAction.type === "add"
+                    ? "bg-[#00FFFF] hover:bg-[#00CCCC] text-black font-bold active:scale-95"
+                    : "bg-[#FFFF00] hover:bg-[#CCCC00] text-black font-bold active:scale-95"
+                }
                 aria-label="Confirm time change"
               >
                 Confirm
