@@ -157,7 +157,7 @@ const TableCardComponent = function TableCard({
   const cardRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<HTMLCanvasElement>(null)
 
-  const timer = useTableTimer(localTable)
+  const timer = useTableTimer(localTable, showAnimations)
 
   useEffect(() => {
     setLocalTable(storeTable)

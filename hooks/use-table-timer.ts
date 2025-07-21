@@ -7,8 +7,7 @@ import type { Table } from "@/components/system/billiards-timer-dashboard" // Ad
 // Simplified Table type for the hook, ensuring it has what it needs.
 // The consuming component will pass the full Table type.
 type HookTableInput = Pick<Table, "id" | "isActive" | "startTime" | "initialTime" | "remainingTime">
-
-export function useTableTimer(table: HookTableInput) {
+export function useTableTimer(table: HookTableInput, useRAF = true) {
   // Initialize remainingTime:
   // - If active and has startTime, calculate current remaining.
   // - If active but no startTime (e.g., session started but data not fully synced), use table.remainingTime.
@@ -107,6 +106,14 @@ export function useTableTimer(table: HookTableInput) {
 
   // Local animation loop to update the timer every frame while active
   useEffect(() => {
+    if (!useRAF) {
+      if (animationFrameIdRef.current !== null) {
+        cancelAnimationFrame(animationFrameIdRef.current)
+        animationFrameIdRef.current = null
+      }
+      return
+    }
+
     const runAnimation = () => {
       tick(Date.now())
       animationFrameIdRef.current = requestAnimationFrame(runAnimation)
@@ -122,7 +129,7 @@ export function useTableTimer(table: HookTableInput) {
         animationFrameIdRef.current = null
       }
     }
-  }, [table.isActive, table.startTime, tick])
+  }, [table.isActive, table.startTime, tick, useRAF])
 
   // Exposed formatTime function (re-wrapped for stability if formatTimeUtil is stable)
   const formatTime = useCallback(

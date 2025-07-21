@@ -26,7 +26,7 @@ export function TableTimerDisplay({
   isWarningYellow,
   showAnimations = true,
 }: TableTimerDisplayProps) {
-  const timer = useTableTimer(table); // The hook now lives here
+  const timer = useTableTimer(table, showAnimations); // The hook now lives here
 
   const getTimerTextColor = useMemo(() => {
     if (isOvertime || isCritical) return "#FF4500"; // Bright Red-Orange
