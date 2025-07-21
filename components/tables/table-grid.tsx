@@ -33,6 +33,10 @@ interface TableGridProps {
   logs: LogEntry[]
   onTableClick: (table: Table) => void
   onOpenQuickStartDialog?: (tableId: number) => void
+  onOpenQuickNoteDialog?: (tableId: number) => void
+  onOpenStatusDialog?: (tableId: number) => void
+  onMoveRequest?: (tableId: number) => void
+  onGroupRequest?: (tableId: number) => void
   onQuickEndSession?: (tableId: number) => void
   canQuickStart?: boolean
   canEndSession?: boolean
@@ -63,6 +67,10 @@ function TableGridComponent({
   logs = [],
   onTableClick,
   onOpenQuickStartDialog,
+  onOpenQuickNoteDialog,
+  onOpenStatusDialog,
+  onMoveRequest,
+  onGroupRequest,
   onQuickEndSession,
   canQuickStart,
   canEndSession,
@@ -143,6 +151,10 @@ function TableGridComponent({
                 logs={logs}
                 onClick={() => handleTableClick(table)}
                 onOpenQuickStartDialog={onOpenQuickStartDialog}
+                onOpenQuickNoteDialog={onOpenQuickNoteDialog}
+                onOpenStatusDialog={onOpenStatusDialog}
+                onMoveRequest={onMoveRequest}
+                onGroupRequest={onGroupRequest}
                 onEndSession={onQuickEndSession}
                 canQuickStart={canQuickStart}
                 canEndSession={canEndSession}

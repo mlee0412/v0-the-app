@@ -15,6 +15,8 @@ import { SessionFeedbackDialog } from "@/components/dialogs/session-feedback-dia
 import { Header } from "@/components/layout/header";
 import { TableGrid } from "@/components/tables/table-grid";
 import { QuickStartDialog } from "@/components/dialogs/quick-start-dialog";
+import { QuickNoteDialog } from "@/components/dialogs/quick-note-dialog";
+import { StatusIndicatorDialog } from "@/components/dialogs/status-indicator-dialog";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { TouchLogin } from "@/components/auth/touch-login";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -97,6 +99,8 @@ interface DashboardState {
   settings: SystemSettings;
   selectedTable: Table | null;
   showQuickStartDialog: boolean;
+  showQuickNoteDialog: boolean;
+  showStatusDialog: boolean;
   showLoginDialog: boolean;
   showUserManagementDialog: boolean;
   showSettingsDialog: boolean;
@@ -177,6 +181,8 @@ const initialState: DashboardState = {
   },
   selectedTable: null,
   showQuickStartDialog: false,
+  showQuickNoteDialog: false,
+  showStatusDialog: false,
   showLoginDialog: false,
   showUserManagementDialog: false,
   showSettingsDialog: false,
@@ -273,6 +279,8 @@ export function BilliardsTimerDashboard() {
     settings,
     selectedTable,
     showQuickStartDialog,
+    showQuickNoteDialog,
+    showStatusDialog,
     showLoginDialog,
     showUserManagementDialog,
     showSettingsDialog,
@@ -623,6 +631,44 @@ export function BilliardsTimerDashboard() {
     },
     [state.tables]
   );
+
+  const openQuickNoteDialog = useCallback(
+    (tableId: number) => {
+      const table = state.tables.find((t) => t.id === tableId);
+      if (!table) return;
+      dispatch({
+        type: "SET_STATE",
+        payload: { selectedTable: table, showQuickNoteDialog: true },
+      });
+    },
+    [state.tables]
+  );
+
+  const closeQuickNoteDialog = useCallback(() => {
+    dispatch({
+      type: "SET_STATE",
+      payload: { selectedTable: null, showQuickNoteDialog: false },
+    });
+  }, []);
+
+  const openStatusDialog = useCallback(
+    (tableId: number) => {
+      const table = state.tables.find((t) => t.id === tableId);
+      if (!table) return;
+      dispatch({
+        type: "SET_STATE",
+        payload: { selectedTable: table, showStatusDialog: true },
+      });
+    },
+    [state.tables]
+  );
+
+  const closeStatusDialog = useCallback(() => {
+    dispatch({
+      type: "SET_STATE",
+      payload: { selectedTable: null, showStatusDialog: false },
+    });
+  }, []);
 
   const closeQuickStartDialog = useCallback(() => {
     dispatch({
@@ -1013,6 +1059,14 @@ export function BilliardsTimerDashboard() {
     [state.tables, addLogEntry, showNotification, queueTableUpdate, dispatch] // Use state
   );
 
+  const handleQuickNoteSave = useCallback(
+    (tableId: number, noteText: string) => {
+      updateTableNotes(tableId, "", noteText)
+      closeQuickNoteDialog()
+    },
+    [updateTableNotes, closeQuickNoteDialog]
+  )
+
   const getServerName = useCallback(
     (serverId: string | null) => {
       if (!serverId) return "Unassigned";
@@ -1345,6 +1399,10 @@ export function BilliardsTimerDashboard() {
                   logs={memoizedLogs}
                   onTableClick={openTableDialog}
                   onOpenQuickStartDialog={openQuickStartDialog}
+                  onOpenQuickNoteDialog={openQuickNoteDialog}
+                  onOpenStatusDialog={openStatusDialog}
+                  onMoveRequest={(id) => openTableDialog(memoizedTables.find(t => t.id === id) as Table)}
+                  onGroupRequest={(id) => openTableDialog(memoizedTables.find(t => t.id === id) as Table)}
                   onQuickEndSession={confirmEndSession}
                   canQuickStart={hasPermission("canQuickStart")}
                   canEndSession={hasPermission("canEndSession")}
@@ -1391,6 +1449,23 @@ export function BilliardsTimerDashboard() {
               quickStartTableSession(selectedTable.id, guestCount, serverId)
               closeQuickStartDialog()
             }}
+          />
+        )}
+
+        {selectedTable && showQuickNoteDialog && (
+          <QuickNoteDialog
+            open={showQuickNoteDialog}
+            onClose={closeQuickNoteDialog}
+            table={selectedTable}
+            onSave={handleQuickNoteSave}
+          />
+        )}
+
+        {selectedTable && showStatusDialog && (
+          <StatusIndicatorDialog
+            open={showStatusDialog}
+            onClose={closeStatusDialog}
+            table={selectedTable}
           />
         )}
         
