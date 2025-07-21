@@ -529,10 +529,11 @@ export function TableDialog({
     setTimeout(() => { touchInProgressRef.current = false }, 100);
   }, [updateGuestCountOptimistically]);
 
-  const handleNumberPadInput = useCallback(
-    (value: string) => { // NumberPad now returns string
-      const newCount = Math.min(16, Math.max(0, parseInt(value, 10) || 0));
-      updateGuestCountOptimistically(newCount);
+const handleNumberPadInput = useCallback(
+    (value: string) => {
+      const num = Math.min(16, Math.max(0, parseInt(value, 10) || 0));
+      setGuestCount(num);
+      updateGuestCountOptimistically(num);
       setShowNumberPad(false);
     },
     [updateGuestCountOptimistically],
