@@ -655,13 +655,19 @@ const TableCardComponent = function TableCard({
                 )}
               </div>
               {localTable.isActive && localTable.hasNotes && localTable.noteText && (
-                <div className="flex items-center gap-1.5 w-full animate-slide-in">
+                <div className="flex items-center gap-1.5 w-full animate-slide-in overflow-hidden">
                   <div className="bg-[#FFFF00]/30 p-1 rounded-full">
                     <MessageSquareIcon className="h-3 w-3 flex-shrink-0 text-[#FFFF00]" />
                   </div>
                   <span
-                    className="truncate w-full text-white text-[10px] sm:text-xs"
-                    style={{ textShadow: "0 0 4px rgba(255, 255, 0, 0.7)" }}
+                    className="w-full text-white text-[10px] sm:text-xs break-words"
+                    style={{
+                      textShadow: "0 0 4px rgba(255, 255, 0, 0.7)",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
                   >
                     {localTable.noteText}
                   </span>

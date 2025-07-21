@@ -364,8 +364,8 @@ export function SwipeableTableCard({
       {/* Right action indicator (Quick Start) */}
       {!table.isActive && canQuickStart && (
         <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white z-10 ${
-            showRightAction ? "opacity-100" : "opacity-70"
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500/80 to-green-600/80 text-white z-10 ${
+            showRightAction ? "opacity-100" : "opacity-50"
           }`}
         >
           <div className="flex flex-col items-center">
