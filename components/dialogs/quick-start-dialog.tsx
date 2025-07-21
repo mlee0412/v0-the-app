@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { NumberPad } from "@/components/auth/number-pad"
@@ -23,6 +23,7 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
   const [serverId, setServerId] = useState("")
   const [showNumberPad, setShowNumberPad] = useState(false)
   const [numberPadValue, setNumberPadValue] = useState("")
+  const touchInProgressRef = useRef(false)
 
   useEffect(() => {
     if (open) {
@@ -40,11 +41,30 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
   }, [showNumberPad, guestCount])
 
   const handleIncrement = () => {
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
     setGuestCount((c) => Math.min(16, c + 1))
   }
 
   const handleDecrement = () => {
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
     setGuestCount((c) => Math.max(0, c - 1))
+  }
+
+  const handleGuestCountClick = () => {
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
+    setShowNumberPad(true)
   }
 
   const handleNumberPadDone = () => {
@@ -81,7 +101,7 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
               </Button>
               <div
                 className="text-2xl font-bold w-16 h-10 flex items-center justify-center bg-[#110022] border-2 border-[#FF00FF] rounded-md cursor-pointer relative active:scale-95"
-                onClick={() => setShowNumberPad(true)}
+                onClick={handleGuestCountClick}
               >
                 {guestCount}
                 <span className="absolute bottom-0.5 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span>
@@ -107,55 +127,3 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
                   onChange={setNumberPadValue}
                   maxLength={2}
                 />
-                <DialogFooter className="pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleNumberPadDone}
-                    className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
-                  >
-                    Done
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-          <div className="space-y-2">
-            <label className="text-sm text-[#00FF00]">Server</label>
-            <div className="grid grid-cols-3 gap-2">
-              {servers.map((s) => (
-                <Button
-                  key={s.id}
-                  variant={serverId === s.id ? "default" : "outline"}
-                  className={
-                    serverId === s.id
-                      ? "w-full bg-[#00FF00] hover:bg-[#00CC00] text-black active:scale-95"
-                      : "w-full border-2 border-[#00FF00] bg-[#000033] hover:bg-[#000066] text-white active:scale-95"
-                  }
-                  onClick={() => setServerId(s.id)}
-                >
-                  {s.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="pt-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleStart}
-            disabled={!canStart}
-            className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black"
-          >
-            Start
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
