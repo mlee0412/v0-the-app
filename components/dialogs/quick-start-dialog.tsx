@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { NumberPad } from "@/components/auth/number-pad"
@@ -23,6 +23,7 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
   const [serverId, setServerId] = useState("")
   const [showNumberPad, setShowNumberPad] = useState(false)
   const [numberPadValue, setNumberPadValue] = useState("")
+  const touchInProgressRef = useRef(false)
 
   useEffect(() => {
     if (open) {
@@ -40,11 +41,30 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
   }, [showNumberPad, guestCount])
 
   const handleIncrement = () => {
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
     setGuestCount((c) => Math.min(16, c + 1))
   }
 
   const handleDecrement = () => {
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
     setGuestCount((c) => Math.max(0, c - 1))
+  }
+
+  const handleGuestCountClick = () => {
+    if (touchInProgressRef.current) return
+    touchInProgressRef.current = true
+    setTimeout(() => {
+      touchInProgressRef.current = false
+    }, 300)
+    setShowNumberPad(true)
   }
 
   const handleNumberPadDone = () => {
@@ -81,7 +101,7 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
               </Button>
               <div
                 className="text-2xl font-bold w-16 h-10 flex items-center justify-center bg-[#110022] border-2 border-[#FF00FF] rounded-md cursor-pointer relative active:scale-95"
-                onClick={() => setShowNumberPad(true)}
+                onClick={handleGuestCountClick}
               >
                 {guestCount}
                 <span className="absolute bottom-0.5 right-1 text-[8px] text-[#FF00FF] opacity-70">tap</span>
