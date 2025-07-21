@@ -78,6 +78,7 @@ export function SwipeableTableCard({
 
   // Handle touch start
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault()
     // Store the initial touch position
     startXRef.current = e.touches[0].clientX
     startYRef.current = e.touches[0].clientY
@@ -185,6 +186,19 @@ export function SwipeableTableCard({
   const handleTouchEnd = useCallback(() => {
     if (!touchStartedRef.current) return
     touchStartedRef.current = false
+
+    if (showActionDialog) {
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current)
+        longPressTimeoutRef.current = null
+      }
+      setSwipeOffset(0)
+      setIsSwiping(false)
+      isSwipingRef.current = false
+      isScrollingVerticallyRef.current = false
+      swipeDirectionDeterminedRef.current = false
+      return
+    }
 
     // If we were scrolling vertically, just reset and return
     if (isScrollingVerticallyRef.current) {
@@ -405,6 +419,10 @@ export function SwipeableTableCard({
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (showActionDialog) {
+      // If the long-press menu is showing, ignore click
+      return
+    }
     setMenuPosition(null)
     onClick()
   }
@@ -412,11 +430,12 @@ export function SwipeableTableCard({
   return (
     <div
       className={`relative swipeable-card-container ${className}`}
-      style={{ touchAction: "pan-y", userSelect: "none" }}
+      style={{ touchAction: "pan-y", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* Left action indicator */}
       {(table.isActive && canEndSession) || (!table.isActive && onOpenStatusDialog) ? (

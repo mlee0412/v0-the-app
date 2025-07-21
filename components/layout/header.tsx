@@ -4,8 +4,6 @@ import { useState, useEffect } from "react"
 import {
   Settings,
   LogOut,
-  Maximize,
-  Minimize,
   User,
   PlayCircle,
   StopCircle,
@@ -28,7 +26,6 @@ interface HeaderProps {
   onLogout: () => void
   onLogin: () => void
   onSync: () => void
-  onToggleFullScreen: () => void
   onShowFunctions: () => void
   tables: Table[]
   logs: LogEntry[]
@@ -48,7 +45,6 @@ export function Header({
   onLogout,
   onLogin,
   onSync,
-  onToggleFullScreen,
   onShowFunctions,
   tables,
   logs,
@@ -56,36 +52,9 @@ export function Header({
   animationComplete,
 }: HeaderProps) {
   const [isSyncing, setIsSyncing] = useState(false)
-  const [isFullScreen, setIsFullScreen] = useState(false)
   const [activeTables, setActiveTables] = useState(0)
   const [currentTimeString, setCurrentTimeString] = useState("")
   const [currentDateString, setCurrentDateString] = useState("")
-
-  // Check if fullscreen is active
-  useEffect(() => {
-    const handleFullScreenChange = () => {
-      setIsFullScreen(
-        !!(
-          document.fullscreenElement ||
-          (document as any).webkitFullscreenElement ||
-          (document as any).mozFullscreenElement ||
-          (document as any).msFullscreenElement
-        ),
-      )
-    }
-
-    document.addEventListener("fullscreenchange", handleFullScreenChange)
-    document.addEventListener("webkitfullscreenchange", handleFullScreenChange)
-    document.addEventListener("mozfullscreenchange", handleFullScreenChange)
-    document.addEventListener("MSFullscreenChange", handleFullScreenChange)
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullScreenChange)
-      document.removeEventListener("webkitfullscreenchange", handleFullScreenChange)
-      document.removeEventListener("mozfullscreenchange", handleFullScreenChange)
-      document.removeEventListener("MSFullscreenChange", handleFullScreenChange)
-    }
-  }, [])
 
   // Update active tables count
   useEffect(() => {
