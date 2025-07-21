@@ -22,14 +22,22 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
   const [guestCount, setGuestCount] = useState(0)
   const [serverId, setServerId] = useState("")
   const [showNumberPad, setShowNumberPad] = useState(false)
+  const [numberPadValue, setNumberPadValue] = useState("")
 
   useEffect(() => {
     if (open) {
       setGuestCount(0)
       setServerId("")
       setShowNumberPad(false)
+      setNumberPadValue("0")
     }
   }, [open])
+
+  useEffect(() => {
+    if (showNumberPad) {
+      setNumberPadValue(String(guestCount))
+    }
+  }, [showNumberPad, guestCount])
 
   const handleIncrement = () => {
     setGuestCount((c) => Math.min(16, c + 1))
@@ -39,8 +47,8 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
     setGuestCount((c) => Math.max(0, c - 1))
   }
 
-  const handleNumberPadInput = (value: string) => {
-    const num = Math.min(16, Math.max(0, parseInt(value, 10) || 0))
+  const handleNumberPadDone = () => {
+    const num = Math.min(16, Math.max(0, parseInt(numberPadValue, 10) || 0))
     setGuestCount(num)
     setShowNumberPad(false)
   }
@@ -95,14 +103,14 @@ export function QuickStartDialog({ open, onClose, table, servers, onStart }: Qui
                   <DialogTitle className="text-xl text-[#00FFFF]">Enter Guest Count</DialogTitle>
                 </DialogHeader>
                 <NumberPad
-                  value={String(guestCount)}
-                  onChange={(val) => handleNumberPadInput(val)}
+                  value={numberPadValue}
+                  onChange={setNumberPadValue}
                   maxLength={2}
                 />
                 <DialogFooter className="pt-2">
                   <Button
                     variant="outline"
-                    onClick={() => setShowNumberPad(false)}
+                    onClick={handleNumberPadDone}
                     className="border-[#00FFFF] bg-[#000033] hover:bg-[#000066] text-[#00FFFF]"
                   >
                     Done
