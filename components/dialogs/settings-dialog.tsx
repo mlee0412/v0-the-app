@@ -186,8 +186,27 @@ export function SettingsDialog({
   const resetToPredefinedServers = () => setEditedServers(predefinedServers.map((name, index) => ({ id: `server-${index + 1}`, name, enabled: true })));
   const resetToPredefinedTemplates = () => setEditedTemplates(predefinedTemplates);
   
-  const SettingItem = ({ id, label, description, checked, onCheckedChange, icon: Icon }: { id: string, label: string, description: string, checked: boolean, onCheckedChange: (checked: boolean) => void, icon: React.ElementType }) => (
-    <div className="flex flex-row items-center justify-between p-3 border border-cyan-700/30 rounded-lg bg-slate-800/40 hover:bg-slate-700/50 transition-colors shadow-sm">
+  const SettingItem = ({
+    id,
+    label,
+    description,
+    checked,
+    onCheckedChange,
+    icon: Icon,
+    disabled = false,
+  }: {
+    id: string;
+    label: string;
+    description: string;
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+    icon: React.ElementType;
+    disabled?: boolean;
+  }) => (
+    <div
+      className="flex flex-row items-center justify-between p-3 border border-cyan-700/30 rounded-lg bg-slate-800/40 hover:bg-slate-700/50 transition-colors shadow-sm"
+      onClick={() => !disabled && onCheckedChange(!checked)}
+    >
       <div className="space-y-0.5">
         <Label htmlFor={id} className="text-sm font-medium text-cyan-200 flex items-center">
           <Icon className="h-4 w-4 mr-2 text-cyan-400 shrink-0" />
@@ -199,6 +218,8 @@ export function SettingsDialog({
         id={id}
         checked={checked}
         onCheckedChange={onCheckedChange}
+        disabled={disabled}
+        onClick={(e) => e.stopPropagation()}
         className="data-[state=checked]:bg-cyan-500 data-[state=unchecked]:bg-slate-600 shrink-0"
         thumbClassName="bg-slate-900"
       />
