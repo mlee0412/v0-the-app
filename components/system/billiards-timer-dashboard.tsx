@@ -49,6 +49,7 @@ export interface Table {
   hasNotes: boolean;
   noteId: string;
   noteText: string;
+  statusIndicators?: string[];
   updated_by_admin?: boolean;
   updated_by?: string | null;
   updatedAt: string;
@@ -154,6 +155,7 @@ const initialTables: Table[] = Array.from({ length: TABLE_COUNT }, (_, i) => ({
   hasNotes: false,
   noteId: "",
   noteText: "",
+  statusIndicators: [],
   updated_by_admin: false,
   updated_by: null,
   updatedAt: new Date().toISOString(),
@@ -1067,6 +1069,26 @@ export function BilliardsTimerDashboard() {
     [updateTableNotes, closeQuickNoteDialog]
   )
 
+  const updateTableStatuses = useCallback(
+    async (tableId: number, statuses: string[]) => {
+      try {
+        const table = state.tables.find((t) => t.id === tableId)
+        if (!table) {
+          showNotification("Table not found", "error")
+          return
+        }
+        const updatedTable = { ...table, statusIndicators: statuses, updatedAt: new Date().toISOString() }
+        dispatch({ type: "UPDATE_TABLE", payload: updatedTable })
+        queueTableUpdate(updatedTable)
+        await addLogEntry(tableId, "Status Updated", statuses.join(", "))
+      } catch (error) {
+        console.error("Failed to update status:", error)
+        showNotification("Failed to update status", "error")
+      }
+    },
+    [state.tables, addLogEntry, showNotification, queueTableUpdate, dispatch]
+  )
+
   const getServerName = useCallback(
     (serverId: string | null) => {
       if (!serverId) return "Unassigned";
@@ -1466,6 +1488,7 @@ export function BilliardsTimerDashboard() {
             open={showStatusDialog}
             onClose={closeStatusDialog}
             table={selectedTable}
+            onUpdateStatus={updateTableStatuses}
           />
         )}
         
