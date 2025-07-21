@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/tables/table-card"
-import { Clock, X } from "lucide-react"
+import { Clock, X, MessageSquare, Info } from "lucide-react"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
 
 interface SwipeableTableCardProps {
@@ -14,6 +14,10 @@ interface SwipeableTableCardProps {
   onClick: () => void
   onEndSession: (tableId: number) => void
   onOpenQuickStartDialog?: (tableId: number) => void
+  onOpenStatusDialog?: (tableId: number) => void
+  onOpenQuickNoteDialog?: (tableId: number) => void
+  onMoveRequest?: (tableId: number) => void
+  onGroupRequest?: (tableId: number) => void
   canEndSession: boolean
   canQuickStart?: boolean
   className?: string
@@ -26,6 +30,10 @@ export function SwipeableTableCard({
   onClick,
   onEndSession,
   onOpenQuickStartDialog,
+  onOpenStatusDialog,
+  onOpenQuickNoteDialog,
+  onMoveRequest,
+  onGroupRequest,
   canEndSession,
   canQuickStart,
   className = "",
@@ -45,6 +53,8 @@ export function SwipeableTableCard({
   const touchStartedRef = useRef(false)
   const isScrollingVerticallyRef = useRef(false)
   const swipeDirectionDeterminedRef = useRef(false)
+  const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Reset swipe state
   const resetSwipe = useCallback(() => {
@@ -55,6 +65,11 @@ export function SwipeableTableCard({
     setShowRightAction(false)
     isScrollingVerticallyRef.current = false
     swipeDirectionDeterminedRef.current = false
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current)
+      longPressTimeoutRef.current = null
+    }
+    setMenuPosition(null)
   }, [])
 
   // Handle touch start
@@ -69,6 +84,9 @@ export function SwipeableTableCard({
     isSwipingRef.current = false
     isScrollingVerticallyRef.current = false
     swipeDirectionDeterminedRef.current = false
+    longPressTimeoutRef.current = setTimeout(() => {
+      setMenuPosition({ x: startXRef.current, y: startYRef.current })
+    }, 500)
   }, [])
 
   // Handle touch move
@@ -86,6 +104,22 @@ export function SwipeableTableCard({
       const deltaY = currentY - startYRef.current
       const absX = Math.abs(deltaX)
       const absY = Math.abs(deltaY)
+
+      if (absX > 10 || absY > 10) {
+        if (longPressTimeoutRef.current) {
+          clearTimeout(longPressTimeoutRef.current)
+          longPressTimeoutRef.current = null
+        }
+        setMenuPosition(null)
+      }
+
+      if (absX > 10 || absY > 10) {
+        if (longPressTimeoutRef.current) {
+          clearTimeout(longPressTimeoutRef.current)
+          longPressTimeoutRef.current = null
+        }
+        setMenuPosition(null)
+      }
 
       // If we haven't determined the swipe direction yet, do it now
       if (!swipeDirectionDeterminedRef.current) {
@@ -167,19 +201,26 @@ export function SwipeableTableCard({
     const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
 
     if (isSwipeComplete && isSwipingRef.current) {
-      if (distance < 0 && table.isActive && canEndSession) {
-        // Complete left swipe - end session
-        onEndSession(table.id)
-
-        // Provide haptic feedback if available
-        if (navigator.vibrate) {
-          navigator.vibrate(20)
+      if (distance < 0) {
+        if (table.isActive && canEndSession) {
+          onEndSession(table.id)
+          if (navigator.vibrate) {
+            navigator.vibrate(20)
+          }
+        } else if (!table.isActive && onOpenStatusDialog) {
+          onOpenStatusDialog(table.id)
+          if (navigator.vibrate) {
+            navigator.vibrate(20)
+          }
         }
       } else if (distance > 0) {
         if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
-          // Complete right swipe - quick start session
           onOpenQuickStartDialog(table.id)
-
+          if (navigator.vibrate) {
+            navigator.vibrate(20)
+          }
+        } else if (table.isActive && onOpenQuickNoteDialog) {
+          onOpenQuickNoteDialog(table.id)
           if (navigator.vibrate) {
             navigator.vibrate(20)
           }
@@ -215,6 +256,10 @@ export function SwipeableTableCard({
       isSwipingRef.current = false
       isScrollingVerticallyRef.current = false
       swipeDirectionDeterminedRef.current = false
+
+      longPressTimeoutRef.current = setTimeout(() => {
+        setMenuPosition({ x: startXRef.current, y: startYRef.current })
+      }, 500)
 
       // Add temporary event listeners for mouse move and up
       document.addEventListener("mousemove", handleMouseMove)
@@ -276,6 +321,14 @@ export function SwipeableTableCard({
     const handleMouseUp = () => {
       if (!touchStartedRef.current) return
 
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current)
+        longPressTimeoutRef.current = null
+      }
+      if (menuPosition) {
+        setMenuPosition(null)
+      }
+
       // If we were scrolling vertically, just reset and return
       if (isScrollingVerticallyRef.current) {
         resetSwipe()
@@ -297,11 +350,17 @@ export function SwipeableTableCard({
       const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
 
       if (isSwipeComplete && isSwipingRef.current) {
-        if (distance < 0 && table.isActive && canEndSession) {
-          onEndSession(table.id)
+        if (distance < 0) {
+          if (table.isActive && canEndSession) {
+            onEndSession(table.id)
+          } else if (!table.isActive && onOpenStatusDialog) {
+            onOpenStatusDialog(table.id)
+          }
         } else if (distance > 0) {
           if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
             onOpenQuickStartDialog(table.id)
+          } else if (table.isActive && onOpenQuickNoteDialog) {
+            onOpenQuickNoteDialog(table.id)
           }
         }
       }
@@ -335,45 +394,46 @@ export function SwipeableTableCard({
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    setMenuPosition(null)
     onClick()
   }
 
   return (
     <div
       className={`relative swipeable-card-container ${className}`}
-      style={{ touchAction: "pan-y" }}
+      style={{ touchAction: "pan-y", userSelect: "none" }}
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Left action indicator (End Session) */}
-      {table.isActive && canEndSession && (
+      {/* Left action indicator */}
+      {(table.isActive && canEndSession) || (!table.isActive && onOpenStatusDialog) ? (
         <div
-          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-red-600 to-red-500 text-white z-10 ${
-            showLeftAction ? "opacity-100" : "opacity-70"
-          }`}
+          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r ${
+            table.isActive ? "from-red-600 to-red-500" : "from-blue-600 to-blue-500"
+          } text-white z-10 ${showLeftAction ? "opacity-100" : "opacity-70"}`}
         >
           <div className="flex flex-col items-center">
-            <X size={24} />
-            <span className="text-xs mt-1">End</span>
+            {table.isActive ? <X size={24} /> : <Info size={24} />}
+            <span className="text-xs mt-1">{table.isActive ? "End" : "Status"}</span>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Right action indicator (Quick Start) */}
-      {!table.isActive && canQuickStart && (
+      {/* Right action indicator */}
+      {(!table.isActive && canQuickStart) || (table.isActive && onOpenQuickNoteDialog) ? (
         <div
-          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-green-500/80 to-green-600/80 text-white z-10 ${
-            showRightAction ? "opacity-100" : "opacity-50"
-          }`}
+          className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r ${
+            !table.isActive ? "from-green-500/80 to-green-600/80" : "from-purple-500 to-purple-600"
+          } text-white z-10 ${showRightAction ? "opacity-100" : "opacity-50"}`}
         >
           <div className="flex flex-col items-center">
-            <Clock size={24} />
-            <span className="text-xs mt-1">Quick Start</span>
+            {!table.isActive ? <Clock size={24} /> : <MessageSquare size={24} />}
+            <span className="text-xs mt-1">{!table.isActive ? "Quick Start" : "Note"}</span>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Table card with transform based on swipe */}
       <div
@@ -386,6 +446,41 @@ export function SwipeableTableCard({
       >
         <TableCard table={table} servers={servers} logs={logs} onClick={onClick} />
       </div>
+
+      {menuPosition && (
+        <div
+          className="absolute z-30 bg-black text-white text-xs rounded-md p-2 space-y-1"
+          style={{ top: menuPosition.y, left: menuPosition.x }}
+        >
+          <button
+            className="block w-full text-left hover:bg-gray-700 px-2"
+            onClick={() => {
+              setMenuPosition(null)
+              onMoveRequest && onMoveRequest(table.id)
+            }}
+          >
+            Move
+          </button>
+          <button
+            className="block w-full text-left hover:bg-gray-700 px-2"
+            onClick={() => {
+              setMenuPosition(null)
+              onGroupRequest && onGroupRequest(table.id)
+            }}
+          >
+            Group
+          </button>
+          <button
+            className="block w-full text-left hover:bg-gray-700 px-2"
+            onClick={() => {
+              setMenuPosition(null)
+              onOpenStatusDialog && onOpenStatusDialog(table.id)
+            }}
+          >
+            Status
+          </button>
+        </div>
+      )}
     </div>
   )
 }
