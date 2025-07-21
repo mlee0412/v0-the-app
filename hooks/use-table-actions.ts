@@ -58,6 +58,10 @@ export function useTableActions({
           initialTime: sessionInitialTime,   // Ensure initialTime is set correctly
           guestCount: currentGuestCount,    // Use validated guest count
           server: currentServerId,          // Use validated server
+          hasNotes: false,
+          noteId: "",
+          noteText: "",
+          statusIndicators: [],
           updatedAt,
         };
 
@@ -120,6 +124,10 @@ export function useTableActions({
           initialTime: DEFAULT_SESSION_TIME,
           guestCount,
           server: serverId,
+          hasNotes: false,
+          noteId: "",
+          noteText: "",
+          statusIndicators: [],
           updatedAt,
         };
 
@@ -159,13 +167,14 @@ export function useTableActions({
         const resetFields = {
           isActive: false,
           startTime: null,
-          remainingTime: DEFAULT_SESSION_TIME, 
-          initialTime: DEFAULT_SESSION_TIME,   
+          remainingTime: DEFAULT_SESSION_TIME,
+          initialTime: DEFAULT_SESSION_TIME,
           guestCount: 0,
           server: null,
           hasNotes: false,
           noteId: "",
           noteText: "",
+          statusIndicators: [],
           updatedAt,
         };
 

@@ -603,7 +603,7 @@ const TableCardComponent = function TableCard({
                 }`}
               >
                 {localTable.isActive ? (
-                  tableStatus.isOvertime || tableStatus.isCritical ? (
+                  tableStatus.isOvertime ? (
                     <NeonGlow color="red" pulse intensity="high" className="text-[11px] font-bold">
                       OVERTIME
                     </NeonGlow>
@@ -697,7 +697,7 @@ const TableCardComponent = function TableCard({
             </div>
           </div>
           {localTable.statusIndicators && localTable.statusIndicators.length > 0 && (
-            <div className="absolute bottom-1 right-1">
+            <div className="absolute bottom-1 right-1 z-30">
               <TableStatusBadge statuses={localTable.statusIndicators} />
             </div>
           )}

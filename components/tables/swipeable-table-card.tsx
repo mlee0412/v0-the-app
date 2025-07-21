@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/tables/table-card"
-import { Clock, X, MessageSquare, Info } from "lucide-react"
+import { Clock, X, MessageSquare } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
@@ -45,6 +45,22 @@ export function SwipeableTableCard({
   const [showLeftAction, setShowLeftAction] = useState(false)
   const [showRightAction, setShowRightAction] = useState(false)
 
+  const rafRef = useRef<number | null>(null)
+
+  const scheduleSwipeUpdate = useCallback(
+    (offset: number, left: boolean, right: boolean) => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+      rafRef.current = requestAnimationFrame(() => {
+        setSwipeOffset(offset)
+        setShowLeftAction(left)
+        setShowRightAction(right)
+      })
+    },
+    []
+  )
+
   const containerRef = useRef<HTMLDivElement>(null)
   const startXRef = useRef(0)
   const startYRef = useRef(0)
@@ -61,6 +77,10 @@ export function SwipeableTableCard({
 
   // Reset swipe state
   const resetSwipe = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     setSwipeOffset(0)
     setIsSwiping(false)
     isSwipingRef.current = false
@@ -173,20 +193,29 @@ export function SwipeableTableCard({
         const newOffset = distance * resistance
 
         // Only allow swiping if the appropriate permission exists
-        if (table.isActive && canEndSession && distance < 0) {
-          // Left swipe (end session)
-          setSwipeOffset(newOffset)
-          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+        if (distance < 0) {
+          // Left swipe - quick note always allowed
+          scheduleSwipeUpdate(
+            newOffset,
+            Math.abs(newOffset) > swipeThreshold / 2,
+            false
+          )
         } else if (distance > 0) {
-          if (!table.isActive && canQuickStart) {
-            // Right swipe (quick start)
-            setSwipeOffset(newOffset)
-            setShowRightAction(newOffset > swipeThreshold / 2)
+          // Right swipe - only if action available
+          if (
+            (table.isActive && canEndSession) ||
+            (!table.isActive && canQuickStart)
+          ) {
+            scheduleSwipeUpdate(
+              newOffset,
+              false,
+              newOffset > swipeThreshold / 2
+            )
           }
         }
       }
     },
-    [table.isActive, canEndSession, canQuickStart, swipeThreshold],
+    [table.isActive, canEndSession, canQuickStart, swipeThreshold, scheduleSwipeUpdate],
   )
 
   // Handle touch end
@@ -204,7 +233,7 @@ export function SwipeableTableCard({
         clearTimeout(longPressTimeoutRef.current)
         longPressTimeoutRef.current = null
       }
-      setSwipeOffset(0)
+      scheduleSwipeUpdate(0, false, false)
       setIsSwiping(false)
       isSwipingRef.current = false
       isScrollingVerticallyRef.current = false
@@ -238,25 +267,22 @@ export function SwipeableTableCard({
 
     if (isSwipeComplete && isSwipingRef.current) {
       if (distance < 0) {
-        if (table.isActive && canEndSession) {
-          onEndSession(table.id)
-          if (navigator.vibrate) {
-            navigator.vibrate(20)
-          }
-        } else if (!table.isActive && onOpenStatusDialog) {
-          onOpenStatusDialog(table.id)
+        // Left swipe - quick note for both active and inactive tables
+        if (onOpenQuickNoteDialog) {
+          onOpenQuickNoteDialog(table.id)
           if (navigator.vibrate) {
             navigator.vibrate(20)
           }
         }
       } else if (distance > 0) {
-        if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
-          onOpenQuickStartDialog(table.id)
+        // Right swipe
+        if (table.isActive && canEndSession) {
+          onEndSession(table.id)
           if (navigator.vibrate) {
             navigator.vibrate(20)
           }
-        } else if (table.isActive && onOpenQuickNoteDialog) {
-          onOpenQuickNoteDialog(table.id)
+        } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
+          onOpenQuickStartDialog(table.id)
           if (navigator.vibrate) {
             navigator.vibrate(20)
           }
@@ -275,7 +301,6 @@ export function SwipeableTableCard({
     onEndSession,
     onOpenQuickStartDialog,
     onOpenQuickNoteDialog,
-    onOpenStatusDialog,
     resetSwipe,
     swipeThreshold,
     showActionDialog,
@@ -349,13 +374,22 @@ export function SwipeableTableCard({
         const resistance = 0.5
         const newOffset = distance * resistance
 
-        if (table.isActive && canEndSession && distance < 0) {
-          setSwipeOffset(newOffset)
-          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+        if (distance < 0) {
+          scheduleSwipeUpdate(
+            newOffset,
+            Math.abs(newOffset) > swipeThreshold / 2,
+            false
+          )
         } else if (distance > 0) {
-          if (!table.isActive && canQuickStart) {
-            setSwipeOffset(newOffset)
-            setShowRightAction(newOffset > swipeThreshold / 2)
+          if (
+            (table.isActive && canEndSession) ||
+            (!table.isActive && canQuickStart)
+          ) {
+            scheduleSwipeUpdate(
+              newOffset,
+              false,
+              newOffset > swipeThreshold / 2
+            )
           }
         }
       }
@@ -395,16 +429,16 @@ export function SwipeableTableCard({
 
       if (isSwipeComplete && isSwipingRef.current) {
         if (distance < 0) {
-          if (table.isActive && canEndSession) {
-            onEndSession(table.id)
-          } else if (!table.isActive && onOpenStatusDialog) {
-            onOpenStatusDialog(table.id)
+          // Left swipe - quick note
+          if (onOpenQuickNoteDialog) {
+            onOpenQuickNoteDialog(table.id)
           }
         } else if (distance > 0) {
-          if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
+          // Right swipe
+          if (table.isActive && canEndSession) {
+            onEndSession(table.id)
+          } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
             onOpenQuickStartDialog(table.id)
-          } else if (table.isActive && onOpenQuickNoteDialog) {
-            onOpenQuickNoteDialog(table.id)
           }
         }
       }
@@ -431,8 +465,10 @@ export function SwipeableTableCard({
     onClick,
     onEndSession,
     onOpenQuickStartDialog,
+    onOpenQuickNoteDialog,
     resetSwipe,
     swipeThreshold,
+    scheduleSwipeUpdate,
   ])
 
   const handleClick = (e: React.MouseEvent) => {
@@ -457,29 +493,27 @@ export function SwipeableTableCard({
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Left action indicator */}
-      {(table.isActive && canEndSession) || (!table.isActive && onOpenStatusDialog) ? (
+      {onOpenQuickNoteDialog ? (
         <div
-          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r ${
-            table.isActive ? "from-red-600 to-red-500" : "from-blue-600 to-blue-500"
-          } text-white z-10 ${showLeftAction ? "opacity-100" : "opacity-70"}`}
+          className={`absolute left-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r from-purple-500 to-purple-600 text-white z-10 ${showLeftAction ? "opacity-100" : "opacity-70"}`}
         >
           <div className="flex flex-col items-center">
-            {table.isActive ? <X size={24} /> : <Info size={24} />}
-            <span className="text-xs mt-1">{table.isActive ? "End" : "Status"}</span>
+            <MessageSquare size={24} />
+            <span className="text-xs mt-1">Note</span>
           </div>
         </div>
       ) : null}
 
       {/* Right action indicator */}
-      {(!table.isActive && canQuickStart) || (table.isActive && onOpenQuickNoteDialog) ? (
+      {(table.isActive && canEndSession) || (!table.isActive && canQuickStart) ? (
         <div
           className={`absolute right-0 top-0 bottom-0 w-20 flex items-center justify-center bg-gradient-to-r ${
-            !table.isActive ? "from-green-500/80 to-green-600/80" : "from-purple-500 to-purple-600"
+            table.isActive ? "from-red-600 to-red-500" : "from-green-500/80 to-green-600/80"
           } text-white z-10 ${showRightAction ? "opacity-100" : "opacity-50"}`}
         >
           <div className="flex flex-col items-center">
-            {!table.isActive ? <Clock size={24} /> : <MessageSquare size={24} />}
-            <span className="text-xs mt-1">{!table.isActive ? "Quick Start" : "Note"}</span>
+            {table.isActive ? <X size={24} /> : <Clock size={24} />}
+            <span className="text-xs mt-1">{table.isActive ? "End" : "Quick Start"}</span>
           </div>
         </div>
       ) : null}
