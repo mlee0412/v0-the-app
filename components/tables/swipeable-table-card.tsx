@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, memo } from "react"
 import { TableCard } from "@/components/tables/table-card"
 import { Clock, X, MessageSquare } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -25,7 +25,7 @@ interface SwipeableTableCardProps {
   className?: string
 }
 
-export function SwipeableTableCard({
+function SwipeableTableCardComponent({
   table,
   servers,
   logs,
@@ -584,3 +584,5 @@ export function SwipeableTableCard({
     </div>
   )
 }
+
+export const SwipeableTableCard = memo(SwipeableTableCardComponent)
