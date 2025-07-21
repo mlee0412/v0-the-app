@@ -3,7 +3,18 @@
 import type { Table } from "@/components/system/billiards-timer-dashboard"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Beer, Utensils, Bell, SprayCan } from "lucide-react"
+import {
+  Beer,
+  Utensils,
+  Bell,
+  SprayCan,
+  CalendarCheck,
+  DollarSign,
+  Baby,
+  Ban,
+  Angry,
+  Star,
+} from "lucide-react"
 
 interface StatusIndicatorDialogProps {
   open: boolean
@@ -12,11 +23,17 @@ interface StatusIndicatorDialogProps {
   onUpdateStatus: (tableId: number, statuses: string[]) => void
 }
 
-const statusOptions = [
+export const statusOptions = [
   { key: "service", icon: Bell, label: "Server" },
   { key: "drinks", icon: Beer, label: "Drinks" },
   { key: "food", icon: Utensils, label: "Food" },
   { key: "clean", icon: SprayCan, label: "Clean" },
+  { key: "reservation", icon: CalendarCheck, label: "Reservation" },
+  { key: "paid", icon: DollarSign, label: "Paid" },
+  { key: "under21", icon: Baby, label: "Under 21" },
+  { key: "noExtension", icon: Ban, label: "No Extension" },
+  { key: "sensitive", icon: Angry, label: "Sensitive" },
+  { key: "vip", icon: Star, label: "VIP" },
 ]
 
 export function StatusIndicatorDialog({ open, onClose, table, onUpdateStatus }: StatusIndicatorDialogProps) {

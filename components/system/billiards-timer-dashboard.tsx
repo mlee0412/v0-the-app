@@ -1479,7 +1479,9 @@ export function BilliardsTimerDashboard() {
             open={showQuickNoteDialog}
             onClose={closeQuickNoteDialog}
             table={selectedTable}
+            noteTemplates={stateNoteTemplates}
             onSave={handleQuickNoteSave}
+            onUpdateStatus={updateTableStatuses}
           />
         )}
 
