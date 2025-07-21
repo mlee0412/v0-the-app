@@ -90,7 +90,7 @@ export function QuickNoteDialog({ open, onClose, table, noteTemplates, onSave, o
               </p>
             </div>
           )}
-          {table?.isActive && (
+          {table && (
             <div className="grid grid-cols-2 gap-2 pt-2">
               {statusOptions.map(({ key, icon: Icon, label }) => (
                 <Button

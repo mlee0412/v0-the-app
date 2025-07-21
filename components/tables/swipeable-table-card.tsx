@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/tables/table-card"
-import { Clock, X, MessageSquare, Info } from "lucide-react"
+import { Clock, X, MessageSquare } from "lucide-react"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
@@ -45,6 +45,22 @@ export function SwipeableTableCard({
   const [showLeftAction, setShowLeftAction] = useState(false)
   const [showRightAction, setShowRightAction] = useState(false)
 
+  const rafRef = useRef<number | null>(null)
+
+  const scheduleSwipeUpdate = useCallback(
+    (offset: number, left: boolean, right: boolean) => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+      }
+      rafRef.current = requestAnimationFrame(() => {
+        setSwipeOffset(offset)
+        setShowLeftAction(left)
+        setShowRightAction(right)
+      })
+    },
+    []
+  )
+
   const containerRef = useRef<HTMLDivElement>(null)
   const startXRef = useRef(0)
   const startYRef = useRef(0)
@@ -61,6 +77,10 @@ export function SwipeableTableCard({
 
   // Reset swipe state
   const resetSwipe = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
     setSwipeOffset(0)
     setIsSwiping(false)
     isSwipingRef.current = false
@@ -175,21 +195,27 @@ export function SwipeableTableCard({
         // Only allow swiping if the appropriate permission exists
         if (distance < 0) {
           // Left swipe - quick note always allowed
-          setSwipeOffset(newOffset)
-          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+          scheduleSwipeUpdate(
+            newOffset,
+            Math.abs(newOffset) > swipeThreshold / 2,
+            false
+          )
         } else if (distance > 0) {
           // Right swipe - only if action available
           if (
             (table.isActive && canEndSession) ||
             (!table.isActive && canQuickStart)
           ) {
-            setSwipeOffset(newOffset)
-            setShowRightAction(newOffset > swipeThreshold / 2)
+            scheduleSwipeUpdate(
+              newOffset,
+              false,
+              newOffset > swipeThreshold / 2
+            )
           }
         }
       }
     },
-    [table.isActive, canEndSession, canQuickStart, swipeThreshold],
+    [table.isActive, canEndSession, canQuickStart, swipeThreshold, scheduleSwipeUpdate],
   )
 
   // Handle touch end
@@ -207,7 +233,7 @@ export function SwipeableTableCard({
         clearTimeout(longPressTimeoutRef.current)
         longPressTimeoutRef.current = null
       }
-      setSwipeOffset(0)
+      scheduleSwipeUpdate(0, false, false)
       setIsSwiping(false)
       isSwipingRef.current = false
       isScrollingVerticallyRef.current = false
@@ -349,15 +375,21 @@ export function SwipeableTableCard({
         const newOffset = distance * resistance
 
         if (distance < 0) {
-          setSwipeOffset(newOffset)
-          setShowLeftAction(Math.abs(newOffset) > swipeThreshold / 2)
+          scheduleSwipeUpdate(
+            newOffset,
+            Math.abs(newOffset) > swipeThreshold / 2,
+            false
+          )
         } else if (distance > 0) {
           if (
             (table.isActive && canEndSession) ||
             (!table.isActive && canQuickStart)
           ) {
-            setSwipeOffset(newOffset)
-            setShowRightAction(newOffset > swipeThreshold / 2)
+            scheduleSwipeUpdate(
+              newOffset,
+              false,
+              newOffset > swipeThreshold / 2
+            )
           }
         }
       }
@@ -436,6 +468,7 @@ export function SwipeableTableCard({
     onOpenQuickNoteDialog,
     resetSwipe,
     swipeThreshold,
+    scheduleSwipeUpdate,
   ])
 
   const handleClick = (e: React.MouseEvent) => {
