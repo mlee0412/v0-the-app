@@ -52,7 +52,10 @@ export function QuickNoteDialog({ open, onClose, table, noteTemplates, onSave, o
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-[400px] bg-black text-white border-[#00FFFF] space-theme font-mono">
+      <DialogContent
+        className="sm:max-w-[400px] bg-black text-white border-[#00FFFF] space-theme font-mono"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-lg text-[#00FFFF]">Quick Note: {table?.name}</DialogTitle>
         </DialogHeader>
@@ -81,13 +84,6 @@ export function QuickNoteDialog({ open, onClose, table, noteTemplates, onSave, o
                   {note.text.length > 15 ? note.text.substring(0, 15) + "..." : note.text}
                 </Button>
               ))}
-            </div>
-          )}
-          {selectedNoteId && (
-            <div className="p-2 bg-[#111100] rounded-md border border-[#FFFF00]/50">
-              <p className="text-[#FFFF00]">
-                {noteTemplates.find((n) => n.id === selectedNoteId)?.text || ""}
-              </p>
             </div>
           )}
           {table && (

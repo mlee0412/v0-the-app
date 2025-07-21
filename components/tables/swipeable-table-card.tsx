@@ -40,22 +40,35 @@ export function SwipeableTableCard({
   canQuickStart,
   className = "",
 }: SwipeableTableCardProps) {
-  const [swipeOffset, setSwipeOffset] = useState(0)
   const [isSwiping, setIsSwiping] = useState(false)
   const [showLeftAction, setShowLeftAction] = useState(false)
   const [showRightAction, setShowRightAction] = useState(false)
+  const swipeOffsetRef = useRef(0)
+  const showLeftActionRef = useRef(false)
+  const showRightActionRef = useRef(false)
 
   const rafRef = useRef<number | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
 
   const scheduleSwipeUpdate = useCallback(
-    (offset: number, left: boolean, right: boolean) => {
+    (offset: number, left: boolean, right: boolean, immediate = true) => {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current)
       }
       rafRef.current = requestAnimationFrame(() => {
-        setSwipeOffset(offset)
-        setShowLeftAction(left)
-        setShowRightAction(right)
+        swipeOffsetRef.current = offset
+        if (cardRef.current) {
+          cardRef.current.style.transition = immediate ? 'none' : 'transform 0.3s ease'
+          cardRef.current.style.transform = `translateX(${offset}px)`
+        }
+        if (left !== showLeftActionRef.current) {
+          showLeftActionRef.current = left
+          setShowLeftAction(left)
+        }
+        if (right !== showRightActionRef.current) {
+          showRightActionRef.current = right
+          setShowRightAction(right)
+        }
       })
     },
     []
@@ -81,9 +94,14 @@ export function SwipeableTableCard({
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-    setSwipeOffset(0)
+    if (cardRef.current) {
+      cardRef.current.style.transition = 'transform 0.3s ease'
+      cardRef.current.style.transform = 'translateX(0px)'
+    }
     setIsSwiping(false)
     isSwipingRef.current = false
+    showLeftActionRef.current = false
+    showRightActionRef.current = false
     setShowLeftAction(false)
     setShowRightAction(false)
     isScrollingVerticallyRef.current = false
@@ -198,7 +216,8 @@ export function SwipeableTableCard({
           scheduleSwipeUpdate(
             newOffset,
             Math.abs(newOffset) > swipeThreshold / 2,
-            false
+            false,
+            true
           )
         } else if (distance > 0) {
           // Right swipe - only if action available
@@ -209,7 +228,8 @@ export function SwipeableTableCard({
             scheduleSwipeUpdate(
               newOffset,
               false,
-              newOffset > swipeThreshold / 2
+              newOffset > swipeThreshold / 2,
+              true
             )
           }
         }
@@ -233,7 +253,7 @@ export function SwipeableTableCard({
         clearTimeout(longPressTimeoutRef.current)
         longPressTimeoutRef.current = null
       }
-      scheduleSwipeUpdate(0, false, false)
+      scheduleSwipeUpdate(0, false, false, false)
       setIsSwiping(false)
       isSwipingRef.current = false
       isScrollingVerticallyRef.current = false
@@ -378,7 +398,8 @@ export function SwipeableTableCard({
           scheduleSwipeUpdate(
             newOffset,
             Math.abs(newOffset) > swipeThreshold / 2,
-            false
+            false,
+            true
           )
         } else if (distance > 0) {
           if (
@@ -388,7 +409,8 @@ export function SwipeableTableCard({
             scheduleSwipeUpdate(
               newOffset,
               false,
-              newOffset > swipeThreshold / 2
+              newOffset > swipeThreshold / 2,
+              true
             )
           }
         }
@@ -521,10 +543,8 @@ export function SwipeableTableCard({
       {/* Table card with transform based on swipe */}
       <div
         className="relative z-20 touch-action-none"
-        style={{
-          transform: `translateX(${swipeOffset}px)`,
-          transition: isSwiping ? "none" : "transform 0.3s ease",
-        }}
+        ref={cardRef}
+        style={{ transform: "translateX(0px)" }}
         onClick={handleClick}
       >
         <TableCard table={table} servers={servers} logs={logs} onClick={onClick} />
