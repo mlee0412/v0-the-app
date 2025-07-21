@@ -6,6 +6,7 @@ import { UserIcon, MessageSquareIcon, ClockIcon, ServerIcon, TimerIcon } from "l
 import { NeonGlow } from "@/components/ui/neon-glow"
 import { PopupSessionLog } from "@/components/system/popup-session-log"
 import type { Table, LogEntry, Server as AppServer } from "@/components/system/billiards-timer-dashboard"
+import { TableStatusBadge } from "@/components/tables/table-status-badge"
 import { useTableStore, addTableUpdateListener } from "@/utils/table-state-manager"
 import { hapticFeedback } from "@/utils/haptic-feedback"
 import { useTableTimer } from "@/hooks/use-table-timer"
@@ -695,6 +696,11 @@ const TableCardComponent = function TableCard({
               )}
             </div>
           </div>
+          {localTable.statusIndicators && localTable.statusIndicators.length > 0 && (
+            <div className="absolute bottom-1 right-1">
+              <TableStatusBadge statuses={localTable.statusIndicators} />
+            </div>
+          )}
         </div>
       </div>
 
