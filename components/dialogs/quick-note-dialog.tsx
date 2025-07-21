@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import type { Table, NoteTemplate } from "@/components/system/billiards-timer-dashboard"
 import { statusOptions } from "./status-indicator-dialog"
 
@@ -57,11 +56,6 @@ export function QuickNoteDialog({ open, onClose, table, noteTemplates, onSave, o
           <DialogTitle className="text-lg text-[#00FFFF]">Quick Note: {table?.name}</DialogTitle>
         </DialogHeader>
         <div className="py-2 space-y-2">
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            className="bg-[#000033] border-[#00FFFF] text-white"
-          />
           {noteTemplates.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
               <Button
