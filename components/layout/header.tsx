@@ -196,18 +196,6 @@ export function Header({
               <Function className="h-4 w-4 text-gray-400" />
             </Button>
 
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 border-cyan-700 bg-black/60 hover:bg-cyan-950 hover:text-cyan-400 lg:flex hidden"
-              onClick={onToggleFullScreen}
-            >
-              {isFullScreen ? (
-                <Minimize className="h-4 w-4 text-gray-400" />
-              ) : (
-                <Maximize className="h-4 w-4 text-gray-400" />
-              )}
-            </Button>
 
             <Button
               variant="outline"
