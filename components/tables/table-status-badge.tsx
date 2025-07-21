@@ -19,16 +19,16 @@ interface TableStatusBadgeProps {
 }
 
 const statusIconMap: Record<string, React.ReactNode> = {
-  drinks: <Beer className="h-4 w-4 text-orange-400" />,
-  food: <Utensils className="h-4 w-4 text-yellow-400" />,
-  service: <Bell className="h-4 w-4 text-blue-400" />,
-  clean: <SprayCan className="h-4 w-4 text-green-400" />,
-  reservation: <CalendarCheck className="h-4 w-4 text-purple-400" />,
-  paid: <DollarSign className="h-4 w-4 text-green-300" />,
-  under21: <Baby className="h-4 w-4 text-pink-300" />,
-  noExtension: <Ban className="h-4 w-4 text-red-500" />,
-  sensitive: <Angry className="h-4 w-4 text-red-400" />,
-  vip: <Star className="h-4 w-4 text-yellow-400" />,
+  drinks: <Beer className="h-5 w-5 text-orange-400 drop-shadow" />,
+  food: <Utensils className="h-5 w-5 text-yellow-400 drop-shadow" />,
+  service: <Bell className="h-5 w-5 text-blue-400 drop-shadow" />,
+  clean: <SprayCan className="h-5 w-5 text-green-400 drop-shadow" />,
+  reservation: <CalendarCheck className="h-5 w-5 text-purple-400 drop-shadow" />,
+  paid: <DollarSign className="h-5 w-5 text-green-300 drop-shadow" />,
+  under21: <Baby className="h-5 w-5 text-pink-300 drop-shadow" />,
+  noExtension: <Ban className="h-5 w-5 text-red-500 drop-shadow" />,
+  sensitive: <Angry className="h-5 w-5 text-red-400 drop-shadow" />,
+  vip: <Star className="h-5 w-5 text-yellow-400 drop-shadow" />,
 }
 
 export function TableStatusBadge({ statuses = [] }: TableStatusBadgeProps) {
