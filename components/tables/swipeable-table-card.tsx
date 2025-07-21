@@ -79,6 +79,9 @@ export function SwipeableTableCard({
   // Handle touch start
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault()
+    document.querySelectorAll('.touch-active').forEach((el) => {
+      el.classList.remove('touch-active')
+    })
     // Store the initial touch position
     startXRef.current = e.touches[0].clientX
     startYRef.current = e.touches[0].clientY
@@ -92,7 +95,11 @@ export function SwipeableTableCard({
     longPressTimeoutRef.current = setTimeout(() => {
       const rect = containerRef.current?.getBoundingClientRect()
       if (rect) {
-        setMenuPosition({ x: rect.left + rect.width / 2, y: rect.top })
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const x = Math.min(Math.max(rect.left + rect.width / 2, 60), vw - 60)
+        const y = Math.min(Math.max(rect.top, 10), vh - 10)
+        setMenuPosition({ x, y })
       }
       setShowActionDialog(true)
     }, 500)
@@ -183,8 +190,13 @@ export function SwipeableTableCard({
   )
 
   // Handle touch end
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     if (!touchStartedRef.current) return
+    e.preventDefault()
+    e.stopPropagation()
+    document.querySelectorAll('.touch-active').forEach((el) => {
+      el.classList.remove('touch-active')
+    })
     touchStartedRef.current = false
 
     if (showActionDialog) {
@@ -262,8 +274,11 @@ export function SwipeableTableCard({
     onClick,
     onEndSession,
     onOpenQuickStartDialog,
+    onOpenQuickNoteDialog,
+    onOpenStatusDialog,
     resetSwipe,
     swipeThreshold,
+    showActionDialog,
   ])
 
   // Add event listeners for mouse events (for desktop testing)
@@ -282,7 +297,11 @@ export function SwipeableTableCard({
       swipeDirectionDeterminedRef.current = false
 
       longPressTimeoutRef.current = setTimeout(() => {
-        setMenuPosition({ x: startXRef.current, y: startYRef.current })
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const x = Math.min(Math.max(startXRef.current, 60), vw - 60)
+        const y = Math.min(Math.max(startYRef.current, 10), vh - 10)
+        setMenuPosition({ x, y })
       }, 500)
 
       // Add temporary event listeners for mouse move and up
