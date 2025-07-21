@@ -5,6 +5,8 @@ import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { TableCard } from "@/components/tables/table-card"
 import { Clock, X, MessageSquare, Info } from "lucide-react"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
 
 interface SwipeableTableCardProps {
@@ -55,6 +57,7 @@ export function SwipeableTableCard({
   const swipeDirectionDeterminedRef = useRef(false)
   const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  const [showActionDialog, setShowActionDialog] = useState(false)
 
   // Reset swipe state
   const resetSwipe = useCallback(() => {
@@ -70,10 +73,12 @@ export function SwipeableTableCard({
       longPressTimeoutRef.current = null
     }
     setMenuPosition(null)
+    setShowActionDialog(false)
   }, [])
 
   // Handle touch start
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault()
     // Store the initial touch position
     startXRef.current = e.touches[0].clientX
     startYRef.current = e.touches[0].clientY
@@ -85,7 +90,11 @@ export function SwipeableTableCard({
     isScrollingVerticallyRef.current = false
     swipeDirectionDeterminedRef.current = false
     longPressTimeoutRef.current = setTimeout(() => {
-      setMenuPosition({ x: startXRef.current, y: startYRef.current })
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (rect) {
+        setMenuPosition({ x: rect.left + rect.width / 2, y: rect.top })
+      }
+      setShowActionDialog(true)
     }, 500)
   }, [])
 
@@ -111,6 +120,7 @@ export function SwipeableTableCard({
           longPressTimeoutRef.current = null
         }
         setMenuPosition(null)
+        setShowActionDialog(false)
       }
 
       if (absX > 10 || absY > 10) {
@@ -119,6 +129,7 @@ export function SwipeableTableCard({
           longPressTimeoutRef.current = null
         }
         setMenuPosition(null)
+        setShowActionDialog(false)
       }
 
       // If we haven't determined the swipe direction yet, do it now
@@ -175,6 +186,19 @@ export function SwipeableTableCard({
   const handleTouchEnd = useCallback(() => {
     if (!touchStartedRef.current) return
     touchStartedRef.current = false
+
+    if (showActionDialog) {
+      if (longPressTimeoutRef.current) {
+        clearTimeout(longPressTimeoutRef.current)
+        longPressTimeoutRef.current = null
+      }
+      setSwipeOffset(0)
+      setIsSwiping(false)
+      isSwipingRef.current = false
+      isScrollingVerticallyRef.current = false
+      swipeDirectionDeterminedRef.current = false
+      return
+    }
 
     // If we were scrolling vertically, just reset and return
     if (isScrollingVerticallyRef.current) {
@@ -327,6 +351,7 @@ export function SwipeableTableCard({
       }
       if (menuPosition) {
         setMenuPosition(null)
+        setShowActionDialog(false)
       }
 
       // If we were scrolling vertically, just reset and return
@@ -394,6 +419,10 @@ export function SwipeableTableCard({
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (showActionDialog) {
+      // If the long-press menu is showing, ignore click
+      return
+    }
     setMenuPosition(null)
     onClick()
   }
@@ -401,11 +430,12 @@ export function SwipeableTableCard({
   return (
     <div
       className={`relative swipeable-card-container ${className}`}
-      style={{ touchAction: "pan-y", userSelect: "none" }}
+      style={{ touchAction: "pan-y", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
       ref={containerRef}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* Left action indicator */}
       {(table.isActive && canEndSession) || (!table.isActive && onOpenStatusDialog) ? (
@@ -448,38 +478,55 @@ export function SwipeableTableCard({
       </div>
 
       {menuPosition && (
-        <div
-          className="absolute z-30 bg-black text-white text-xs rounded-md p-2 space-y-1"
-          style={{ top: menuPosition.y, left: menuPosition.x }}
+        <Dialog
+          open={showActionDialog}
+          onOpenChange={(o) => {
+            if (!o) setShowActionDialog(false)
+          }}
         >
-          <button
-            className="block w-full text-left hover:bg-gray-700 px-2"
-            onClick={() => {
-              setMenuPosition(null)
-              onMoveRequest && onMoveRequest(table.id)
+          <DialogContent
+            className="absolute z-30 bg-black text-white text-sm rounded-md p-2 space-y-2"
+            style={{
+              top: menuPosition.y,
+              left: menuPosition.x,
+              transform: "translate(-50%, -100%)",
             }}
           >
-            Move
-          </button>
-          <button
-            className="block w-full text-left hover:bg-gray-700 px-2"
-            onClick={() => {
-              setMenuPosition(null)
-              onGroupRequest && onGroupRequest(table.id)
-            }}
-          >
-            Group
-          </button>
-          <button
-            className="block w-full text-left hover:bg-gray-700 px-2"
-            onClick={() => {
-              setMenuPosition(null)
-              onOpenStatusDialog && onOpenStatusDialog(table.id)
-            }}
-          >
-            Status
-          </button>
-        </div>
+            <Button
+              variant="outline"
+              className="w-full text-white border-gray-500"
+              onClick={() => {
+                setShowActionDialog(false)
+                setMenuPosition(null)
+                onMoveRequest && onMoveRequest(table.id)
+              }}
+            >
+              Move
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full text-white border-gray-500"
+              onClick={() => {
+                setShowActionDialog(false)
+                setMenuPosition(null)
+                onGroupRequest && onGroupRequest(table.id)
+              }}
+            >
+              Group
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full text-white border-gray-500"
+              onClick={() => {
+                setShowActionDialog(false)
+                setMenuPosition(null)
+                onOpenStatusDialog && onOpenStatusDialog(table.id)
+              }}
+            >
+              Add Status
+            </Button>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )
