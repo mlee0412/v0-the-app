@@ -36,6 +36,7 @@ interface TableGridProps {
   onQuickEndSession?: (tableId: number) => void
   canQuickStart?: boolean
   canEndSession?: boolean
+  showAnimations?: boolean
 }
 
 // Define layout configuration for flexibility
@@ -65,6 +66,7 @@ function TableGridComponent({
   onQuickEndSession,
   canQuickStart,
   canEndSession,
+  showAnimations = true,
 }: TableGridProps) {
   // Memoize the table lookup map for performance
   const tableMap = useMemo(() => {
@@ -144,6 +146,7 @@ function TableGridComponent({
                 onEndSession={onQuickEndSession}
                 canQuickStart={canQuickStart}
                 canEndSession={canEndSession}
+                showAnimations={showAnimations}
               />
             ) : (
               <TableCard
@@ -158,6 +161,7 @@ function TableGridComponent({
                   }
                 }}
                 tabIndex={0}
+                showAnimations={showAnimations}
               />
             )}
           </div>

@@ -246,6 +246,7 @@ export function BilliardsTimerDashboard() {
   
   // *** MODIFICATION: Mounted state for reliable client-side checks ***
   const [hasMounted, setHasMounted] = useState(false);
+  const [isOldIpad, setIsOldIpad] = useState(false);
   const isMobile = useMobile(); // This hook should now return undefined initially
 
   useEffect(() => {
@@ -256,11 +257,12 @@ export function BilliardsTimerDashboard() {
     if (!hasMounted) return;
     const ua = navigator.userAgent;
     // Broaden older iPad detection to include up to iPadOS 15
-    const isOldIpad = /iPad/.test(ua) && /OS 1[3-5]_/.test(ua);
-    if (isOldIpad) {
+    const oldIpad = /iPad/.test(ua) && /OS 1[3-5]_/.test(ua);
+    setIsOldIpad(oldIpad);
+    if (oldIpad) {
       dispatch({ type: "UPDATE_SETTINGS", payload: { showTableCardAnimations: false } });
     }
-  }, [hasMounted]);
+  }, [hasMounted, dispatch]);
 
   const {
     tables, // This will be from dashboardReducer state
@@ -313,6 +315,7 @@ export function BilliardsTimerDashboard() {
   const memoizedTables = useMemo(() => tables, [tables]);
   const memoizedServers = useMemo(() => servers, [servers]);
   const memoizedLogs = useMemo(() => logs, [logs]);
+  const tableCardAnimations = settings.showTableCardAnimations && !isOldIpad;
 
   // Update hideSystemElements based on isMobile, only after component has mounted
   useEffect(() => {
@@ -1309,7 +1312,7 @@ export function BilliardsTimerDashboard() {
                           onOpenQuickStartDialog={openQuickStartDialog}
                           canEndSession={hasPermission("canEndSession")}
                           onRefresh={handleRefreshData}
-                          showAnimations={settings.showTableCardAnimations}
+                          showAnimations={tableCardAnimations}
                         />
                       </div>
                     )}
@@ -1345,7 +1348,7 @@ export function BilliardsTimerDashboard() {
                   onQuickEndSession={confirmEndSession}
                   canQuickStart={hasPermission("canQuickStart")}
                   canEndSession={hasPermission("canEndSession")}
-                  // showAnimations={settings.showTableCardAnimations} // Already passed to EnhancedMobileTableList
+                  showAnimations={tableCardAnimations}
                 />
               )}
             </OrientationAwareContainer>
