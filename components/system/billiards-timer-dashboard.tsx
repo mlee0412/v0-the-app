@@ -325,7 +325,11 @@ export function BilliardsTimerDashboard() {
   const memoizedTables = useMemo(() => tables, [tables]);
   const memoizedServers = useMemo(() => servers, [servers]);
   const memoizedLogs = useMemo(() => logs, [logs]);
-  const tableCardAnimations = settings.showTableCardAnimations && !isOldIpad;
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const tableCardAnimations =
+    settings.showTableCardAnimations && !isOldIpad && !prefersReducedMotion;
 
   // Update hideSystemElements based on isMobile, only after component has mounted
   useEffect(() => {
