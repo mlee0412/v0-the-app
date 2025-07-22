@@ -46,6 +46,11 @@
     pointer-events: auto;
   }
 
+  /* Limit dialog width so it doesn't stretch edge to edge */
+  .dialog-content {
+    max-width: 85vw;
+  }
+
   /* Allow dialogs more height on iPad */
   .table-dialog .dialog-content {
     max-height: 90vh !important;
