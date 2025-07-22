@@ -2,7 +2,7 @@
 @media (min-width: 768px) {
   /* Limit maximum height of all dialogs */
   .dialog-content {
-    max-height: 90vh !important;
+    max-height: calc(var(--vh, 1vh) * 90) !important;
     overflow-y: auto;
   }
 
