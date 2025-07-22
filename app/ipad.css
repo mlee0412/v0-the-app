@@ -53,7 +53,7 @@
 
   /* Allow dialogs more height on iPad */
   .table-dialog .dialog-content {
-    max-height: 90vh !important;
+    max-height: calc(var(--vh, 1vh) * 90) !important;
   }
 
   /* Landscape mode optimizations */
