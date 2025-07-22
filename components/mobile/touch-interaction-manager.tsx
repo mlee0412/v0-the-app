@@ -111,15 +111,13 @@ export function TouchInteractionManager() {
     document.addEventListener("touchstart", handleTouchStart, { passive: true })
     document.addEventListener("touchmove", handleTouchMove, { passive: false }) // passive:false for preventDefault
     document.addEventListener("touchend", handleTouchEnd, { passive: false }) // passive:false for preventDefault
-    document.addEventListener(
-      "touchcancel",
-      () => {
-        // Clean up active states on touchcancel
-        document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
-        touchStartCoordsRef.current = null
-      },
-      { passive: true },
-    )
+    const handleTouchCancel = () => {
+      // Clean up active states on touchcancel
+      document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
+      touchStartCoordsRef.current = null
+    }
+
+    document.addEventListener("touchcancel", handleTouchCancel, { passive: true })
 
     // --- Dynamically Injected CSS for basic touch interactions ---
     const styleId = "touch-interaction-manager-styles"
@@ -152,10 +150,7 @@ export function TouchInteractionManager() {
       document.removeEventListener("touchstart", handleTouchStart)
       document.removeEventListener("touchmove", handleTouchMove)
       document.removeEventListener("touchend", handleTouchEnd)
-      document.removeEventListener("touchcancel", () => {
-        document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
-        touchStartCoordsRef.current = null
-      })
+      document.removeEventListener("touchcancel", handleTouchCancel)
       // window.removeEventListener("resize", updateSafeAreaInsets);
       const dynamicStyle = document.getElementById(styleId)
       if (dynamicStyle) {
