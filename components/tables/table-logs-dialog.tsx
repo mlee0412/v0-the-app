@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { NeonGlow } from "@/components/ui/neon-glow"
 import { SpaceButton } from "@/components/ui/space-button"
 import { Search, SortAsc, SortDesc, Calendar, Table2, Activity, Clock, Download, X, RefreshCw } from "lucide-react"
 import type { LogEntry } from "@/components/system/billiards-timer-dashboard"
+import { FixedSizeList as List } from "react-window"
 
 interface TableLogsDialogProps {
   open: boolean
@@ -161,6 +162,33 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
 
     return groups
   }, [sortedLogs])
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [listHeight, setListHeight] = useState<number>(400)
+
+  useEffect(() => {
+    if (containerRef.current) {
+      setListHeight(containerRef.current.clientHeight)
+    }
+  }, [open])
+
+  const Row = ({ index, style, data }: { index: number; style: React.CSSProperties; data: LogEntry[] }) => {
+    const log = data[index]
+    return (
+      <div style={style} className="border-b border-gray-700 pb-2 last:border-0 last:pb-0">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-1">
+            <span className="font-medium text-blue-400 text-xs">{log.tableName}</span>
+            <span className="bg-purple-900/30 px-1 py-0.5 rounded text-[8px] text-purple-300">
+              {log.action}
+            </span>
+          </div>
+          <span className="text-[8px] text-gray-400">{formatTimestamp(log.timestamp)}</span>
+        </div>
+        {log.details && <p className="mt-0.5 text-[10px] text-gray-300">{log.details}</p>}
+      </div>
+    )
+  }
 
   // Toggle sort direction or change sort field
   const handleSort = (field: SortField) => {
@@ -412,26 +440,20 @@ export function TableLogsDialog({ open, onClose, logs }: TableLogsDialogProps) {
           </div>
 
           {/* Log entries */}
-          <ScrollArea className="flex-1 rounded-md border border-gray-700 bg-gray-800 p-2">
+          <ScrollArea ref={containerRef} className="flex-1 rounded-md border border-gray-700 bg-gray-800 p-2">
             {viewMode === "all" ? (
               // Chronological view
               sortedLogs.length > 0 ? (
-                <div className="space-y-2">
-                  {sortedLogs.map((log) => (
-                    <div key={log.id} className="border-b border-gray-700 pb-2 last:border-0 last:pb-0">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium text-blue-400 text-xs">{log.tableName}</span>
-                          <span className="bg-purple-900/30 px-1 py-0.5 rounded text-[8px] text-purple-300">
-                            {log.action}
-                          </span>
-                        </div>
-                        <span className="text-[8px] text-gray-400">{formatTimestamp(log.timestamp)}</span>
-                      </div>
-                      {log.details && <p className="mt-0.5 text-[10px] text-gray-300">{log.details}</p>}
-                    </div>
-                  ))}
-                </div>
+                <List
+                  height={listHeight}
+                  itemCount={sortedLogs.length}
+                  itemSize={60}
+                  width="100%"
+                  itemData={sortedLogs}
+                  className="space-y-2"
+                >
+                  {Row}
+                </List>
               ) : (
                 <div className="flex items-center justify-center h-full text-gray-500">
                   {searchTerm || filterTable !== "all" || filterAction !== "all" || filterTimeRange !== "all"
