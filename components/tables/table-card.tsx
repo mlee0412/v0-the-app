@@ -630,7 +630,13 @@ const TableCardComponent = function TableCard({
             </div>
 
             <div className="flex flex-col gap-1.5 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm overflow-visible mb-1">
-              <div className="flex justify-between items-center animate-fade-in">
+              <div
+                className={`flex items-center animate-fade-in ${
+                  localTable.isActive && localTable.server
+                    ? "justify-between"
+                    : "justify-center"
+                }`}
+              >
                 <div className="flex items-center gap-1.5">
                   <div className="bg-[#FF00FF]/30 p-1 rounded-full">
                     <UserIcon className="h-3.5 w-3.5 text-[#FF00FF]" />
