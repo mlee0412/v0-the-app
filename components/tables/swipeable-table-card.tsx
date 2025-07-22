@@ -307,6 +307,7 @@ function SwipeableTableCardComponent({
       startYRef.current = e.clientY
       currentXRef.current = e.clientX
       startTimeRef.current = Date.now()
+      touchStartedRef.current = true
       setIsSwiping(false)
       isSwipingRef.current = false
       isScrollingVerticallyRef.current = false
