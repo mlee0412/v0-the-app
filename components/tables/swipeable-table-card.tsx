@@ -150,15 +150,6 @@ function SwipeableTableCardComponent({
         setShowActionDialog(false)
       }
 
-      if (absX > 10 || absY > 10) {
-        if (longPressTimeoutRef.current) {
-          clearTimeout(longPressTimeoutRef.current)
-          longPressTimeoutRef.current = null
-        }
-        setMenuPosition(null)
-        setShowActionDialog(false)
-      }
-
       // If we haven't determined the swipe direction yet, do it now
       if (!swipeDirectionDeterminedRef.current) {
         // If we've moved enough to determine direction
