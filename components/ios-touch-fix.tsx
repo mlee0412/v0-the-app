@@ -29,14 +29,13 @@ export function IOSTouchFix() {
 
     // Fix for iOS momentum scrolling
     const scrollableElements = document.querySelectorAll(".ios-momentum-scroll")
+
+    const stopPropagation = (e: TouchEvent) => {
+      e.stopPropagation()
+    }
+
     scrollableElements.forEach((el) => {
-      el.addEventListener(
-        "touchmove",
-        (e) => {
-          e.stopPropagation()
-        },
-        { passive: true },
-      )
+      el.addEventListener("touchmove", stopPropagation, { passive: true })
     })
 
     // Fix for iOS safe areas
@@ -48,9 +47,7 @@ export function IOSTouchFix() {
     return () => {
       document.removeEventListener("touchend", preventDoubleTapZoom)
       scrollableElements.forEach((el) => {
-        el.removeEventListener("touchmove", (e) => {
-          e.stopPropagation()
-        })
+        el.removeEventListener("touchmove", stopPropagation)
       })
     }
   }, [])
