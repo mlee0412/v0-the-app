@@ -96,16 +96,16 @@ function SwipeableTableCardComponent({
     setShowActionDialog(false)
   }, [])
 
-  // Handle touch start
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  // Handle pointer down
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     document.querySelectorAll('.touch-active').forEach((el) => {
       el.classList.remove('touch-active')
     })
-    // Store the initial touch position
-    startXRef.current = e.touches[0].clientX
-    startYRef.current = e.touches[0].clientY
-    currentXRef.current = e.touches[0].clientX
+    // Store the initial pointer position
+    startXRef.current = e.clientX
+    startYRef.current = e.clientY
+    currentXRef.current = e.clientX
     startTimeRef.current = Date.now()
     touchStartedRef.current = true
     setIsSwiping(false)
@@ -123,16 +123,17 @@ function SwipeableTableCardComponent({
       }
       setShowActionDialog(true)
     }, 500)
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
   }, [])
 
-  // Handle touch move
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
+  // Handle pointer move
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
       if (!touchStartedRef.current) return
 
       // Update current position
-      const currentX = e.touches[0].clientX
-      const currentY = e.touches[0].clientY
+      const currentX = e.clientX
+      const currentY = e.clientY
       currentXRef.current = currentX
 
       // Calculate horizontal and vertical distances
@@ -209,8 +210,8 @@ function SwipeableTableCardComponent({
     [table.isActive, canEndSession, canQuickStart, swipeThreshold, scheduleSwipeUpdate],
   )
 
-  // Handle touch end
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+  // Handle pointer up
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
     if (!touchStartedRef.current) return
     e.preventDefault()
     e.stopPropagation()
@@ -297,171 +298,6 @@ function SwipeableTableCardComponent({
     showActionDialog,
   ])
 
-  // Add event listeners for mouse events (for desktop testing)
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleMouseDown = (e: MouseEvent) => {
-      startXRef.current = e.clientX
-      startYRef.current = e.clientY
-      currentXRef.current = e.clientX
-      startTimeRef.current = Date.now()
-      touchStartedRef.current = true
-      setIsSwiping(false)
-      isSwipingRef.current = false
-      isScrollingVerticallyRef.current = false
-      swipeDirectionDeterminedRef.current = false
-
-      longPressTimeoutRef.current = setTimeout(() => {
-        const vw = window.innerWidth
-        const vh = window.innerHeight
-        const x = Math.min(Math.max(startXRef.current, 60), vw - 60)
-        const y = Math.min(Math.max(startYRef.current, 10), vh - 10)
-        setMenuPosition({ x, y })
-      }, 500)
-
-      // Add temporary event listeners for mouse move and up
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-    }
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!touchStartedRef.current) return
-
-      const currentX = e.clientX
-      const currentY = e.clientY
-      currentXRef.current = currentX
-
-      // Calculate horizontal and vertical distances
-      const deltaX = currentX - startXRef.current
-      const deltaY = currentY - startYRef.current
-      const absX = Math.abs(deltaX)
-      const absY = Math.abs(deltaY)
-
-      // If we haven't determined the swipe direction yet, do it now
-      if (!swipeDirectionDeterminedRef.current) {
-        // If we've moved enough to determine direction
-        if (absX > 5 || absY > 5) {
-          // If moving more vertically than horizontally, mark as vertical scrolling
-          if (absY > absX) {
-            isScrollingVerticallyRef.current = true
-          } else {
-            // Horizontal swipe
-            isSwipingRef.current = true
-            setIsSwiping(true)
-          }
-          swipeDirectionDeterminedRef.current = true
-        }
-      }
-
-      // If we're scrolling vertically, don't handle the swipe
-      if (isScrollingVerticallyRef.current) {
-        return
-      }
-
-      // If we're swiping horizontally, handle the swipe
-      if (isSwipingRef.current) {
-        const distance = deltaX
-        const resistance = 0.5
-        const newOffset = distance * resistance
-
-        if (distance < 0) {
-          scheduleSwipeUpdate(
-            newOffset,
-            Math.abs(newOffset) > swipeThreshold / 2,
-            false
-          )
-        } else if (distance > 0) {
-          if (
-            (table.isActive && canEndSession) ||
-            (!table.isActive && canQuickStart)
-          ) {
-            scheduleSwipeUpdate(
-              newOffset,
-              false,
-              newOffset > swipeThreshold / 2
-            )
-          }
-        }
-      }
-    }
-
-    const handleMouseUp = () => {
-      if (!touchStartedRef.current) return
-
-      if (longPressTimeoutRef.current) {
-        clearTimeout(longPressTimeoutRef.current)
-        longPressTimeoutRef.current = null
-      }
-      if (menuPosition) {
-        setMenuPosition(null)
-        setShowActionDialog(false)
-      }
-
-      // If we were scrolling vertically, just reset and return
-      if (isScrollingVerticallyRef.current) {
-        resetSwipe()
-        return
-      }
-
-      const distance = currentXRef.current - startXRef.current
-      const duration = Date.now() - startTimeRef.current
-      const velocity = Math.abs(distance) / duration
-
-      const isTap = Math.abs(distance) < 10 && duration < 300
-
-      if (isTap) {
-        resetSwipe()
-        onClick()
-        return
-      }
-
-      const isSwipeComplete = Math.abs(distance) > swipeThreshold || velocity > 0.5
-
-      if (isSwipeComplete && isSwipingRef.current) {
-        if (distance < 0) {
-          // Left swipe - quick note
-          if (onOpenQuickNoteDialog) {
-            onOpenQuickNoteDialog(table.id)
-          }
-        } else if (distance > 0) {
-          // Right swipe
-          if (table.isActive && canEndSession) {
-            onEndSession(table.id)
-          } else if (!table.isActive && canQuickStart && onOpenQuickStartDialog) {
-            onOpenQuickStartDialog(table.id)
-          }
-        }
-      }
-
-      resetSwipe()
-
-      // Remove temporary event listeners
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-
-    container.addEventListener("mousedown", handleMouseDown)
-
-    return () => {
-      container.removeEventListener("mousedown", handleMouseDown)
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [
-    table.id,
-    table.isActive,
-    canEndSession,
-    canQuickStart,
-    onClick,
-    onEndSession,
-    onOpenQuickStartDialog,
-    onOpenQuickNoteDialog,
-    resetSwipe,
-    swipeThreshold,
-    scheduleSwipeUpdate,
-  ])
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -479,9 +315,9 @@ function SwipeableTableCardComponent({
       className={`relative swipeable-card-container ${className}`}
       style={{ touchAction: "pan-y", userSelect: "none", WebkitTapHighlightColor: "transparent" }}
       ref={containerRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* Left action indicator */}
