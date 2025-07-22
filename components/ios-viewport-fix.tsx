@@ -42,30 +42,29 @@ export function IOSViewportFix() {
       document.body.style.overscrollBehavior = "none"
 
       // Prevent pull-to-refresh
-      document.addEventListener(
-        "touchmove",
-        (e) => {
-          // Allow scrolling in elements with the ios-momentum-scroll class
-          if (
-            e.target &&
-            (e.target as HTMLElement).closest &&
-            (e.target as HTMLElement).closest(".ios-momentum-scroll")
-          ) {
-            return
-          }
+      const handleTouchMove = (e: TouchEvent) => {
+        // Allow scrolling in elements with the ios-momentum-scroll class
+        if (
+          e.target &&
+          (e.target as HTMLElement).closest &&
+          (e.target as HTMLElement).closest(".ios-momentum-scroll")
+        ) {
+          return
+        }
 
-          // Prevent default for all other touch moves
-          if (e.touches.length === 1 && e.touches[0].clientY < 10) {
-            e.preventDefault()
-          }
-        },
-        { passive: false },
-      )
+        // Prevent default for all other touch moves
+        if (e.touches.length === 1 && e.touches[0].clientY < 10) {
+          e.preventDefault()
+        }
+      }
+
+      document.addEventListener("touchmove", handleTouchMove, { passive: false })
 
       return () => {
         document.body.classList.remove("ios-device")
         window.removeEventListener("resize", setVh)
         window.removeEventListener("orientationchange", setVh)
+        document.removeEventListener("touchmove", handleTouchMove)
         document.body.style.touchAction = ""
         document.body.style.overscrollBehavior = ""
       }
