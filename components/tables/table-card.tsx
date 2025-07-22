@@ -544,8 +544,9 @@ const TableCardComponent = function TableCard({
       <style>{showAnimations ? animationStyles : ""}</style>
       <div
         ref={cardRef}
-        className={`relative rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.03] active:scale-[0.98] h-auto min-h-[160px] sm:min-h-[200px] table-card ios-touch-fix shadow-2xl animate-scale-in
-            ${borderStyles.animationClassName} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-500 focus-visible:ring-opacity-75`}
+        className={`relative rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.03] active:scale-[0.98] h-auto min-h-[160px] sm:min-h-[200px] table-card ios-touch-fix shadow-2xl ${
+            showAnimations ? "animate-scale-in" : ""
+        } ${borderStyles.animationClassName} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-500 focus-visible:ring-opacity-75`}
         style={{ ...borderStyles.style, WebkitTapHighlightColor: "transparent" }}
         role="button"
         tabIndex={tabIndex}
@@ -620,7 +621,9 @@ const TableCardComponent = function TableCard({
 
             <div className={`flex justify-center items-center my-1 sm:my-2 ${showAnimations ? "animate-float" : ""}`}>
               <div
-                className={`text-xl sm:text-2xl md:text-3xl font-bold py-1 px-3 rounded-md border bg-black/50 backdrop-blur-sm shadow-inner ${getTimerBorder()} transition-all duration-300 ${Math.abs(timer.remainingTime % 60000) < 1000 ? "animate-pulse-highlight" : ""}`}
+                className={`text-xl sm:text-2xl md:text-3xl font-bold py-1 px-3 rounded-md border bg-black/50 backdrop-blur-sm shadow-inner ${getTimerBorder()} transition-all duration-300 ${
+                  showAnimations && Math.abs(timer.remainingTime % 60000) < 1000 ? "animate-pulse-highlight" : ""
+                }`}
                 style={{ color: getTimerTextColor(), textShadow: getTimerTextShadow() }}
                 key={timer.remainingTime} // This will trigger a re-render and animation when time changes
                 data-value={timer.remainingTime}
@@ -631,7 +634,9 @@ const TableCardComponent = function TableCard({
 
             <div className="flex flex-col gap-1.5 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm overflow-visible mb-1">
               <div
-                className={`flex items-center animate-fade-in ${
+                className={`flex items-center ${
+                  showAnimations ? "animate-fade-in" : ""
+                } ${
                   localTable.isActive && localTable.server
                     ? "justify-between"
                     : "justify-center"
@@ -646,7 +651,7 @@ const TableCardComponent = function TableCard({
                   </span>
                 </div>
                 {localTable.isActive && localTable.server && (
-                  <div className="flex items-center gap-1.5 animate-slide-in">
+                  <div className={`flex items-center gap-1.5 ${showAnimations ? "animate-slide-in" : ""}`}>
                     <div className="bg-[#00FF00]/30 p-1 rounded-full">
                       <ServerIcon className="h-3.5 w-3.5 text-[#00FF00]" />
                     </div>
@@ -662,7 +667,7 @@ const TableCardComponent = function TableCard({
                 )}
               </div>
               {localTable.isActive && localTable.hasNotes && localTable.noteText && (
-                <div className="flex items-center gap-1.5 w-full animate-slide-in overflow-hidden">
+                <div className={`flex items-center gap-1.5 w-full ${showAnimations ? "animate-slide-in" : ""} overflow-hidden`}>
                   <div className="bg-[#FFFF00]/30 p-1 rounded-full">
                     <MessageSquareIcon className="h-3 w-3 flex-shrink-0 text-[#FFFF00]" />
                   </div>
@@ -681,7 +686,7 @@ const TableCardComponent = function TableCard({
                 </div>
               )}
               {localTable.isActive && (
-                <div className="flex justify-between items-center animate-fade-in">
+                <div className={`flex justify-between items-center ${showAnimations ? "animate-fade-in" : ""}`}>
                   <div className="flex items-center gap-1.5">
                     <div className="bg-[#00FFFF]/30 p-1 rounded-full">
                       <ClockIcon className="h-3 w-3 text-[#00FFFF]" />
