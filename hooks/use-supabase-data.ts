@@ -254,7 +254,9 @@ export function useSupabaseData() {
           // Load tables - SELECTIVE COLUMNS
           supabase
             .from(TABLE_NAMES.TABLES)
-            .select("id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, updated_by_admin, updated_by, updated_at"),
+            .select(
+              "id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, status_indicators, updated_by_admin, updated_by, updated_at",
+            ),
 
           // Load logs
           supabase
@@ -636,6 +638,7 @@ export function useSupabaseData() {
                         hasNotes: newTbl.has_notes,
                         noteId: newTbl.note_id || "",
                         noteText: newTbl.note_text || "",
+                        statusIndicators: newTbl.status_indicators || [],
                         updated_by_admin: newTbl.updated_by_admin || false,
                         updated_by: newTbl.updated_by || null,
                         updatedAt: newTbl.updated_at || new Date().toISOString(),
