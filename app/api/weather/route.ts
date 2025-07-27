@@ -26,7 +26,10 @@ export async function GET(req: Request) {
     )
     const current = {
       temp: currentData.main.temp,
+      feels_like: currentData.main.feels_like,
       description: currentData.weather[0].description,
+      humidity: currentData.main.humidity,
+      wind_speed: currentData.wind.speed,
       icon: currentData.weather[0].icon,
     }
 
@@ -38,6 +41,7 @@ export async function GET(req: Request) {
       .map((item: any) => ({
         time: item.dt,
         temp: item.main.temp,
+        description: item.weather[0].description,
         icon: item.weather[0].icon,
       }))
 

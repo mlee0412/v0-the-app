@@ -5,13 +5,17 @@ const DEFAULT_LON = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LON || "-74.0060"
 
 export interface CurrentWeather {
   temp: number
+  feels_like: number
   description: string
+  humidity: number
+  wind_speed: number
   icon: string
 }
 
 export interface HourlyForecast {
   time: number
   temp: number
+  description: string
   icon: string
 }
 

@@ -56,13 +56,24 @@ export function WeatherWidget() {
             )}
           </div>
         </TooltipTrigger>
-        {forecast.length > 0 && (
+        {(weather || forecast.length > 0) && (
           <TooltipContent side="bottom">
             <div className="text-xs space-y-1">
+              {weather && (
+                <>
+                  <div className="font-medium capitalize flex items-center space-x-1">
+                    <Icon className="h-3 w-3 text-yellow-400" />
+                    <span>{weather.description}</span>
+                  </div>
+                  <div>Feels like {Math.round(weather.feels_like)}°C</div>
+                  <div>Humidity {weather.humidity}% | Wind {Math.round(weather.wind_speed)} m/s</div>
+                  {forecast.length > 0 && <hr className="border-t border-cyan-700" />}
+                </>
+              )}
               {forecast.map((f, idx) => (
                 <div key={idx} className="flex items-center justify-between">
                   <span>{new Date(f.time * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  <span>{Math.round(f.temp)}°C</span>
+                  <span className="capitalize">{Math.round(f.temp)}°C {f.description}</span>
                 </div>
               ))}
             </div>
