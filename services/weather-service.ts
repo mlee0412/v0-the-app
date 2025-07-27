@@ -27,6 +27,13 @@ class WeatherService {
     }
   }
 
+  async getWeather(
+    lat: number = DEFAULT_LAT,
+    lon: number = DEFAULT_LON,
+  ): Promise<{ current: CurrentWeather; forecast: HourlyForecast[] } | null> {
+    return this.fetchWeather(lat, lon)
+  }
+
   async getCurrentWeather(lat: number = DEFAULT_LAT, lon: number = DEFAULT_LON): Promise<CurrentWeather | null> {
     const data = await this.fetchWeather(lat, lon)
     return data ? data.current : null
