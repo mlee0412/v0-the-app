@@ -5,6 +5,7 @@ import { Sun, CloudRain, Cloud } from "lucide-react"
 import weatherService, { type CurrentWeather, type HourlyForecast } from "@/services/weather-service"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
+import { Button } from "@/components/ui/button"
 
 function getIconComponent(icon: string) {
   const code = icon.slice(0, 2)
@@ -42,7 +43,11 @@ export function WeatherWidget() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <div className="bg-black border border-cyan-500 rounded-md px-2 py-1 shadow-lg shadow-cyan-500/20 flex items-center space-x-1 cursor-pointer">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="bg-black border border-cyan-500 px-2 py-1 shadow-lg shadow-cyan-500/20 flex items-center space-x-1"
+        >
           {loading ? (
             <Spinner className="h-4 w-4 text-cyan-400" />
           ) : weather ? (
@@ -53,7 +58,7 @@ export function WeatherWidget() {
           ) : (
             <span className="text-xs text-gray-400">{error ?? 'Weather unavailable'}</span>
           )}
-        </div>
+        </Button>
       </PopoverTrigger>
       {(weather || forecast.length > 0) && (
         <PopoverContent side="bottom" className="w-56">
