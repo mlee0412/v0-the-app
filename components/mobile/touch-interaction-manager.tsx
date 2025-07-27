@@ -73,6 +73,7 @@ export function TouchInteractionManager() {
 
     const handleTouchEnd = (e: TouchEvent) => {
       const target = e.target as HTMLElement
+      const now = Date.now()
 
       // Remove active states
       document.querySelectorAll(".touch-active").forEach((el) => {
@@ -90,7 +91,9 @@ export function TouchInteractionManager() {
         const deltaY = Math.abs(endY - touchStartCoordsRef.current.y)
 
         if (deltaX < 10 && deltaY < 10) {
-          // Allow native click handling
+          // Synthesize click for reliable tap handling
+          e.preventDefault()
+          ;(closestInteractive as HTMLElement).click()
         }
       }
 
@@ -99,7 +102,7 @@ export function TouchInteractionManager() {
 
     document.addEventListener("touchstart", handleTouchStart, { passive: true })
     document.addEventListener("touchmove", handleTouchMove, { passive: false }) // passive:false for preventDefault
-    document.addEventListener("touchend", handleTouchEnd, { passive: true })
+    document.addEventListener("touchend", handleTouchEnd, { passive: false })
     const handleTouchCancel = () => {
       // Clean up active states on touchcancel
       document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
