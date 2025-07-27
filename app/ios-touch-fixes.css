@@ -108,10 +108,11 @@ button:active,
     transform: scale(0.98);
   }
 
-  /* Make items in the card non-interactive for touch so the card itself gets the tap */
-  .table-card * {
+  /* Previously disabled pointer events on all children so the card itself got the tap.
+     This prevented interactive elements like status badges from working correctly. */
+  /* .table-card * {
     pointer-events: none;
-  }
+  } */
 
   /* Make sure dialogs appear above everything */
   .dialog-container {
