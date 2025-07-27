@@ -16,35 +16,23 @@ export interface HourlyForecast {
 }
 
 class WeatherService {
-  private async fetchWeather(lat: number, lon: number) {
+  async getWeather(
+    lat: number = DEFAULT_LAT,
+    lon: number = DEFAULT_LON,
+  ): Promise<{ current: CurrentWeather; forecast: HourlyForecast[] } | { error: string }> {
     try {
       const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || res.statusText)
       return data as { current: CurrentWeather; forecast: HourlyForecast[] }
     } catch (err) {
-      console.error("weatherService:fetchWeather", err)
-      return null
+      console.error("weatherService:getWeather", err)
+      const msg = err instanceof Error ? err.message : "fetch failed"
+      return { error: msg }
     }
-  }
-
-  async getWeather(
-    lat: number = DEFAULT_LAT,
-    lon: number = DEFAULT_LON,
-  ): Promise<{ current: CurrentWeather; forecast: HourlyForecast[] } | null> {
-    return this.fetchWeather(lat, lon)
-  }
-
-  async getCurrentWeather(lat: number = DEFAULT_LAT, lon: number = DEFAULT_LON): Promise<CurrentWeather | null> {
-    const data = await this.fetchWeather(lat, lon)
-    return data ? data.current : null
-  }
-
-  async getHourlyForecast(lat: number = DEFAULT_LAT, lon: number = DEFAULT_LON): Promise<HourlyForecast[]> {
-    const data = await this.fetchWeather(lat, lon)
-    return data ? data.forecast : []
   }
 }
 
 const weatherService = new WeatherService()
 export default weatherService
+

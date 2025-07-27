@@ -17,17 +17,20 @@ export function WeatherWidget() {
   const [weather, setWeather] = useState<CurrentWeather | null>(null)
   const [forecast, setForecast] = useState<HourlyForecast[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       const data = await weatherService.getWeather()
-      if (data) {
-        setWeather(data.current)
-        setForecast(data.forecast)
-      } else {
+      if ('error' in data) {
+        setError(data.error)
         setWeather(null)
         setForecast([])
+      } else {
+        setError(null)
+        setWeather(data.current)
+        setForecast(data.forecast)
       }
       setLoading(false)
     }
@@ -49,7 +52,7 @@ export function WeatherWidget() {
                 <span className="text-sm text-cyan-400">{Math.round(weather.temp)}°C</span>
               </>
             ) : (
-              <span className="text-xs text-gray-400">Weather unavailable</span>
+              <span className="text-xs text-gray-400">{error ?? 'Weather unavailable'}</span>
             )}
           </div>
         </TooltipTrigger>
