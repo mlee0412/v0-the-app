@@ -16,4 +16,5 @@ NEXT_PUBLIC_DEFAULT_LON=-74.0060
 The key can also be named `NEXT_PUBLIC_OPEN_WEATHER_API_KEY` if you want it available to client code.
 
 The header weather widget now shows extra information such as humidity,
-wind speed and forecasts for the next few hours when you hover over it.
+wind speed and short-term forecasts. Click or tap the widget to see the
+details in a popover.
