@@ -13,30 +13,38 @@ export async function GET(req: Request) {
   const lat = parseFloat(searchParams.get("lat") || DEFAULT_LAT.toString())
   const lon = parseFloat(searchParams.get("lon") || DEFAULT_LON.toString())
 
+  const fetchJson = async (url: string) => {
+    const res = await fetch(url, { cache: "no-store" })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.message || res.statusText)
+    return data
+  }
+
   try {
-    const currentUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`
-    const currentRes = await fetch(currentUrl)
-    if (!currentRes.ok) throw new Error("Failed to fetch current weather")
-    const currentData = await currentRes.json()
+    const currentData = await fetchJson(
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`,
+    )
     const current = {
       temp: currentData.main.temp,
       description: currentData.weather[0].description,
       icon: currentData.weather[0].icon,
     }
 
-    const forecastUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&cnt=6&appid=${API_KEY}`
-    const forecastRes = await fetch(forecastUrl)
-    if (!forecastRes.ok) throw new Error("Failed to fetch forecast")
-    const forecastData = await forecastRes.json()
-    const forecast = (forecastData.list || []).slice(0, 5).map((item: any) => ({
-      time: item.dt,
-      temp: item.main.temp,
-      icon: item.weather[0].icon,
-    }))
+    const forecastData = await fetchJson(
+      `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&cnt=6&appid=${API_KEY}`,
+    )
+    const forecast = (forecastData.list || [])
+      .slice(0, 5)
+      .map((item: any) => ({
+        time: item.dt,
+        temp: item.main.temp,
+        icon: item.weather[0].icon,
+      }))
 
     return NextResponse.json({ current, forecast })
   } catch (err) {
     console.error("Weather API error", err)
-    return NextResponse.json({ error: "Failed to fetch weather" }, { status: 500 })
+    const msg = err instanceof Error ? err.message : "Failed to fetch weather"
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

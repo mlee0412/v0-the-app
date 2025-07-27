@@ -19,8 +19,9 @@ class WeatherService {
   private async fetchWeather(lat: number, lon: number) {
     try {
       const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`)
-      if (!res.ok) throw new Error("Failed to fetch weather")
-      return (await res.json()) as { current: CurrentWeather; forecast: HourlyForecast[] }
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || res.statusText)
+      return data as { current: CurrentWeather; forecast: HourlyForecast[] }
     } catch (err) {
       console.error("weatherService:fetchWeather", err)
       return null
