@@ -1,6 +1,5 @@
 "use client"
 
-const API_KEY = process.env.NEXT_PUBLIC_OPEN_WEATHER_API_KEY || ""
 const DEFAULT_LAT = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LAT || "40.7128")
 const DEFAULT_LON = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LON || "-74.0060")
 
@@ -17,44 +16,25 @@ export interface HourlyForecast {
 }
 
 class WeatherService {
-  async getCurrentWeather(lat: number = DEFAULT_LAT, lon: number = DEFAULT_LON): Promise<CurrentWeather | null> {
-    if (!API_KEY) {
-      console.warn("OpenWeather API key not configured")
-      return null
-    }
+  private async fetchWeather(lat: number, lon: number) {
     try {
-      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`
-      const res = await fetch(url)
+      const res = await fetch(`/api/weather?lat=${lat}&lon=${lon}`)
       if (!res.ok) throw new Error("Failed to fetch weather")
-      const data = await res.json()
-      return {
-        temp: data.main.temp,
-        description: data.weather[0].description,
-        icon: data.weather[0].icon,
-      }
+      return (await res.json()) as { current: CurrentWeather; forecast: HourlyForecast[] }
     } catch (err) {
-      console.error("WeatherService:getCurrentWeather", err)
+      console.error("weatherService:fetchWeather", err)
       return null
     }
   }
 
+  async getCurrentWeather(lat: number = DEFAULT_LAT, lon: number = DEFAULT_LON): Promise<CurrentWeather | null> {
+    const data = await this.fetchWeather(lat, lon)
+    return data ? data.current : null
+  }
+
   async getHourlyForecast(lat: number = DEFAULT_LAT, lon: number = DEFAULT_LON): Promise<HourlyForecast[]> {
-    if (!API_KEY) return []
-    try {
-      const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&cnt=6&appid=${API_KEY}`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error("Failed to fetch forecast")
-      const data = await res.json()
-      const list = (data.list || []) as any[]
-      return list.slice(0, 5).map((item) => ({
-        time: item.dt,
-        temp: item.main.temp,
-        icon: item.weather[0].icon,
-      }))
-    } catch (err) {
-      console.error("WeatherService:getHourlyForecast", err)
-      return []
-    }
+    const data = await this.fetchWeather(lat, lon)
+    return data ? data.forecast : []
   }
 }
 

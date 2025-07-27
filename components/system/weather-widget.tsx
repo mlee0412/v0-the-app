@@ -7,8 +7,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Spinner } from "@/components/ui/spinner"
 
 function getIconComponent(icon: string) {
-  if (icon.includes("rain")) return CloudRain
-  if (icon.includes("cloud")) return Cloud
+  const code = icon.slice(0, 2)
+  if (["09", "10", "11"].includes(code)) return CloudRain
+  if (["02", "03", "04"].includes(code)) return Cloud
   return Sun
 }
 
