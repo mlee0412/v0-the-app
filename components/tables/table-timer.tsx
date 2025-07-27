@@ -83,8 +83,8 @@ export function TableTimer({ isActive, startTime, initialTime, remainingTime, ta
     // Initial calculation
     calculateTime()
 
-    // Set up interval for active tables - use a faster interval for more responsive UI
-    intervalRef.current = setInterval(calculateTime, 100)
+    // Set up interval for active tables - 1 second granularity is sufficient
+    intervalRef.current = setInterval(calculateTime, 1000)
 
     return () => {
       if (intervalRef.current) {
