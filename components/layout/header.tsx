@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { ConnectionStatus } from "@/components/system/connection-status"
 import { AnimatedLogo } from "@/components/ui/animated-logo"
+import { WeatherWidget } from "@/components/system/weather-widget"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
 
 interface HeaderProps {
@@ -106,11 +107,13 @@ export function Header({
             </div>
           </div>
 
-          {/* Digital clock */}
+          {/* Digital clock and weather */}
           <div className="flex items-center space-x-2">
             <div className="bg-black border border-cyan-500 rounded-md px-3 py-1 shadow-lg shadow-cyan-500/20">
               <span className="text-2xl font-mono text-cyan-400">{currentTimeString}</span>
             </div>
+            {/* Weather widget */}
+            <WeatherWidget />
           </div>
 
           {/* Right side controls */}
