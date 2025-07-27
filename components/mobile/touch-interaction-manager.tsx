@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react"
 
 export function TouchInteractionManager() {
-  const lastTouchEndRef = useRef(0)
   const touchStartCoordsRef = useRef<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
@@ -92,25 +91,18 @@ export function TouchInteractionManager() {
         const deltaY = Math.abs(endY - touchStartCoordsRef.current.y)
 
         if (deltaX < 10 && deltaY < 10) {
-          // Consider it a tap; synthesize a click for reliability on iOS
+          // Synthesize click for reliable tap handling
           e.preventDefault()
-          const clickEvent = new MouseEvent("click", { bubbles: true, cancelable: true, view: window })
-          closestInteractive.dispatchEvent(clickEvent)
-        }
-
-        if (now - lastTouchEndRef.current < 350) {
-          // Prevent zoom on double taps
-          e.preventDefault()
+          ;(closestInteractive as HTMLElement).click()
         }
       }
 
-      lastTouchEndRef.current = now
       touchStartCoordsRef.current = null
     }
 
     document.addEventListener("touchstart", handleTouchStart, { passive: true })
     document.addEventListener("touchmove", handleTouchMove, { passive: false }) // passive:false for preventDefault
-    document.addEventListener("touchend", handleTouchEnd, { passive: false }) // passive:false for preventDefault
+    document.addEventListener("touchend", handleTouchEnd, { passive: false })
     const handleTouchCancel = () => {
       // Clean up active states on touchcancel
       document.querySelectorAll(".touch-active").forEach((el) => el.classList.remove("touch-active"))
