@@ -1299,7 +1299,11 @@ export function useSupabaseData() {
         { data: settingsData, error: settingsError },
       ] = await Promise.all([
         // TABLES - SELECTIVE COLUMNS
-        supabase.from(TABLE_NAMES.TABLES).select("id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, updated_by_admin, updated_by, updated_at"),
+        supabase
+          .from(TABLE_NAMES.TABLES)
+          .select(
+            "id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, status_indicators, updated_by_admin, updated_by, updated_at",
+          ),
         supabase.from(TABLE_NAMES.LOGS).select("*").order("timestamp", { ascending: false }),
         supabase.from(TABLE_NAMES.SERVERS).select("*"),
         supabase.from(TABLE_NAMES.TEMPLATES).select("*"),
@@ -1326,6 +1330,7 @@ export function useSupabaseData() {
           hasNotes: table.has_notes,
           noteId: table.note_id || "",
           noteText: table.note_text || "",
+          statusIndicators: table.status_indicators || [],
           updated_by_admin: table.updated_by_admin || false,
           updated_by: table.updated_by || null,
           updatedAt: table.updated_at || new Date().toISOString(),
