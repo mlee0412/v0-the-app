@@ -27,14 +27,13 @@ export function ServerSelectionDialog({ open, onClose, servers, onUpdateServers 
       // Make sure we're working with unique servers by using a Map with server IDs as keys
       const uniqueServers = new Map()
 
-      servers.forEach((server) => {
-        if (!uniqueServers.has(server.id)) {
-          uniqueServers.set(server.id, {
-            ...server,
-            enabled: false, // Set all servers to disabled by default
-          })
-        }
-      })
+      servers
+        .filter((server) => server.enabled)
+        .forEach((server) => {
+          if (!uniqueServers.has(server.id)) {
+            uniqueServers.set(server.id, server)
+          }
+        })
 
       // Convert the Map values back to an array
       setSelectedServers(Array.from(uniqueServers.values()))
@@ -107,14 +106,16 @@ export function ServerSelectionDialog({ open, onClose, servers, onUpdateServers 
             Select the servers who are working today. Only enabled servers will be available for table assignments.
           </p>
 
-          {selectedServers.length === 0 ? (
+          {selectedServers.filter((server) => server.enabled).length === 0 ? (
             <div className="flex items-center justify-center p-4 bg-[#330000] border border-[#FF0000] rounded-md">
               <AlertTriangle className="h-5 w-5 text-[#FF0000] mr-2" />
               <span className="text-[#FF0000]">No servers found. Please add servers in Settings first.</span>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
-              {selectedServers.map((server) => (
+              {selectedServers
+                .filter((server) => server.enabled)
+                .map((server) => (
                 <div
                   key={server.id}
                   className={`flex items-center justify-between p-3 rounded-md transition-all duration-300 ${
