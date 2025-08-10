@@ -122,10 +122,10 @@ class SupabaseSettingsService {
 
       if (serversError) throw serversError
 
-      // Only initialize default servers if none exist
+      // Only initialize servers from staff if none exist
       if (!serversData || serversData.length === 0) {
-        console.log("No servers found, initializing default servers")
-        await this.initializeDefaultServers()
+        console.log("No servers found, initializing from staff members")
+        await this.initializeServersFromStaff()
       }
 
       // Check if note templates exist before initializing defaults
@@ -146,26 +146,27 @@ class SupabaseSettingsService {
     }
   }
 
-  // Initialize default servers
-  private async initializeDefaultServers(): Promise<void> {
+  // Initialize servers based on existing staff members
+  private async initializeServersFromStaff(): Promise<void> {
     try {
-      const defaultServers: Server[] = [
-        { id: "server-1", name: "Mike", enabled: true },
-        { id: "server-2", name: "Ji", enabled: true },
-        { id: "server-3", name: "Gun", enabled: true },
-        { id: "server-4", name: "Alex", enabled: true },
-        { id: "server-5", name: "Lucy", enabled: true },
-        { id: "server-6", name: "Tanya", enabled: true },
-        { id: "server-7", name: "Ian", enabled: true },
-        { id: "server-8", name: "Rolando", enabled: true },
-        { id: "server-9", name: "Alexa", enabled: true },
-        { id: "server-10", name: "Diego", enabled: true },
-        { id: "server-11", name: "BB", enabled: true },
-      ]
+      const { data, error } = await getSupabaseClient()
+        .from("staff_members")
+        .select("id, display_name, first_name")
+        .order("first_name")
 
-      await this.updateServers(defaultServers)
+      if (error) throw error
+
+      const staffServers: Server[] = (data || []).map((member: any) => ({
+        id: member.id,
+        name: member.display_name || member.first_name,
+        enabled: true,
+      }))
+
+      if (staffServers.length > 0) {
+        await this.updateServers(staffServers)
+      }
     } catch (error) {
-      console.error("Error initializing default servers:", error)
+      console.error("Error initializing servers from staff:", error)
       throw error
     }
   }
@@ -205,27 +206,28 @@ class SupabaseSettingsService {
   // Update servers
   async updateServers(servers: Server[]): Promise<void> {
     try {
-      // First, get existing servers to check for duplicates
-      const { data: existingServers, error: fetchError } = await getSupabaseClient().from("servers").select("id, name")
+      const client = getSupabaseClient()
+      const { data: existingServers, error: fetchError } = await client.from("servers").select("id")
 
       if (fetchError) throw fetchError
 
-      // Filter out servers that would create duplicates by name
-      const existingNames = new Set((existingServers || []).map((s) => s.name.toLowerCase()))
-      const serversToUpsert = servers.filter((server) => {
-        // Keep servers with existing IDs or unique names
-        return existingServers?.some((es) => es.id === server.id) || !existingNames.has(server.name.toLowerCase())
-      })
+      const incomingIds = new Set(servers.map((s) => s.id))
+      const idsToDelete = (existingServers || [])
+        .map((s: any) => s.id)
+        .filter((id: string) => !incomingIds.has(id))
 
-      if (serversToUpsert.length > 0) {
-        const { error } = await getSupabaseClient()
-          .from("servers")
-          .upsert(serversToUpsert.map(convertServerToDB), { onConflict: "id" })
-
-        if (error) throw error
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await client.from("servers").delete().in("id", idsToDelete)
+        if (deleteError) throw deleteError
       }
 
-      // Dispatch event for real-time updates
+      if (servers.length > 0) {
+        const { error: upsertError } = await client
+          .from("servers")
+          .upsert(servers.map(convertServerToDB), { onConflict: "id" })
+        if (upsertError) throw upsertError
+      }
+
       window.dispatchEvent(
         new CustomEvent("supabase-servers-update", {
           detail: { servers: servers.map(convertServerToDB) },

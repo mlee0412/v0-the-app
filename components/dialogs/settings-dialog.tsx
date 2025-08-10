@@ -1,24 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, Fragment } from "react";
+import React, { useState, useEffect } from "react";
 import {
   PlusIcon,
   Trash2Icon,
   SaveIcon,
   Users,
   FileText,
-  LogOut,
   BookOpen,
   UserPlus,
-  Edit,
-  RefreshCw,
   Bell,
   Eye,
   Volume2,
   Palette,
   Maximize as MaximizeIcon,
   Settings as SettingsIcon,
-  X, 
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -98,19 +94,35 @@ export function SettingsDialog({
   const [searchTermUsers, setSearchTermUsers] = useState("");
 
   const { backgroundEnabled, setBackgroundEnabled } = useAnimation();
-
-  const predefinedServers = ["Mike", "Ji", "Gun", "Alex", "Lucy", "Tanya", "Ian", "Rolando", "Alexa", "Diego", "BB"];
   const predefinedTemplates = [
       { id: "1", text: "VIP guest" }, { id: "2", text: "Pay at front" },
       { id: "3", text: "Prepaid" }, { id: "4", text: "Underage" },
       { id: "5", text: "Reservation" },
   ];
 
+  const fetchStaffServers = async (currentServers: Server[]) => {
+    try {
+      const response = await fetch("/api/staff/members");
+      if (!response.ok) {
+        throw new Error("Failed to fetch staff members");
+      }
+      const data = await response.json();
+      const serverStatusMap = new Map(currentServers.map((s) => [s.id, s.enabled]));
+      const mappedServers: Server[] = data.map((member: any) => ({
+        id: member.id,
+        name: member.display_name || member.first_name,
+        enabled: serverStatusMap.get(member.id) ?? true,
+      }));
+      setEditedServers(mappedServers);
+    } catch (error) {
+      console.error("Error fetching staff members:", error);
+      setEditedServers(currentServers);
+    }
+  };
+
   useEffect(() => {
     if (open) {
-      setEditedServers(servers.length > 0 ? [...servers] : predefinedServers.map((name, index) => ({
-        id: `server-${index + 1}`, name, enabled: true,
-      })));
+      fetchStaffServers(servers);
       setEditedTemplates(noteTemplates.length > 0 ? [...noteTemplates] : predefinedTemplates);
       setSelectedTab(showAdminControls ? "appearance" : "servers");
     }
@@ -183,7 +195,6 @@ export function SettingsDialog({
   const handleHighContrastToggle = (enabled: boolean) => onApplyHighContrast(enabled);
   const handleLargeTextToggle = (enabled: boolean) => onApplyLargeText(enabled);
 
-  const resetToPredefinedServers = () => setEditedServers(predefinedServers.map((name, index) => ({ id: `server-${index + 1}`, name, enabled: true })));
   const resetToPredefinedTemplates = () => setEditedTemplates(predefinedTemplates);
   
   const SettingItem = ({
@@ -301,9 +312,8 @@ export function SettingsDialog({
 
               <TabsContent value="servers" className="mt-0">
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="flex items-center mb-2">
                     <h3 className="text-base font-semibold text-fuchsia-400">Server Management</h3>
-                    <Button variant="outline" size="sm" onClick={resetToPredefinedServers} className="border-fuchsia-500/70 text-fuchsia-400 hover:bg-fuchsia-900/30 h-7 text-xs px-2">Reset Servers</Button>
                   </div>
                   {/* MODIFIED: ScrollArea to take available height in its tab */}
                   <ScrollArea className="max-h-[calc(90vh-350px)] sm:max-h-[calc(85vh-350px)] pr-2 custom-scrollbar">
