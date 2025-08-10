@@ -399,7 +399,45 @@ export function SettingsDialog({
                         <div className="mt-3">
                           {adminSubTab === "userList" ? (
                             <div className="space-y-3">
-                              {/* ... User list JSX ... */}
+                              <Input
+                                placeholder="Search users..."
+                                value={searchTermUsers}
+                                onChange={(e) => setSearchTermUsers(e.target.value)}
+                                className="bg-slate-900/70 border-slate-700 text-gray-100 h-8 text-sm"
+                              />
+                              {loadingUsers && (
+                                <p className="text-sm text-gray-400">Loading users...</p>
+                              )}
+                              {errorUsers && (
+                                <p className="text-sm text-red-400">{errorUsers}</p>
+                              )}
+                              {!loadingUsers && !errorUsers && (
+                                <div className="space-y-2">
+                                  {filteredUsers.length > 0 ? (
+                                    filteredUsers.map((user) => (
+                                      <div
+                                        key={user.id}
+                                        className="flex items-center justify-between p-2 border border-slate-700/50 rounded-md bg-slate-800/50 hover:bg-slate-700/50 cursor-pointer"
+                                        onClick={() => {
+                                          setSelectedUserForEdit(user);
+                                          setAdminSubTab("userForm");
+                                        }}
+                                      >
+                                        <div>
+                                          <p className="text-sm text-gray-100">
+                                            {user.display_name || user.name}
+                                          </p>
+                                          <p className="text-xs text-slate-400">
+                                            {USER_ROLE_LABELS[user.role as UserRole]}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <p className="text-sm text-gray-400">No users found.</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div>
