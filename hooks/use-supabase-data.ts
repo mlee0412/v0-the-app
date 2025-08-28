@@ -103,7 +103,7 @@ const TABLE_NAMES = {
   TABLES: "billiard_tables",
   LOGS: "session_logs",
   SETTINGS: "system_settings",
-  SERVERS: "servers",
+  STAFF_MEMBERS: "staff_members",
   TEMPLATES: "note_templates",
 }
 
@@ -272,10 +272,11 @@ export function useSupabaseData() {
             .eq("id", 1)
             .single(),
 
-          // Load servers
+          // Load staff members with role 'server'
           supabase
-            .from(TABLE_NAMES.SERVERS)
-            .select("*"),
+            .from(TABLE_NAMES.STAFF_MEMBERS)
+            .select("id, first_name, display_name")
+            .eq("role", "server"),
 
           // Load templates
           supabase
@@ -362,22 +363,25 @@ export function useSupabaseData() {
           loadSettingsFromLocalStorage()
         }
 
-        // Process servers data
+        // Process staff members data
         if (
           serversResult.status === "fulfilled" &&
           !serversResult.value.error &&
           serversResult.value.data?.length > 0
         ) {
-          // Only update if there are actual changes
-          if (!deepEqual(serversResult.value.data, prevServersRef.current)) {
-            setServers(serversResult.value.data)
-            prevServersRef.current = serversResult.value.data
-            // Save to localStorage as backup
-            localStorage.setItem("servers", JSON.stringify(serversResult.value.data))
+          const fetchedStaff = serversResult.value.data.map((s: any) => ({
+            id: s.id,
+            name: s.display_name || s.first_name,
+            enabled: true,
+          }))
+          if (!deepEqual(fetchedStaff, prevServersRef.current)) {
+            setServers(fetchedStaff)
+            prevServersRef.current = fetchedStaff
+            localStorage.setItem("staffMembers", JSON.stringify(fetchedStaff))
           }
         } else {
           console.warn(
-            "Failed to load servers from Supabase, using localStorage",
+            "Failed to load staff members from Supabase, using localStorage",
             serversResult.status === "rejected" ? serversResult.reason : serversResult.value.error,
           )
           loadServersFromLocalStorage()
@@ -521,10 +525,10 @@ export function useSupabaseData() {
     }
   }, [])
 
-  // Load servers from localStorage
+  // Load staff members from localStorage
   const loadServersFromLocalStorage = useCallback(() => {
     try {
-      const storedServers = localStorage.getItem("servers")
+      const storedServers = localStorage.getItem("staffMembers")
       if (storedServers) {
         const parsedServers = JSON.parse(storedServers)
         if (Array.isArray(parsedServers) && parsedServers.length > 0) {
@@ -536,18 +540,18 @@ export function useSupabaseData() {
         } else {
           setServers(defaultServers)
           prevServersRef.current = defaultServers
-          localStorage.setItem("servers", JSON.stringify(defaultServers))
+          localStorage.setItem("staffMembers", JSON.stringify(defaultServers))
         }
       } else {
         setServers(defaultServers)
         prevServersRef.current = defaultServers
-        localStorage.setItem("servers", JSON.stringify(defaultServers))
+        localStorage.setItem("staffMembers", JSON.stringify(defaultServers))
       }
     } catch (e) {
       console.error("Error loading servers from localStorage:", e)
       setServers(defaultServers)
       prevServersRef.current = defaultServers
-      localStorage.setItem("servers", JSON.stringify(defaultServers))
+      localStorage.setItem("staffMembers", JSON.stringify(defaultServers))
     }
   }, [])
 
@@ -747,9 +751,9 @@ export function useSupabaseData() {
         try {
           serversSub = supabase
             .channel("servers-changes")
-            .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.SERVERS }, ({ new: newSrv }) => {
+            .on("postgres_changes", { event: "*", schema: "public", table: TABLE_NAMES.STAFF_MEMBERS }, ({ new: newSrv }) => {
               setServers((ss) => {
-                const updatedServers = ss.map((s) => (s.id === newSrv.id ? newSrv : s))
+                const updatedServers = ss.map((s) => (s.id === newSrv.id ? { id: newSrv.id, name: newSrv.display_name || newSrv.first_name, enabled: true } : s))
 
                 // Only update state if there's an actual change
                 if (!deepEqual(updatedServers, ss)) {
@@ -1163,7 +1167,7 @@ export function useSupabaseData() {
 
         // Only update if there's a change
         if (!deepEqual(uniqueServers, prevServersRef.current)) {
-          localStorage.setItem("servers", JSON.stringify(uniqueServers))
+          localStorage.setItem("staffMembers", JSON.stringify(uniqueServers))
           setServers(uniqueServers)
           prevServersRef.current = uniqueServers
         }
@@ -1173,36 +1177,19 @@ export function useSupabaseData() {
           return { success: true }
         }
 
-        // Try to update in Supabase
+        // Updating staff members in Supabase is not implemented here
         try {
           const supabase = getSupabaseClient()
-          // Ensure all servers have valid UUIDs
-          const serversWithUUIDs = uniqueServers.map((server) => {
-            // Check if the ID is a valid UUID
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-            if (!uuidRegex.test(server.id)) {
-              // Generate a new UUID if the current ID is not valid
-              return { ...server, id: uuidv4() }
-            }
-            return server
-          })
-
-          // First get existing servers to avoid duplicates
-          const { data: existingServers } = await supabase.from(TABLE_NAMES.SERVERS).select("name")
-          const existingNames = new Set((existingServers || []).map((s) => s.name.toLowerCase()))
-
-          // Only upsert servers that don't already exist by name
-          const serversToUpsert = serversWithUUIDs.filter((server) => !existingNames.has(server.name.toLowerCase()))
-
-          if (serversToUpsert.length > 0) {
-            const { error } = await supabase.from(TABLE_NAMES.SERVERS).upsert(serversToUpsert)
-            if (error) {
-              console.error("Error updating servers in Supabase:", error)
-              setOfflineMode(true)
-            }
-          }
+          await supabase.from(TABLE_NAMES.STAFF_MEMBERS).upsert(
+            uniqueServers.map((s) => ({
+              id: s.id,
+              first_name: s.name,
+              display_name: s.name,
+              role: "server",
+            }))
+          )
         } catch (err) {
-          console.error("Error updating servers in Supabase:", err)
+          console.error("Error updating staff members in Supabase:", err)
           setOfflineMode(true)
         }
 
@@ -1308,7 +1295,10 @@ export function useSupabaseData() {
             "id, name, is_active, start_time, remaining_time, initial_time, guest_count, server_id, group_id, has_notes, note_id, note_text, status_indicators, updated_by_admin, updated_by, updated_at",
           ),
         supabase.from(TABLE_NAMES.LOGS).select("*").order("timestamp", { ascending: false }),
-        supabase.from(TABLE_NAMES.SERVERS).select("*"),
+        supabase
+          .from(TABLE_NAMES.STAFF_MEMBERS)
+          .select("id, first_name, display_name")
+          .eq("role", "server"),
         supabase.from(TABLE_NAMES.TEMPLATES).select("*"),
         supabase.from(TABLE_NAMES.SETTINGS).select("*").eq("id", 1).single(),
       ])
@@ -1350,7 +1340,12 @@ export function useSupabaseData() {
           details: log.details || "",
         })) || []
 
-      const fetchedServers = serversData || []
+      const fetchedServers =
+        (serversData || []).map((s: any) => ({
+          id: s.id,
+          name: s.display_name || s.first_name,
+          enabled: true,
+        }))
       const fetchedTemplates = templatesData || []
 
       const settings = {
