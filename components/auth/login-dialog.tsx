@@ -60,7 +60,10 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
   // Fetch users when dialog opens to ensure latest data
   useEffect(() => {
     if (open) {
-      void fetchUsers()
+      if (userCacheRef.current) {
+        setUsers(userCacheRef.current)
+      }
+      void fetchUsers(true)
       setPinCode("")
       setError("")
     }
