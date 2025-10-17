@@ -113,6 +113,28 @@ export function TableDialog({
   const [logActionFilter, setLogActionFilter] = useState<string | null>(null);
   const [serverSearchTerm, setServerSearchTerm] = useState<string>("");
 
+  const sessionLogs = useMemo(() => {
+    if (!table.startTime) return [] as LogEntry[];
+
+    return logs
+      .filter((log) => log.tableId === table.id && log.timestamp >= table.startTime)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [logs, table.id, table.startTime]);
+
+  const filteredSessionLogs = useMemo(() => {
+    if (!logActionFilter) {
+      return sessionLogs;
+    }
+
+    return sessionLogs.filter((log) => log.action === logActionFilter);
+  }, [sessionLogs, logActionFilter]);
+
+  const formatSessionLogTime = useCallback(
+    (timestamp: number) =>
+      new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    [],
+  );
+
   const formatLogDetails = useCallback(
     (details?: string) => {
       if (!details) return '';
@@ -286,16 +308,22 @@ export function TableDialog({
   }, []);
 
   const uniqueActionTypes = useMemo(() => {
-    if (!logs) return [];
     const uniqueActions = new Set<string>();
-    logs.forEach((log) => {
-      // Ensure table.sessionStartTime exists before comparing
-      if (log.tableId === table.id && table.startTime && log.timestamp >= table.startTime && log.action) {
+
+    sessionLogs.forEach((log) => {
+      if (log.action) {
         uniqueActions.add(log.action);
       }
     });
+
     return Array.from(uniqueActions).sort();
-  }, [logs, table.id, table.startTime]); // Changed table.sessionStartTime to table.startTime
+  }, [sessionLogs]);
+
+  useEffect(() => {
+    if (logActionFilter && !uniqueActionTypes.includes(logActionFilter)) {
+      setLogActionFilter(null);
+    }
+  }, [logActionFilter, uniqueActionTypes]);
 
   const toggleTableSelectionForGrouping = useCallback((tableId: number) => {
     setSelectedTablesForGrouping((prev) => {
@@ -717,15 +745,18 @@ const handleNumberPadInput = useCallback(
                         {uniqueActionTypes.map((action) => (<Button key={action} variant="outline" size="sm" className={`text-xs py-1 px-2 h-auto ${ logActionFilter === action ? "bg-purple-600 text-white border-purple-600" : "border-purple-600/50 bg-[#000033] text-purple-300"}`} onClick={() => setLogActionFilter(action)} aria-label={`Filter by ${action}`}>{action}</Button>))}
                       </div>
                     </div>
-                    {logs.filter((log) => log.tableId === table.id && table.startTime && log.timestamp >= table.startTime && (logActionFilter === null || log.action === logActionFilter)).sort((a, b) => b.timestamp - a.timestamp).map((log) => (
-                        <div key={log.id} className="p-2 border border-[#00FFFF]/30 rounded-md bg-[#000033] mb-2" role="listitem">
-                          <div className="flex justify-between text-xs text-gray-400"><span className="bg-purple-900/30 px-1 py-0.5 rounded text-purple-300">{log.action}</span><span>{new Date(log.timestamp).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span></div>
-                          {log.details && (
-                            <div className="mt-1 text-sm text-[#00FFFF]">{formatLogDetails(log.details)}</div>
-                          )}
+                    {filteredSessionLogs.map((log) => (
+                      <div key={log.id} className="p-2 border border-[#00FFFF]/30 rounded-md bg-[#000033] mb-2" role="listitem">
+                        <div className="flex justify-between text-xs text-gray-400">
+                          <span className="bg-purple-900/30 px-1 py-0.5 rounded text-purple-300">{log.action}</span>
+                          <span>{formatSessionLogTime(log.timestamp)}</span>
                         </div>
+                        {log.details && (
+                          <div className="mt-1 text-sm text-[#00FFFF]">{formatLogDetails(log.details)}</div>
+                        )}
+                      </div>
                     ))}
-                    {logs.filter((log) => log.tableId === table.id && table.startTime && log.timestamp >= table.startTime && (logActionFilter === null || log.action === logActionFilter)).length === 0 && (<div className="text-center text-gray-400 py-4"><div className="mb-2 opacity-50"><FileTextIcon className="h-8 w-8 mx-auto mb-1" /></div>{logActionFilter ? `No "${logActionFilter}" logs available` : "No session logs available"}</div>)}
+                    {filteredSessionLogs.length === 0 && (<div className="text-center text-gray-400 py-4"><div className="mb-2 opacity-50"><FileTextIcon className="h-8 w-8 mx-auto mb-1" /></div>{logActionFilter ? `No "${logActionFilter}" logs available` : "No session logs available"}</div>)}
                   </div>
                 )}
                 {mobileTabView === "menu" && (<div className="space-y-2 max-h-[300px] overflow-y-auto p-2"><h3 className="text-[#FF00FF] text-center mb-2 text-sm font-bold">Menu Recommendations</h3><MenuRecommendations table={localTable} elapsedMinutes={Math.floor(elapsedTimeForInsights / 60000)} /></div>)}
@@ -984,27 +1015,18 @@ const handleNumberPadInput = useCallback(
                       ))}
                     </div>
                   </div>
-                  {logs
-                    .filter(
-                      (log) =>
-                        log.tableId === table.id &&
-                        table.startTime &&
-                        log.timestamp >= table.startTime &&
-                        (logActionFilter === null || log.action === logActionFilter),
-                    )
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .map((log) => (
-                      <div key={log.id} className="p-2 border border-[#00FFFF]/30 rounded-md bg-[#000033] mb-2" role="listitem">
-                        <div className="flex justify-between text-xs text-gray-400">
-                          <span className="bg-purple-900/30 px-1 py-0.5 rounded text-purple-300">{log.action}</span>
-                          <span>{new Date(log.timestamp).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}</span>
-                        </div>
-                        {log.details && (
-                          <div className="mt-1 text-sm text-[#00FFFF]">{formatLogDetails(log.details)}</div>
-                        )}
+                  {filteredSessionLogs.map((log) => (
+                    <div key={log.id} className="p-2 border border-[#00FFFF]/30 rounded-md bg-[#000033] mb-2" role="listitem">
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span className="bg-purple-900/30 px-1 py-0.5 rounded text-purple-300">{log.action}</span>
+                        <span>{formatSessionLogTime(log.timestamp)}</span>
                       </div>
-                    ))}
-                  {logs.filter((log) => log.tableId === table.id && table.startTime && log.timestamp >= table.startTime && (logActionFilter === null || log.action === logActionFilter)).length === 0 && (
+                      {log.details && (
+                        <div className="mt-1 text-sm text-[#00FFFF]">{formatLogDetails(log.details)}</div>
+                      )}
+                    </div>
+                  ))}
+                  {filteredSessionLogs.length === 0 && (
                     <div className="text-center text-gray-400 py-4">
                       <div className="mb-2 opacity-50">
                         <FileTextIcon className="h-8 w-8 mx-auto mb-1" />
