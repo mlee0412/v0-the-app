@@ -183,11 +183,24 @@ const TableCardComponent = function TableCard({
     return localTable.initialTime
   }, [localTable.initialTime, localTable.isActive, localTable.remainingTime, localTable.startTime])
 
-  const [computedRemainingTime, setComputedRemainingTime] = useState(() => getEffectiveRemainingTime())
+  const normalizeTime = useCallback((ms: number) => {
+    if (!Number.isFinite(ms)) {
+      return 0
+    }
+    if (ms >= 0) {
+      return Math.floor(ms / 1000) * 1000
+    }
+    const normalized = Math.ceil(ms / 1000) * 1000
+    return normalized === 0 ? -1000 : normalized
+  }, [])
+
+  const [computedRemainingTime, setComputedRemainingTime] = useState(() =>
+    normalizeTime(getEffectiveRemainingTime()),
+  )
 
   useEffect(() => {
-    setComputedRemainingTime(getEffectiveRemainingTime())
-  }, [getEffectiveRemainingTime])
+    setComputedRemainingTime(normalizeTime(getEffectiveRemainingTime()))
+  }, [getEffectiveRemainingTime, normalizeTime])
 
   useEffect(() => {
     if (!localTable.isActive || !localTable.startTime) {
@@ -198,8 +211,8 @@ const TableCardComponent = function TableCard({
 
     const tick = () => {
       setComputedRemainingTime((prev) => {
-        const next = getEffectiveRemainingTime()
-        if (Math.round(prev / 1000) === Math.round(next / 1000)) {
+        const next = normalizeTime(getEffectiveRemainingTime())
+        if (next === prev) {
           return prev
         }
         return next
@@ -214,7 +227,7 @@ const TableCardComponent = function TableCard({
         cancelAnimationFrame(rafId)
       }
     }
-  }, [getEffectiveRemainingTime, localTable.isActive, localTable.startTime])
+  }, [getEffectiveRemainingTime, localTable.isActive, localTable.startTime, normalizeTime])
 
   const tableStatus = useMemo(() => {
     const rt = computedRemainingTime
@@ -621,13 +634,8 @@ const TableCardComponent = function TableCard({
             </div>
 
             <TableTimerDisplay
-              table={{
-                id: localTable.id,
-                isActive: localTable.isActive,
-                startTime: localTable.startTime,
-                initialTime: localTable.initialTime,
-                remainingTime: localTable.remainingTime,
-              }}
+              currentTimeMs={computedRemainingTime}
+              isActive={localTable.isActive}
               isOvertime={tableStatus.isOvertime}
               isCritical={tableStatus.isCritical}
               isWarningOrange={tableStatus.isWarningOrange}

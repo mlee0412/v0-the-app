@@ -16,7 +16,6 @@ import { WeatherWidget } from "@/components/system/weather-widget"
 import type { Table, Server, LogEntry } from "@/components/system/billiards-timer-dashboard"
 
 interface HeaderProps {
-  currentTime: Date
   isAuthenticated: boolean
   isAdmin: boolean
   dayStarted: boolean
@@ -35,7 +34,6 @@ interface HeaderProps {
 }
 
 export function Header({
-  currentTime,
   isAuthenticated,
   isAdmin,
   dayStarted,
@@ -56,6 +54,7 @@ export function Header({
   const [activeTables, setActiveTables] = useState(0)
   const [currentTimeString, setCurrentTimeString] = useState("")
   const [currentDateString, setCurrentDateString] = useState("")
+  const [now, setNow] = useState(() => new Date())
 
   // Update active tables count
   useEffect(() => {
@@ -64,25 +63,27 @@ export function Header({
 
   // Format time and date
   useEffect(() => {
-    const updateTimeAndDate = () => {
-      // Format time as HH:MM:SS
-      const hours = currentTime.getHours().toString().padStart(2, "0")
-      const minutes = currentTime.getMinutes().toString().padStart(2, "0")
-      const seconds = currentTime.getSeconds().toString().padStart(2, "0")
-      setCurrentTimeString(`${hours}:${minutes}:${seconds}`)
+    const timerId = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
 
-      // Format date as Day, Month DD, YYYY
-      const options: Intl.DateTimeFormatOptions = {
-        weekday: "short",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }
-      setCurrentDateString(currentTime.toLocaleDateString("en-US", options))
+    return () => clearInterval(timerId)
+  }, [])
+
+  useEffect(() => {
+    const hours = now.getHours().toString().padStart(2, "0")
+    const minutes = now.getMinutes().toString().padStart(2, "0")
+    const seconds = now.getSeconds().toString().padStart(2, "0")
+    setCurrentTimeString(`${hours}:${minutes}:${seconds}`)
+
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     }
-
-    updateTimeAndDate()
-  }, [currentTime])
+    setCurrentDateString(now.toLocaleDateString("en-US", options))
+  }, [now])
 
   // Handle sync with animation
   const handleSync = async () => {
