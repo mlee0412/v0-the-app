@@ -128,6 +128,8 @@ export function useSupabaseData() {
   const prevLogsRef = useRef<LogEntry[]>([])
   const prevServersRef = useRef<Server[]>(defaultServers)
   const prevTemplatesRef = useRef<NoteTemplate[]>(defaultNoteTemplates)
+  const lastTimerSyncRef = useRef<number>(Date.now())
+  const TIMER_SYNC_INTERVAL = 15000
   const pendingUpdatesRef = useRef<Map<number, Partial<Table>>>(new Map())
   const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const subscriptionsRef = useRef<(() => void)[]>([])
@@ -880,6 +882,45 @@ export function useSupabaseData() {
     return () => clearInterval(syncInterval)
   }, [loadAllData, offlineMode, useLocalStorage])
 
+  useEffect(() => {
+    if (useLocalStorage || offlineMode) return
+
+    const syncInterval = setInterval(async () => {
+      const now = Date.now()
+
+      if (now - lastTimerSyncRef.current < TIMER_SYNC_INTERVAL) return
+
+      const activeTables = tables.filter((t) => t.isActive && t.startTime)
+      if (activeTables.length === 0) return
+
+      try {
+        const supabase = getSupabaseClient()
+        const updates = activeTables.map((table) => {
+          const elapsed = now - (table.startTime ?? now)
+          const remainingTime = table.initialTime - elapsed
+
+          return {
+            id: table.id,
+            remaining_time: remainingTime,
+            updated_at: new Date().toISOString(),
+          }
+        })
+
+        const { error } = await supabase.from(TABLE_NAMES.TABLES).upsert(updates, { onConflict: "id" })
+
+        if (error) {
+          console.error("Error syncing timer updates:", error)
+        } else {
+          lastTimerSyncRef.current = now
+        }
+      } catch (error) {
+        console.error("Failed to sync timers:", error)
+      }
+    }, 5000)
+
+    return () => clearInterval(syncInterval)
+  }, [tables, useLocalStorage, offlineMode])
+
   // Batch update function to reduce database calls
   const batchUpdateTables = useCallback(async () => {
     if (pendingUpdatesRef.current.size === 0) return
@@ -888,7 +929,6 @@ export function useSupabaseData() {
       const updatesToProcess = new Map(pendingUpdatesRef.current)
       pendingUpdatesRef.current.clear()
 
-      // Create a new array with the updates applied
       const updatedTables = tables.map((table) => {
         const updates = updatesToProcess.get(table.id)
         if (updates) {
@@ -897,37 +937,43 @@ export function useSupabaseData() {
         return table
       })
 
-      // Update localStorage using debounced writer
       localStorageWriterRef.current?.setItem("tables", JSON.stringify(updatedTables))
 
-      // Update state
       if (!deepEqual(updatedTables, prevTablesRef.current)) {
         setTables(updatedTables)
         prevTablesRef.current = updatedTables
       }
 
-      // If using localStorage only, we're done
       if (useLocalStorage || offlineMode) {
         return { success: true }
       }
 
-      // Try to update in Supabase
       try {
         const supabase = getSupabaseClient()
 
-        // Convert tables to Supabase format
         const supabaseTables = updatedTables
-          .filter((table) => updatesToProcess.has(table.id))
+          .filter((table) => {
+            const updates = updatesToProcess.get(table.id)
+            if (!updates) return false
+
+            const keys = Object.keys(updates)
+            const isTimerOnly = keys.every(
+              (key) => key === "remainingTime" || key === "initialTime" || key === "updatedAt",
+            )
+
+            return !isTimerOnly
+          })
           .map(convertTableToSupabase)
 
-        // Update in small batches to avoid overwhelming the API
-        const batchSize = 5
-        const batchPromises = []
-        for (let i = 0; i < supabaseTables.length; i += batchSize) {
-          const batch = supabaseTables.slice(i, i + batchSize)
-          batchPromises.push(supabase.from(TABLE_NAMES.TABLES).upsert(batch))
+        if (supabaseTables.length > 0) {
+          const batchSize = 5
+          const batchPromises = []
+          for (let i = 0; i < supabaseTables.length; i += batchSize) {
+            const batch = supabaseTables.slice(i, i + batchSize)
+            batchPromises.push(supabase.from(TABLE_NAMES.TABLES).upsert(batch))
+          }
+          await Promise.all(batchPromises)
         }
-        await Promise.all(batchPromises)
       } catch (err) {
         console.error("Error updating tables in Supabase:", err)
         setOfflineMode(true)
