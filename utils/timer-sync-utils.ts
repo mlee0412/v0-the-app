@@ -147,6 +147,11 @@ export function formatTime(ms: number) {
   return isNegative ? `−${formattedTime}` : formattedTime
 }
 
+// Format time as HH:MM (hours and minutes only) while preserving overtime indicator
+export function formatTimeHoursMinutes(ms: number) {
+  return formatTime(ms).slice(0, -3)
+}
+
 // Format time as MM:SS with support for negative values
 export function formatShortTime(ms: number) {
   // Handle negative time for overtime
