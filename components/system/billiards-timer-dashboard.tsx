@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useReducer, useRef, useMemo } from "react"; // Ensure React is imported
+import React, { useState, useEffect, useCallback, useReducer, useRef, useMemo, useTransition } from "react"; // Ensure React is imported
 import { debounce } from "lodash";
 import { TableDialog } from "@/components/tables/table-dialog";
 import { TableLogsDialog } from "@/components/tables/table-logs-dialog";
@@ -34,6 +34,7 @@ import { FunctionsDashboard } from "@/components/system/functions-dashboard";
 import { THRESHOLDS, BUSINESS_HOURS, DEFAULT_SESSION_TIME, TABLE_COUNT } from "@/constants";
 import { useTableActions } from "@/hooks/use-table-actions";
 import type { User as AuthUser } from "@/types/user";
+import isEqual from "fast-deep-equal";
 
 export interface Table {
   id: number;
@@ -246,6 +247,7 @@ const dashboardReducer = (state: DashboardState, action: DashboardAction): Dashb
 
 export function BilliardsTimerDashboard() {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
+  const [, startStateTransition] = useTransition();
   
   // *** MODIFICATION: Mounted state for reliable client-side checks ***
   const [hasMounted, setHasMounted] = useState(false);
@@ -307,11 +309,43 @@ export function BilliardsTimerDashboard() {
     groupCounter,
   } = state;
 
+  const scheduleDispatch = useCallback(
+    (action: DashboardAction) => {
+      startStateTransition(() => {
+        dispatch(action);
+      });
+    },
+    [dispatch, startStateTransition]
+  );
+
+  const setPartialState = useCallback(
+    (payload: Partial<DashboardState>) => {
+      scheduleDispatch({ type: "SET_STATE", payload });
+    },
+    [scheduleDispatch]
+  );
+
 
   const { isAuthenticated, isAdmin, isServer, currentUser, logout, hasPermission: authHasPermission } = useAuth();
   const headerRef = useRef<HTMLDivElement>(null);
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastNotificationRef = useRef<{ message: string; time: number } | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const lastSupabaseTablesRef = useRef<Table[] | null>(null);
+  const lastSupabaseLogsRef = useRef<LogEntry[] | null>(null);
+  const lastSupabaseServersRef = useRef<Server[] | null>(null);
+  const lastSupabaseNotesRef = useRef<NoteTemplate[] | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {
+          /* noop */
+        });
+        audioContextRef.current = null;
+      }
+    };
+  }, []);
 
   // Memoized selectors for frequently used state slices
   const memoizedTables = useMemo(() => tables, [tables]);
@@ -326,9 +360,9 @@ export function BilliardsTimerDashboard() {
   // Update hideSystemElements based on isMobile, only after component has mounted
   useEffect(() => {
     if (hasMounted && isMobile !== undefined) {
-        dispatch({ type: "SET_STATE", payload: { hideSystemElements: isMobile } });
+      setPartialState({ hideSystemElements: isMobile });
     }
-  }, [isMobile, hasMounted]);
+  }, [isMobile, hasMounted, setPartialState]);
 
 
   const {
@@ -364,19 +398,20 @@ export function BilliardsTimerDashboard() {
     }
     
     if (changed) {
-      dispatch({ type: "UPDATE_SETTINGS", payload: newSettingsPayload });
+      scheduleDispatch({ type: "UPDATE_SETTINGS", payload: newSettingsPayload });
     }
-    
+
     if (supabaseGroupCounter !== undefined && supabaseGroupCounter !== groupCounter) {
-      dispatch({ type: "SET_GROUP_COUNTER", payload: supabaseGroupCounter });
+      scheduleDispatch({ type: "SET_GROUP_COUNTER", payload: supabaseGroupCounter });
     }
 
   }, [
-    supabaseDayStarted, 
-    supabaseShowTableCardAnimations, 
+    supabaseDayStarted,
+    supabaseShowTableCardAnimations,
     supabaseGroupCounter,
     settings,
-    groupCounter
+    groupCounter,
+    scheduleDispatch
   ]);
 
   const formatCurrentTime = (date: Date) => date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
@@ -410,16 +445,19 @@ export function BilliardsTimerDashboard() {
       if (notificationTimeoutRef.current) {
         clearTimeout(notificationTimeoutRef.current);
       }
-      dispatch({ type: "SET_NOTIFICATION", message, notificationType: type });
+      scheduleDispatch({ type: "SET_NOTIFICATION", message, notificationType: type });
       notificationTimeoutRef.current = setTimeout(() => {
-        dispatch({ type: "CLEAR_NOTIFICATION" });
+        scheduleDispatch({ type: "CLEAR_NOTIFICATION" });
         notificationTimeoutRef.current = null;
       }, 3000);
       lastNotificationRef.current = { message, time: Date.now() };
 
       if (state.settings.soundEnabled && type !== "info") { // Use state.settings
         try {
-          const context = new (window.AudioContext || (window as any).webkitAudioContext)();
+          if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+          }
+          const context = audioContextRef.current;
           const oscillator = context.createOscillator();
           const gainNode = context.createGain();
           oscillator.connect(gainNode);
@@ -428,7 +466,12 @@ export function BilliardsTimerDashboard() {
           oscillator.frequency.value = type === "success" ? 880 : 220;
           gainNode.gain.value = 0.1;
           oscillator.start();
-          setTimeout(() => oscillator.stop(), type === "success" ? 200 : 400);
+          const stopAfter = type === "success" ? 200 : 400;
+          setTimeout(() => {
+            oscillator.stop();
+            oscillator.disconnect();
+            gainNode.disconnect();
+          }, stopAfter);
         } catch (error) {
           console.error("Failed to play notification sound:", error);
         }
@@ -438,12 +481,12 @@ export function BilliardsTimerDashboard() {
         navigator.vibrate(type === "error" ? [100, 50, 100] : 50);
       }
     },
-    [state.settings.soundEnabled, state.hideSystemElements] // Use state values
+    [state.settings.soundEnabled, state.hideSystemElements, scheduleDispatch] // Use state values
   );
   
   const closeTableDialog = useCallback(() => {
-    dispatch({ type: "SET_STATE", payload: { selectedTable: null } });
-  }, []);
+    setPartialState({ selectedTable: null });
+  }, [setPartialState]);
 
   const {
     startTableSession,
@@ -452,9 +495,10 @@ export function BilliardsTimerDashboard() {
   } = useTableActions({
     tables: state.tables, // Use tables from state
     dispatch,
+    scheduleDispatch,
     debouncedUpdateTable: queueTableUpdate,
     debouncedUpdateTables,
-    addLogEntry: addSupabaseLogEntry, 
+    addLogEntry: addSupabaseLogEntry,
     showNotification,
     formatMinutes,
   });
@@ -495,54 +539,83 @@ export function BilliardsTimerDashboard() {
   const withPermission = useCallback(
     (permissionKey: string, callback: () => void) => { // Assuming permissionKey is keyof Permission
       if (!isAuthenticated || !hasPermission(permissionKey)) {
-        dispatch({ type: "SET_STATE", payload: { loginAttemptFailed: true } });
+        setPartialState({ loginAttemptFailed: true });
         showNotification("Admin login required for this action.", "error");
         return;
       }
       callback();
     },
-    [isAuthenticated, hasPermission, showNotification]
+    [isAuthenticated, hasPermission, showNotification, setPartialState]
   );
 
   useEffect(() => {
-    if (supabaseTables) {
-      dispatch({ type: "SET_TABLES", payload: supabaseTables as Table[] }); // Cast if needed
-      supabaseTables.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any));
+    if (!supabaseTables) {
+      return;
     }
-  }, [supabaseTables]);
+
+    if (lastSupabaseTablesRef.current && isEqual(lastSupabaseTablesRef.current, supabaseTables)) {
+      return;
+    }
+
+    lastSupabaseTablesRef.current = supabaseTables.map((table) => ({ ...table }));
+    scheduleDispatch({ type: "SET_TABLES", payload: supabaseTables as Table[] }); // Cast if needed
+    supabaseTables.forEach((table) => useTableStore.getState().refreshTable(table.id, table as any));
+  }, [supabaseTables, scheduleDispatch]);
 
   useEffect(() => {
-    if (supabaseLogs) {
-      dispatch({ type: "SET_STATE", payload: { logs: supabaseLogs as LogEntry[] } }); // Cast if needed
+    if (!supabaseLogs) {
+      return;
     }
-  }, [supabaseLogs]);
+
+    if (lastSupabaseLogsRef.current && isEqual(lastSupabaseLogsRef.current, supabaseLogs)) {
+      return;
+    }
+
+    lastSupabaseLogsRef.current = supabaseLogs.map((log) => ({ ...log }));
+    setPartialState({ logs: supabaseLogs as LogEntry[] }); // Cast if needed
+  }, [supabaseLogs, setPartialState]);
 
   useEffect(() => {
-    if (supabaseServerUsers) {
-      const uniqueServers = supabaseServerUsers.reduce((acc, server) => {
-        if (!acc.some((s) => s.id === server.id)) acc.push(server);
-        return acc;
-      }, [] as Server[]);
-      dispatch({ type: "SET_STATE", payload: { servers: uniqueServers as Server[] } }); // Cast
+    if (!supabaseServerUsers) {
+      return;
     }
-  }, [supabaseServerUsers]);
+
+    if (lastSupabaseServersRef.current && isEqual(lastSupabaseServersRef.current, supabaseServerUsers)) {
+      return;
+    }
+
+    const uniqueServers = supabaseServerUsers.reduce((acc, server) => {
+      if (!acc.some((s) => s.id === server.id)) acc.push(server);
+      return acc;
+    }, [] as Server[]);
+
+    lastSupabaseServersRef.current = uniqueServers.map((server) => ({ ...server }));
+    setPartialState({ servers: uniqueServers as Server[] }); // Cast
+  }, [supabaseServerUsers, setPartialState]);
 
   useEffect(() => {
-    if (supabaseNoteTemplates) {
-      dispatch({ type: "SET_STATE", payload: { noteTemplates: supabaseNoteTemplates as NoteTemplate[] } }); // Cast
+    if (!supabaseNoteTemplates) {
+      return;
     }
-  }, [supabaseNoteTemplates]);
+
+    if (lastSupabaseNotesRef.current && isEqual(lastSupabaseNotesRef.current, supabaseNoteTemplates)) {
+      return;
+    }
+
+    lastSupabaseNotesRef.current = supabaseNoteTemplates.map((note) => ({ ...note }));
+    setPartialState({ noteTemplates: supabaseNoteTemplates as NoteTemplate[] }); // Cast
+  }, [supabaseNoteTemplates, setPartialState]);
 
   useEffect(() => {
     const handleTableUpdatedEvent = (event: Event) => {
       const customEvent = event as CustomEvent<{ tableId: number; table: Partial<Table> }>; // Allow Partial<Table>
       const { tableId, table: updatedTableData } = customEvent.detail;
-      dispatch({ type: "UPDATE_TABLE", payload: { id: tableId, ...updatedTableData } });
+      scheduleDispatch({ type: "UPDATE_TABLE", payload: { id: tableId, ...updatedTableData } });
     };
 
     const handleFullScreenChange = () => {
       const isCurrentlyFullScreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullscreenElement || (document as any).msFullscreenElement);
-      dispatch({ type: "SET_STATE", payload: { isFullScreen: isCurrentlyFullScreen, showExitFullScreenConfirm: false } });
+      setPartialState({ isFullScreen: isCurrentlyFullScreen, showExitFullScreenConfirm: false });
     };
 
     window.addEventListener("table-updated", handleTableUpdatedEvent);
@@ -562,7 +635,7 @@ export function BilliardsTimerDashboard() {
 
   const toggleFullScreen = useCallback(() => {
     if (state.isFullScreen) { // Use state
-      dispatch({ type: "SET_STATE", payload: { showExitFullScreenConfirm: true } });
+      setPartialState({ showExitFullScreenConfirm: true });
       return;
     }
     // ... (rest of toggleFullScreen logic)
@@ -577,7 +650,7 @@ export function BilliardsTimerDashboard() {
       console.error("Fullscreen request failed:", error);
       showNotification("Fullscreen mode failed to activate", "error");
     });
-  }, [state.isFullScreen, showNotification]); // Use state
+  }, [state.isFullScreen, showNotification, setPartialState]); // Use state
 
   const confirmExitFullScreen = useCallback(() => {
     // ... (confirmExitFullScreen logic)
@@ -589,8 +662,8 @@ export function BilliardsTimerDashboard() {
       Promise.reject("Exit Fullscreen API not supported");
     exitFullscreen()
       .catch((error) => console.error("Exit fullscreen failed:", error))
-      .finally(() => dispatch({ type: "SET_STATE", payload: { showExitFullScreenConfirm: false } }));
-  }, []);
+      .finally(() => setPartialState({ showExitFullScreenConfirm: false }));
+  }, [setPartialState]);
 
   const addLogEntry = useCallback(
     async (tableId: number, action: string, details = "") => {
@@ -604,67 +677,49 @@ export function BilliardsTimerDashboard() {
 
   const openTableDialog = useCallback(
     (tableToOpen: Table) => {
-      dispatch({ type: "SET_STATE", payload: { selectedTable: tableToOpen } });
+      setPartialState({ selectedTable: tableToOpen });
     },
-    []
+    [setPartialState]
   );
 
   const openQuickStartDialog = useCallback(
     (tableId: number) => {
       const table = state.tables.find((t) => t.id === tableId);
       if (!table) return;
-      dispatch({
-        type: "SET_STATE",
-        payload: { selectedTable: table, showQuickStartDialog: true },
-      });
+      setPartialState({ selectedTable: table, showQuickStartDialog: true });
     },
-    [state.tables]
+    [state.tables, setPartialState]
   );
 
   const openQuickNoteDialog = useCallback(
     (tableId: number) => {
       const table = state.tables.find((t) => t.id === tableId);
       if (!table) return;
-      dispatch({
-        type: "SET_STATE",
-        payload: { selectedTable: table, showQuickNoteDialog: true },
-      });
+      setPartialState({ selectedTable: table, showQuickNoteDialog: true });
     },
-    [state.tables]
+    [state.tables, setPartialState]
   );
 
   const closeQuickNoteDialog = useCallback(() => {
-    dispatch({
-      type: "SET_STATE",
-      payload: { selectedTable: null, showQuickNoteDialog: false },
-    });
-  }, []);
+    setPartialState({ selectedTable: null, showQuickNoteDialog: false });
+  }, [setPartialState]);
 
   const openStatusDialog = useCallback(
     (tableId: number) => {
       const table = state.tables.find((t) => t.id === tableId);
       if (!table) return;
-      dispatch({
-        type: "SET_STATE",
-        payload: { selectedTable: table, showStatusDialog: true },
-      });
+      setPartialState({ selectedTable: table, showStatusDialog: true });
     },
-    [state.tables]
+    [state.tables, setPartialState]
   );
 
   const closeStatusDialog = useCallback(() => {
-    dispatch({
-      type: "SET_STATE",
-      payload: { selectedTable: null, showStatusDialog: false },
-    });
-  }, []);
+    setPartialState({ selectedTable: null, showStatusDialog: false });
+  }, [setPartialState]);
 
   const closeQuickStartDialog = useCallback(() => {
-    dispatch({
-      type: "SET_STATE",
-      payload: { selectedTable: null, showQuickStartDialog: false },
-    });
-  }, []);
+    setPartialState({ selectedTable: null, showQuickStartDialog: false });
+  }, [setPartialState]);
 
   const confirmEndSession = useCallback(
     (tableId: number) => {

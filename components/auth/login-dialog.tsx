@@ -2,7 +2,7 @@
 
 import { DialogFooter } from "@/components/ui/dialog"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { LockIcon, UserIcon, XIcon, Loader2 } from "lucide-react"
@@ -24,17 +24,15 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
   const [users, setUsers] = useState<any[]>([])
   const [showUserList, setShowUserList] = useState(false)
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
+  const userCacheRef = useRef<any[] | null>(null)
 
-  // Fetch users when dialog opens
-  useEffect(() => {
-    if (open) {
-      fetchUsers()
-      setPinCode("")
-      setError("")
+  const fetchUsers = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh && userCacheRef.current) {
+      setUsers(userCacheRef.current)
+      setIsLoadingUsers(false)
+      return
     }
-  }, [open])
 
-  const fetchUsers = async () => {
     try {
       setIsLoadingUsers(true)
       const response = await fetch("/api/staff/members")
@@ -42,14 +40,34 @@ export function LoginDialog({ open, onClose }: LoginDialogProps) {
         throw new Error("Failed to fetch users")
       }
       const data = await response.json()
+      userCacheRef.current = data
       setUsers(data)
     } catch (err) {
       console.error("Error fetching users:", err)
-      setUsers([{ id: "admin", first_name: "Administrator" }])
+      const fallback = [{ id: "admin", first_name: "Administrator" }]
+      userCacheRef.current = fallback
+      setUsers(fallback)
     } finally {
       setIsLoadingUsers(false)
     }
-  }
+  }, [])
+
+  // Prefetch users once on mount to warm cache
+  useEffect(() => {
+    void fetchUsers()
+  }, [fetchUsers])
+
+  // Fetch users when dialog opens to ensure latest data
+  useEffect(() => {
+    if (open) {
+      if (userCacheRef.current) {
+        setUsers(userCacheRef.current)
+      }
+      void fetchUsers(true)
+      setPinCode("")
+      setError("")
+    }
+  }, [open, fetchUsers])
 
   const handleLogin = async () => {
     if (!selectedUser) {
