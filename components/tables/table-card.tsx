@@ -12,7 +12,7 @@ import { useTableStore, addTableUpdateListener } from "@/utils/table-state-manag
 import { hapticFeedback } from "@/utils/haptic-feedback"
 import { useParticleAnimation } from "@/hooks/use-particle-animation"
 import { THRESHOLDS } from "@/constants"
-import { formatTime, throttle } from "@/utils/timer-sync-utils"
+import { formatTimeHoursMinutes, throttle } from "@/utils/timer-sync-utils"
 
 interface TableCardProps {
   table: Table
@@ -567,7 +567,7 @@ const TableCardComponent = function TableCard({
           if (e.key === "Enter" || e.key === " ") handleInteraction(e)
           onKeyDown?.(e)
         }}
-        aria-label={`Table ${localTable.name}, ${localTable.isActive ? "Active" : "Inactive"}, Time remaining: ${formatTime(
+        aria-label={`Table ${localTable.name}, ${localTable.isActive ? "Active" : "Inactive"}, Time remaining: ${formatTimeHoursMinutes(
           computedRemainingTime,
         )}${
           localTable.server && servers && servers.length > 0
@@ -712,17 +712,8 @@ const TableCardComponent = function TableCard({
                     </div>
                     <span className="text-white" style={{ textShadow: "0 0 4px rgba(0, 255, 255, 0.7)" }}>
                       {localTable.startTime
-                        ? (() => {
-                            const elapsed = Date.now() - localTable.startTime
-                            const totalSeconds = Math.floor(elapsed / 1000)
-                            const hours = Math.floor(totalSeconds / 3600)
-                            const minutes = Math.floor((totalSeconds % 3600) / 60)
-                            const seconds = totalSeconds % 60
-                            return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-                              .toString()
-                              .padStart(2, "0")}`
-                          })()
-                        : "00:00:00"}
+                        ? formatTimeHoursMinutes(Date.now() - localTable.startTime)
+                        : "00:00"}
                     </span>
                   </div>
                 </div>

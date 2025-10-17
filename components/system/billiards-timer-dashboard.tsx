@@ -11,7 +11,6 @@ import { LoginDialog } from "@/components/auth/login-dialog";
 import { useSupabaseData } from "@/hooks/use-supabase-data";
 import { useAuth } from "@/contexts/auth-context";
 import { PullUpInsightsPanel } from "@/components/system/pull-up-insights-panel";
-import { SessionFeedbackDialog } from "@/components/dialogs/session-feedback-dialog";
 import { Header } from "@/components/layout/header";
 import { TableGrid } from "@/components/tables/table-grid";
 import { QuickStartDialog } from "@/components/dialogs/quick-start-dialog";
@@ -114,8 +113,6 @@ interface DashboardState {
   isFullScreen: boolean;
   showExitFullScreenConfirm: boolean;
   loginAttemptFailed: boolean;
-  showFeedbackDialog: boolean;
-  feedbackTable: Table | null;
   showDayReportDialog: boolean;
   isStartingDay: boolean;
   showBigBangAnimation: boolean;
@@ -197,8 +194,6 @@ const initialState: DashboardState = {
   isFullScreen: false,
   showExitFullScreenConfirm: false,
   loginAttemptFailed: false,
-  showFeedbackDialog: false,
-  feedbackTable: null,
   showDayReportDialog: false,
   isStartingDay: false,
   showBigBangAnimation: false,
@@ -295,8 +290,6 @@ export function BilliardsTimerDashboard() {
     isFullScreen,
     showExitFullScreenConfirm,
     loginAttemptFailed,
-    showFeedbackDialog,
-    feedbackTable,
     showDayReportDialog,
     isStartingDay,
     showBigBangAnimation,
@@ -679,34 +672,20 @@ export function BilliardsTimerDashboard() {
         const currentTables = state.tables; // Use tables from state
         const tableToEnd = currentTables.find((t) => t.id === tableId);
         if (!tableToEnd) return;
+        const targetLabel = tableToEnd.groupId ? tableToEnd.groupId : tableToEnd.name;
         dispatch({
           type: "SET_STATE",
-          payload: { feedbackTable: tableToEnd, showFeedbackDialog: true },
+          payload: {
+            showConfirmDialog: true,
+            confirmMessage: `End the session for ${targetLabel}?`,
+            confirmAction: () => {
+              void endTableSession(tableId, closeTableDialog);
+            },
+          },
         });
       });
     },
-    [state.tables, withPermission] // Use state
-  );
-  
-  const handleSessionFeedback = useCallback(
-    async (tableId: number, rating: "good" | "bad", comment: string) => {
-      try {
-        const currentTables = state.tables; // Use tables from state
-        const tableForFeedback = currentTables.find((t) => t.id === tableId);
-        if (!tableForFeedback) {
-          showNotification("Table not found for feedback", "error");
-          return;
-        }
-        const feedbackDetails = `Rating: ${rating}${comment ? `, Comment: ${comment}` : ""}`;
-        await addLogEntry(tableId, "Session Feedback", feedbackDetails);
-        await endTableSession(tableId, closeTableDialog); 
-        dispatch({ type: "SET_STATE", payload: { feedbackTable: null, showFeedbackDialog: false } });
-      } catch (error) {
-        console.error("Failed to handle session feedback:", error);
-        showNotification("Failed to submit feedback", "error");
-      }
-    },
-    [state.tables, addLogEntry, endTableSession, showNotification, closeTableDialog] // Use state
+    [state.tables, withPermission, endTableSession, closeTableDialog] // Use state
   );
 
   const addTime = useCallback(
@@ -1487,14 +1466,6 @@ export function BilliardsTimerDashboard() {
           />
         )}
         
-        {feedbackTable && (
-          <SessionFeedbackDialog
-            open={showFeedbackDialog}
-            onClose={() => dispatch({ type: "SET_STATE", payload: { showFeedbackDialog: false, feedbackTable: null } })}
-            table={feedbackTable}
-            onSubmitFeedback={handleSessionFeedback}
-          />
-        )}
         <ConfirmDialog
           open={showConfirmDialog}
           onClose={() => dispatch({ type: "SET_STATE", payload: { showConfirmDialog: false, confirmAction: null } })}

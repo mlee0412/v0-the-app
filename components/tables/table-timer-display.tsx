@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useMemo } from "react"
-import { formatTime } from "@/utils/timer-sync-utils"
+import { formatTimeHoursMinutes } from "@/utils/timer-sync-utils"
 
 interface TableTimerDisplayProps {
   currentTimeMs: number
@@ -37,7 +37,7 @@ const TableTimerDisplayComponent = ({
 }: TableTimerDisplayProps) => {
   const normalizedTime = useMemo(() => normalizeTime(currentTimeMs), [currentTimeMs])
 
-  const formattedTime = useMemo(() => formatTime(normalizedTime), [normalizedTime])
+  const formattedTime = useMemo(() => formatTimeHoursMinutes(normalizedTime), [normalizedTime])
 
   const timerTextColor = useMemo(() => {
     if (isOvertime || isCritical) return "#FF4500"
