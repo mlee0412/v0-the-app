@@ -5,6 +5,7 @@ import { DEFAULT_SESSION_TIME } from "@/constants"; // Ensure this path is corre
 interface TableActionsProps {
   tables: Table[];
   dispatch: React.Dispatch<any>; // Replace 'any' with your actual DashboardAction type if available
+  scheduleDispatch?: React.Dispatch<any>;
   debouncedUpdateTable: (table: Table) => void;
   debouncedUpdateTables: (tables: Table[]) => void;
   addLogEntry: (tableId: number, action: string, details?: string) => Promise<void>;
@@ -15,12 +16,14 @@ interface TableActionsProps {
 export function useTableActions({
   tables,
   dispatch,
+  scheduleDispatch,
   debouncedUpdateTable,
   debouncedUpdateTables,
   addLogEntry,
   showNotification,
   formatMinutes,
 }: TableActionsProps) {
+  const dispatchAction = scheduleDispatch ?? dispatch;
   const startTableSession = useCallback(
     async (
       tableId: number,
@@ -70,7 +73,7 @@ export function useTableActions({
             .filter((t) => t.groupId === table.groupId)
             .map(t => ({ ...t, ...updatedTableData, id: t.id, name: t.name, guestCount: currentGuestCount, server: currentServerId })); // Apply all relevant updates to group
 
-          dispatch({ type: "SET_TABLES", payload: tables.map(t => groupTablesToUpdate.find(ut => ut.id === t.id) || t) });
+          dispatchAction({ type: "SET_TABLES", payload: tables.map(t => groupTablesToUpdate.find(ut => ut.id === t.id) || t) });
           debouncedUpdateTables(groupTablesToUpdate);
 
           await addLogEntry(
@@ -81,7 +84,7 @@ export function useTableActions({
           showNotification(`Started group session for ${table.groupId}`, "success");
         } else {
           const updatedTable = { ...table, ...updatedTableData };
-          dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
+          dispatchAction({ type: "UPDATE_TABLE", payload: updatedTable });
           debouncedUpdateTable(updatedTable);
           await addLogEntry(
             tableId,
@@ -101,7 +104,7 @@ export function useTableActions({
         showNotification("Failed to start session", "error");
       }
     },
-    [tables, dispatch, debouncedUpdateTable, debouncedUpdateTables, addLogEntry, showNotification, formatMinutes]
+    [tables, dispatchAction, debouncedUpdateTable, debouncedUpdateTables, addLogEntry, showNotification, formatMinutes]
   );
 
   const quickStartTableSession = useCallback(
@@ -131,7 +134,7 @@ export function useTableActions({
           updatedAt,
         };
 
-        dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
+        dispatchAction({ type: "UPDATE_TABLE", payload: updatedTable });
         debouncedUpdateTable(updatedTable);
         await addLogEntry(
           tableId,
@@ -148,7 +151,7 @@ export function useTableActions({
         showNotification("Failed to quick start session", "error");
       }
     },
-    [tables, dispatch, debouncedUpdateTable, addLogEntry, showNotification]
+    [tables, dispatchAction, debouncedUpdateTable, addLogEntry, showNotification]
   );
 
   const endTableSession = useCallback(
@@ -188,7 +191,7 @@ export function useTableActions({
               : t
           );
           tablesToUpdateInDB = updatedGlobalTables.filter(t => groupTablesOriginal.some(gt => gt.id === t.id));
-          dispatch({ type: "SET_TABLES", payload: updatedGlobalTables });
+          dispatchAction({ type: "SET_TABLES", payload: updatedGlobalTables });
           
           if (groupTablesOriginal.length > 0) {
             await addLogEntry(
@@ -207,7 +210,7 @@ export function useTableActions({
           );
           const updatedTable = { ...table, ...resetFields };
           tablesToUpdateInDB = [updatedTable];
-          dispatch({ type: "UPDATE_TABLE", payload: updatedTable });
+          dispatchAction({ type: "UPDATE_TABLE", payload: updatedTable });
           notificationMessage = `Ended session for ${table.name}`;
         }
 
@@ -223,7 +226,7 @@ export function useTableActions({
         showNotification("Failed to end session", "error");
       }
     },
-    [tables, dispatch, debouncedUpdateTables, debouncedUpdateTable, addLogEntry, showNotification, formatMinutes] // Added debouncedUpdateTable
+    [tables, dispatchAction, debouncedUpdateTables, debouncedUpdateTable, addLogEntry, showNotification, formatMinutes] // Added debouncedUpdateTable
   );
 
   return { startTableSession, quickStartTableSession, endTableSession };
