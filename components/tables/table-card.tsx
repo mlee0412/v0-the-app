@@ -7,12 +7,12 @@ import { NeonGlow } from "@/components/ui/neon-glow"
 import { PopupSessionLog } from "@/components/system/popup-session-log"
 import type { Table, LogEntry, Server as AppServer } from "@/components/system/billiards-timer-dashboard"
 import { TableStatusBadge } from "@/components/tables/table-status-badge"
+import { TableTimerDisplay } from "@/components/tables/table-timer-display"
 import { useTableStore, addTableUpdateListener } from "@/utils/table-state-manager"
 import { hapticFeedback } from "@/utils/haptic-feedback"
-import { useTableTimer } from "@/hooks/use-table-timer"
 import { useParticleAnimation } from "@/hooks/use-particle-animation"
 import { THRESHOLDS } from "@/constants"
-import { throttle } from "@/utils/timer-sync-utils"
+import { formatTime, throttle } from "@/utils/timer-sync-utils"
 
 interface TableCardProps {
   table: Table
@@ -158,8 +158,6 @@ const TableCardComponent = function TableCard({
   const cardRef = useRef<HTMLDivElement>(null)
   const particlesRef = useRef<HTMLCanvasElement>(null)
 
-  const timer = useTableTimer(localTable, showAnimations)
-
   useEffect(() => {
     setLocalTable(storeTable)
   }, [storeTable])
@@ -175,8 +173,20 @@ const TableCardComponent = function TableCard({
   const tenMinutesInMs = 10 * 60 * 1000
   const criticalThresholdMs = THRESHOLDS.CRITICAL
 
+  const currentRemainingTime = useMemo(() => {
+    if (!localTable.isActive) {
+      return localTable.initialTime
+    }
+
+    if (localTable.startTime) {
+      return localTable.initialTime - (Date.now() - localTable.startTime)
+    }
+
+    return localTable.remainingTime
+  }, [localTable.isActive, localTable.startTime, localTable.initialTime, localTable.remainingTime])
+
   const tableStatus = useMemo(() => {
-    const rt = timer.remainingTime
+    const rt = currentRemainingTime
     const isActive = localTable.isActive
 
     const isOvertime = isActive && rt < 0
@@ -203,8 +213,8 @@ const TableCardComponent = function TableCard({
       shouldAnimateWarning,
     }
   }, [
+    currentRemainingTime,
     localTable.isActive,
-    timer.remainingTime,
     showAnimations,
     fifteenMinutesInMs,
     tenMinutesInMs,
@@ -310,7 +320,7 @@ const TableCardComponent = function TableCard({
     localTable.isActive,
     getGroupColor,
     showAnimations,
-    timer.remainingTime,
+    currentRemainingTime,
     tableStatus.isOvertime,
     tableStatus.isWarningYellow,
     tableStatus.isWarningOrange,
@@ -359,51 +369,13 @@ const TableCardComponent = function TableCard({
   }, [
     localTable.isActive,
     showAnimations,
-    timer.remainingTime,
+    currentRemainingTime,
     tableStatus.isOvertime,
     tableStatus.isWarningYellow,
     tableStatus.isWarningOrange,
     tableStatus.isCritical,
     showAnimations,
   ])
-
-  useEffect(() => {
-    const handleGlobalTimeTick = (event: Event) => {
-      const customEvent = event as CustomEvent<{ timestamp: number }>
-      if (cardRef.current && isElementInViewport(cardRef.current)) {
-        timer.tick(customEvent.detail.timestamp)
-      }
-    }
-
-    const isElementInViewport = (el: HTMLElement) => {
-      const rect = el.getBoundingClientRect()
-      return (
-        rect.top >= -rect.height &&
-        rect.left >= -rect.width &&
-        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + rect.height &&
-        rect.right <= (window.innerWidth || document.documentElement.clientWidth) + rect.width
-      )
-    }
-
-    window.addEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
-
-    const handleBatchTimerUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent<{
-        updates: Array<{ tableId: number; remainingTime: number; initialTime: number }>
-      }>
-      const update = customEvent.detail.updates.find((u) => u.tableId === localTable.id)
-      if (update) {
-        timer.setRemainingTime(update.remainingTime)
-      }
-    }
-
-    window.addEventListener("batch-timer-update", handleBatchTimerUpdate as EventListener)
-
-    return () => {
-      window.removeEventListener("global-time-tick", handleGlobalTimeTick as EventListener)
-      window.removeEventListener("batch-timer-update", handleBatchTimerUpdate as EventListener)
-    }
-  }, [localTable.id, timer])
 
   useEffect(() => {
     const unsubscribe = addTableUpdateListener((updatedTableId, updates) => {
@@ -428,10 +400,6 @@ const TableCardComponent = function TableCard({
       let newLocalTableValues: Partial<Table> = {}
       if (field === "time") {
         newLocalTableValues = { remainingTime: value.remainingTime, initialTime: value.initialTime }
-        timer.setRemainingTime(value.remainingTime)
-        if (localTable.startTime && value.initialTime !== undefined) {
-          timer.setElapsedTime(Date.now() - localTable.startTime)
-        }
       } else if (field === "guestCount") {
         newLocalTableValues = { guestCount: value }
       } else if (field === "server") {
@@ -463,7 +431,7 @@ const TableCardComponent = function TableCard({
     return () => {
       window.removeEventListener("local-table-update", handleLocalTableUpdate as EventListener)
     }
-  }, [localTable, timer, throttledOnUpdateTable])
+  }, [localTable, throttledOnUpdateTable])
 
   useEffect(() => {
     const handleSessionEnd = (event: Event) => {
@@ -489,31 +457,6 @@ const TableCardComponent = function TableCard({
     if (!timestamp) return "Not started"
     return new Date(timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })
   }, [])
-
-  const getTimerTextColor = useCallback(() => {
-    if (tableStatus.isOvertime || tableStatus.isCritical) return "#FF4500"
-    if (tableStatus.isWarningOrange) return "#FFA500"
-    if (tableStatus.isWarningYellow) return "#FFFF00"
-    if (localTable.isActive) return "#ADFF2F"
-    return "#FFFFFF"
-  }, [tableStatus, localTable.isActive])
-
-  const getTimerTextShadow = useCallback(() => {
-    if (tableStatus.isOvertime || tableStatus.isCritical)
-      return "0 0 12px rgba(255, 69, 0, 0.9), 0 0 20px rgba(255, 0, 0, 0.7), 0 0 30px rgba(255, 0, 0, 0.5)"
-    if (tableStatus.isWarningOrange) return "0 0 10px rgba(255, 165, 0, 0.8), 0 0 20px rgba(255, 165, 0, 0.6)"
-    if (tableStatus.isWarningYellow) return "0 0 8px rgba(255, 255, 0, 0.8), 0 0 16px rgba(255, 255, 0, 0.6)"
-    if (localTable.isActive) return "0 0 7px rgba(173, 255, 47, 0.8), 0 0 14px rgba(173, 255, 47, 0.6)"
-    return "0 0 5px rgba(255, 255, 255, 0.3), 0 0 10px rgba(255, 255, 255, 0.2)"
-  }, [tableStatus, localTable.isActive])
-
-  const getTimerBorder = useCallback(() => {
-    if (tableStatus.isOvertime || tableStatus.isCritical) return "border-red-500/80"
-    if (tableStatus.isWarningOrange) return "border-orange-500/70"
-    if (tableStatus.isWarningYellow) return "border-yellow-400/70"
-    if (localTable.isActive) return "border-green-500/60"
-    return "border-cyan-500/60"
-  }, [tableStatus, localTable.isActive])
 
   const handleInteraction = useCallback(
     (e: React.MouseEvent | React.TouchEvent | React.KeyboardEvent) => {
@@ -555,7 +498,7 @@ const TableCardComponent = function TableCard({
           if (e.key === "Enter" || e.key === " ") handleInteraction(e)
           onKeyDown?.(e)
         }}
-        aria-label={`Table ${localTable.name}, ${localTable.isActive ? "Active" : "Inactive"}, Time remaining: ${timer.formattedRemainingTime}${
+        aria-label={`Table ${localTable.name}, ${localTable.isActive ? "Active" : "Inactive"}, Time remaining: ${formatTime(currentRemainingTime)}${
           localTable.server && servers && servers.length > 0
             ? `, Server: ${servers.find((s) => s.id === localTable.server)?.name || "Unknown"}`
             : ""
@@ -619,18 +562,20 @@ const TableCardComponent = function TableCard({
               </div>
             </div>
 
-            <div className={`flex justify-center items-center my-1 sm:my-2 ${showAnimations ? "animate-float" : ""}`}>
-              <div
-                className={`text-xl sm:text-2xl md:text-3xl font-bold py-1 px-3 rounded-md border bg-black/50 backdrop-blur-sm shadow-inner ${getTimerBorder()} transition-all duration-300 ${
-                  showAnimations && Math.abs(timer.remainingTime % 60000) < 1000 ? "animate-pulse-highlight" : ""
-                }`}
-                style={{ color: getTimerTextColor(), textShadow: getTimerTextShadow() }}
-                key={timer.remainingTime} // This will trigger a re-render and animation when time changes
-                data-value={timer.remainingTime}
-              >
-                {timer.formattedRemainingTime}
-              </div>
-            </div>
+            <TableTimerDisplay
+              table={{
+                id: localTable.id,
+                isActive: localTable.isActive,
+                startTime: localTable.startTime,
+                initialTime: localTable.initialTime,
+                remainingTime: localTable.remainingTime,
+              }}
+              isOvertime={tableStatus.isOvertime}
+              isCritical={tableStatus.isCritical}
+              isWarningOrange={tableStatus.isWarningOrange}
+              isWarningYellow={tableStatus.isWarningYellow}
+              showAnimations={showAnimations}
+            />
 
             <div className="flex flex-col gap-1.5 mt-auto text-xs bg-black/40 p-2 rounded-md backdrop-blur-sm overflow-visible mb-1">
               <div
@@ -700,7 +645,18 @@ const TableCardComponent = function TableCard({
                       <TimerIcon className="h-3 w-3 text-[#00FFFF]" />
                     </div>
                     <span className="text-white" style={{ textShadow: "0 0 4px rgba(0, 255, 255, 0.7)" }}>
-                      {timer.formatTime(timer.elapsedTime, true)}
+                      {localTable.startTime
+                        ? (() => {
+                            const elapsed = Date.now() - localTable.startTime
+                            const totalSeconds = Math.floor(elapsed / 1000)
+                            const hours = Math.floor(totalSeconds / 3600)
+                            const minutes = Math.floor((totalSeconds % 3600) / 60)
+                            const seconds = totalSeconds % 60
+                            return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
+                              .toString()
+                              .padStart(2, "0")}`
+                          })()
+                        : "00:00:00"}
                     </span>
                   </div>
                 </div>

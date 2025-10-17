@@ -543,9 +543,7 @@ export function BilliardsTimerDashboard() {
 
   useEffect(() => {
     const timerInterval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-      window.dispatchEvent(new CustomEvent("global-time-tick", { detail: { timestamp: now.getTime() } }));
+      setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(timerInterval);
   }, []);
