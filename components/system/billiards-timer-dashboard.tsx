@@ -316,7 +316,6 @@ export function BilliardsTimerDashboard() {
 
 
   const { isAuthenticated, isAdmin, isServer, currentUser, logout, hasPermission: authHasPermission } = useAuth();
-  const [currentTime, setCurrentTime] = useState(new Date());
   const headerRef = useRef<HTMLDivElement>(null);
   const notificationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastNotificationRef = useRef<{ message: string; time: number } | null>(null);
@@ -540,15 +539,6 @@ export function BilliardsTimerDashboard() {
       dispatch({ type: "SET_STATE", payload: { noteTemplates: supabaseNoteTemplates as NoteTemplate[] } }); // Cast
     }
   }, [supabaseNoteTemplates]);
-
-  useEffect(() => {
-    const timerInterval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-      window.dispatchEvent(new CustomEvent("global-time-tick", { detail: { timestamp: now.getTime() } }));
-    }, 1000);
-    return () => clearInterval(timerInterval);
-  }, []);
 
   useEffect(() => {
     const handleTableUpdatedEvent = (event: Event) => {
@@ -1347,7 +1337,6 @@ export function BilliardsTimerDashboard() {
         {!hideSystemElements && ( // Use hideSystemElements from state
           <Header
             ref={headerRef}
-            currentTime={currentTime}
             isAuthenticated={isAuthenticated}
             isAdmin={isAdmin}
             dayStarted={settings.dayStarted}
@@ -1375,7 +1364,7 @@ export function BilliardsTimerDashboard() {
             <OrientationAwareContainer>
               {hideSystemElements ? ( // Use hideSystemElements from state
                 <div className="flex flex-col h-screen">
-                  <MobileHeader currentTime={currentTime} /> 
+                  <MobileHeader />
                   <main className="flex-1 overflow-hidden">
                     {activeTab === "tables" && (
                       <div className="h-full overflow-y-auto pb-16">
