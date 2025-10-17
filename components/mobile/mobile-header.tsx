@@ -1,20 +1,26 @@
 "use client"
 
-// Add imports at the top
 import { ChevronRight } from "lucide-react"
 import Image from "next/image"
+import { useEffect, useState } from "react"
 
-// Add breadcrumb prop to the component interface
 interface MobileHeaderProps {
-  currentTime: Date
   breadcrumbs?: { label: string; path?: string }[]
   onBreadcrumbClick?: (path: string) => void
 }
 
-export function MobileHeader({ currentTime, breadcrumbs = [], onBreadcrumbClick }: MobileHeaderProps) {
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
+export function MobileHeader({ breadcrumbs = [], onBreadcrumbClick }: MobileHeaderProps) {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const timerId = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+
+    return () => clearInterval(timerId)
+  }, [])
+
+  const formattedTime = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
 
   return (
     <header className="bg-black/80 border-b border-cyan-500/50 p-2 flex items-center justify-between">
@@ -60,7 +66,7 @@ export function MobileHeader({ currentTime, breadcrumbs = [], onBreadcrumbClick 
         </div>
       </div>
       <div className="bg-black border border-cyan-500 rounded-md px-2 py-1 shadow-lg shadow-cyan-500/20">
-        <span className="text-lg font-mono text-cyan-400">{formatTime(currentTime)}</span>
+        <span className="text-lg font-mono text-cyan-400">{formattedTime}</span>
       </div>
     </header>
   )
